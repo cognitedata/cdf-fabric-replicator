@@ -3,10 +3,10 @@ from threading import Event
 from cognite.extractorutils import Extractor
 from cognite.extractorutils.metrics import safe_get
 
-from cdf_ts_replicator import __version__
-from cdf_ts_replicator.config import Config
-from cdf_ts_replicator.extractor import TimeSeriesReplicator
-from cdf_ts_replicator.metrics import Metrics
+from cdf_fabric_replicator import __version__
+from cdf_fabric_replicator.config import Config
+from cdf_fabric_replicator.extractor import TimeSeriesReplicator
+from cdf_fabric_replicator.metrics import Metrics
 
 
 def main() -> None:

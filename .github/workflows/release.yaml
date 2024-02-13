@@ -27,7 +27,7 @@ jobs:
 
     - id: parse_version
       name: Parse version
-      run: echo "::set-output name=cli_version::$(sed -n -e "/^__version__/p" cdf_ts_replicator/__init__.py | cut -c 16- | sed -e 's/^"//' -e 's/"$//')"
+      run: echo "::set-output name=cli_version::$(sed -n -e "/^__version__/p" cdf_fabric_replicator/__init__.py | cut -c 16- | sed -e 's/^"//' -e 's/"$//')"
 
     - name: Echo version
       run: echo ${{ steps.parse_version.outputs.cli_version }}
@@ -45,4 +45,4 @@ jobs:
         context: .
         push: true
         file: ./build/Dockerfile
-        tags: cognite/ts-cdf-replicator:${{ steps.parse_version.outputs.cli_version }}
+        tags: cognite/cdf-fabric-replicator:${{ steps.parse_version.outputs.cli_version }}

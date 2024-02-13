@@ -19,16 +19,11 @@ class SubscriptionsConfig:
 
 
 @dataclass
-class EventHubConfig:
-    connection_string: str
-    eventhub_name: str
-    use_jsonl: bool = True
-    jsonl_batch_size: int = 100
-    event_hub_batch_size: int = 262144
-
+class LakehouseConfig:
+    lakehouse_table_name: str
 
 @dataclass
 class Config(BaseConfig):
     extractor: ExtractorConfig
-    destinations: List[Union[CogniteConfig, EventHubConfig]]
+    lakehouse: LakehouseConfig
     subscriptions: List[SubscriptionsConfig]
