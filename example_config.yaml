@@ -26,20 +26,9 @@ extractor:
     ingest-batch-size: 100000
     poll-time: 5
 
-# destinations supported is event hub and CDF. Minimum one destination required.
-destinations:
-  - connection_string: ${EVENTHUB_CONN_STR}
-    eventhub_name: ${EVENTHUB_NAME}
-  - project: murad-lab
-    host: ${DST_COGNITE_BASE_URL}
-    idp-authentication:
-        client_id: ${DST_COGNITE_CLIENT_ID}
-        secret: ${DST_COGNITE_CLIENT_SECRET}
-        token_url: ${DST_COGNITE_TOKEN_URL}
-        scopes:
-            - ${DST_COGNITE_BASE_URL}/.default
-        audience: ${DST_COGNITE_AUDIENCE}
-    external_id_prefix: subtest_
+# lakehouse details
+lakehouse:
+  - lakehouse_table_name: ${LAKEHOUSE_TABLE_NAME}
 
 # subscriptions to stream
 subscriptions:
