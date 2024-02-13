@@ -125,7 +125,10 @@ class TimeSeriesReplicator(Extractor):
                     datetime.datetime.fromtimestamp(update.upserts.timestamp[i]/1000), 
                     update.upserts.value[i]) )
 
-        if (len(rows) > 0):    
+        if (len(rows) > 0):
+            ## TODO
+            ## credentials
+            ## write to lakehouse table using Python SDK?
             df = spark.createDataFrame(data=rows, schema = ["externalId", "timestamp", "value"])
             self.logger.info (f"writing {df.count()} rows to '{table}' table...")
             df.write.mode("append").format("delta").saveAsTable(table)
