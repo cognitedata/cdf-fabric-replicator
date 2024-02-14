@@ -7,8 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from typing import Any, Dict, List, Union
 
-from azure.eventhub import EventData, EventHubProducerClient
-from azure.eventhub.exceptions import EventHubError
 from cognite.client import CogniteClient
 from cognite.client.data_classes import TimeSeries
 from cognite.client.data_classes.datapoints_subscriptions import (
@@ -29,7 +27,7 @@ from cdf_fabric_replicator.metrics import Metrics
 
 
 class TimeSeriesReplicator(Extractor):
-    def __init__(self, metrics: Metrics, stop_event: Event) -> None:
+    def __init__(self, metrics: Metrics) -> None: #, stop_event: Event) -> None:
         super().__init__(
             name="cdf_fabric_replicator",
             description="CDF Fabric Replicator",
@@ -37,19 +35,21 @@ class TimeSeriesReplicator(Extractor):
             metrics=metrics,
             use_default_state_store=False,
             version=__version__,
-            cancellation_token=stop_event,
+            #cancellation_token=Event(),
         )
         self.metrics: Metrics
-        self.stop_event = stop_event
+        #self.stop_event = stop_event
         self.endpoint_source_map: Dict[str, Any] = {}
         self.errors: List[str] = []
         self.update_queue: List[DatapointsUpdate] = []
 
-        self.destination_cognite_client: Dict[str, CogniteClient] = {}
-        self.eventhub_producer: Dict[str, EventHubProducerClient] = {}
 
     def run(self) -> None:
         # init/connect to destination
+        if not self.config.subscriptions:
+            logging.info("No time series subscriptions found in config")
+            return
+    
         self.state_store.initialize()
 
         for subscription in self.config.subscriptions:
@@ -57,7 +57,7 @@ class TimeSeriesReplicator(Extractor):
                 f"{self.cognite_client.time_series.subscriptions.retrieve(external_id=subscription.externalId)}"
             )
 
-        while not self.stop_event.is_set():
+        while True: # not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
             self.process_subscriptions()
@@ -129,9 +129,9 @@ class TimeSeriesReplicator(Extractor):
             ## TODO
             ## credentials
             ## write to lakehouse table using Python SDK?
-            df = spark.createDataFrame(data=rows, schema = ["externalId", "timestamp", "value"])
+            #df = spark.createDataFrame(data=rows, schema = ["externalId", "timestamp", "value"])
             self.logger.info (f"writing {df.count()} rows to '{table}' table...")
-            df.write.mode("append").format("delta").saveAsTable(table)
+            #df.write.mode("append").format("delta").saveAsTable(table)
             self.logger.info ("done.")
 
 

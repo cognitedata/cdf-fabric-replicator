@@ -15,7 +15,7 @@ cognite:
         scopes:
             - ${COGNITE_BASE_URL}/.default
     extraction-pipeline:
-        external-id: ts-sub
+        external-id: fabric-replicator
 
 #Extractor config
 extractor:
@@ -28,11 +28,13 @@ extractor:
 
 # lakehouse details
 lakehouse:
-  - lakehouse_table_name: ${LAKEHOUSE_TABLE_NAME}
+  lakehouse_table_name: ${LAKEHOUSE_TABLE_NAME}
 
 # subscriptions to stream
-subscriptions:
-  - externalId: ts-subscription
-    partitions:
-        - 0
+#subscriptions:
+#  - externalId: ts-subscription
+#    partitions:
+#        - 0
 
+data_modeling:
+    - space: cc_plant

@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional
 
 from cognite.extractorutils.configtools import BaseConfig, CogniteConfig, StateStoreConfig
 
@@ -17,6 +17,9 @@ class SubscriptionsConfig:
     externalId: str
     partitions: List[int]
 
+@dataclass
+class DataModelingConfig:
+    space: str
 
 @dataclass
 class LakehouseConfig:
@@ -26,4 +29,5 @@ class LakehouseConfig:
 class Config(BaseConfig):
     extractor: ExtractorConfig
     lakehouse: LakehouseConfig
-    subscriptions: List[SubscriptionsConfig]
+    subscriptions: Optional[List[SubscriptionsConfig]]
+    data_modeling: Optional[List[DataModelingConfig]]
