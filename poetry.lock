@@ -232,13 +232,13 @@ files = [
 
 [[package]]
 name = "cognite-extractor-utils"
-version = "5.4.1"
+version = "5.5.1"
 description = "Utilities for easier development of extractors for CDF"
 optional = false
 python-versions = ">=3.8.0,<4.0.0"
 files = [
-    {file = "cognite_extractor_utils-5.4.1-py3-none-any.whl", hash = "sha256:e2dbb8f7513a5c358cd6bc938ed5b7825ff69ff37287f2b75940ce92967480a7"},
-    {file = "cognite_extractor_utils-5.4.1.tar.gz", hash = "sha256:f55cddac04ef450502855a90a776935a4efb18b729367815418a0350d64b32fe"},
+    {file = "cognite_extractor_utils-5.5.1-py3-none-any.whl", hash = "sha256:48be4f3a2a8c938f15d2341762c72794ae2ea4bb3fed39ed1024e1a660d3428b"},
+    {file = "cognite_extractor_utils-5.5.1.tar.gz", hash = "sha256:a9c24be5806b353d8cd1e6fd88939df5976b0d6ba634a0d447d0c671af3f91b3"},
 ]
 
 [package.dependencies]
