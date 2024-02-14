@@ -7,6 +7,8 @@ on:
 jobs:
   release-to-dockerhub:
     runs-on: ubuntu-latest
+    environment: 
+      name: CD
     permissions:
       contents: read
       packages: write
