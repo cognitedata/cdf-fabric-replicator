@@ -19,7 +19,7 @@ known_third_party = ["azure", "cognite", "prometheus_client"]
 
 [tool.poetry.dependencies]
 python = ">=3.8.1,<3.11"
-cognite-sdk = "^6.26.0"
+cognite-sdk = "^7.0.0"
 cognite-extractor-utils = "^5.4.1"
 azure-eventhub = "^5.11.4"
 
