@@ -19,6 +19,10 @@ from cognite.extractorutils.metrics import BaseMetrics
 from cognite.extractorutils.statestore import AbstractStateStore
 from cognite.extractorutils.util import retry
 
+from azure.identity import DefaultAzureCredential
+from deltalake import write_deltalake
+import pandas as pd
+
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config, LakehouseConfig
 from cdf_fabric_replicator.metrics import Metrics
@@ -39,6 +43,8 @@ class DataModelingReplicator(Extractor):
         #self.stop_event = stop_event
         self.endpoint_source_map: Dict[str, Any] = {}
         self.errors: List[str] = []
+        self.azure_credential = DefaultAzureCredential()
+
 
     def run(self) -> None:
         # init/connect to destination
@@ -57,6 +63,9 @@ class DataModelingReplicator(Extractor):
                 time.sleep(sleep_time)
 
     def process_spaces(self) -> None:
+        if self.config.data_modeling is None:         
+            logging.info("No data modeling spaces found in config")
+            return
         for data_model_config in self.config.data_modeling:
             all_views = self.cognite_client.data_modeling.views.list(space=data_model_config.space, limit=-1)
             views_dict = all_views.dump()
@@ -99,17 +108,22 @@ class DataModelingReplicator(Extractor):
                 while ("nodes" in res.data and len(res.data["nodes"]) > 0) or ("edges" in res.data and len(res.data["edges"])) > 0:
                     query.cursors = res.cursors
                     res = self.cognite_client.data_modeling.instances.sync(query=query)
-                    self.send_to_lakehouse(lakehouse=self.config.lakehouse, state_id=state_id, result=res)
+                    self.send_to_lakehouse(state_id=state_id, result=res)
 
                 self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
                 self.state_store.synchronize()
 
     def send_to_lakehouse(
         self,
-        lakehouse: LakehouseConfig,
         state_id: str,
         result: QueryResult,
     ) -> None:
         self.logger.info(f"Ingest to lakehouse {state_id}")
-        #self.send_to_lakehouse_table(table=lakehouse.lakehouse_table_name, result=result)
+
+        token = self.azure_credential.get_token("https://storage.azure.com/.default")
+        #NOTDONE: Write the result to the lakehouse
+        rows = []        
+        df = pd.from_records(rows, columns=["external_id", "timestamp", "value"])
+        write_deltalake(self.config.lakehouse.abfss_path, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+
     

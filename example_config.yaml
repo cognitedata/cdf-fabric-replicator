@@ -28,13 +28,13 @@ extractor:
 
 # lakehouse details
 lakehouse:
-  lakehouse_table_name: ${LAKEHOUSE_TABLE_NAME}
+  abfss_path: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/mtu_historic
 
 # subscriptions to stream
-#subscriptions:
-#  - externalId: ts-subscription
-#    partitions:
-#        - 0
+subscriptions:
+  - externalId: twenceDesorberSubscription
+    partitions:
+        - 0
 
-data_modeling:
-    - space: cc_plant
+#data_modeling:
+#    - space: cc_plant
