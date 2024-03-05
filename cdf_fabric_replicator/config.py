@@ -23,7 +23,7 @@ class DataModelingConfig:
 
 @dataclass
 class LakehouseConfig:
-    lakehouse_table_name: str
+    abfss_path: str
 
 @dataclass
 class Config(BaseConfig):

@@ -21,6 +21,11 @@ from cognite.extractorutils.metrics import BaseMetrics
 from cognite.extractorutils.statestore import AbstractStateStore
 from cognite.extractorutils.util import retry
 
+from azure.identity import DefaultAzureCredential
+from deltalake import write_deltalake
+import pandas as pd
+import numpy as np
+
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config, LakehouseConfig
 from cdf_fabric_replicator.metrics import Metrics
@@ -42,6 +47,8 @@ class TimeSeriesReplicator(Extractor):
         self.endpoint_source_map: Dict[str, Any] = {}
         self.errors: List[str] = []
         self.update_queue: List[DatapointsUpdate] = []
+        # logged in credentials, either local user or managed identity
+        self.azure_credential = DefaultAzureCredential()
 
 
     def run(self) -> None:
@@ -108,30 +115,30 @@ class TimeSeriesReplicator(Extractor):
 
         if len(self.update_queue) > self.config.extractor.ingest_batch_size or send_now:
             self.logger.info(f"Ingest to queue of length {len(self.update_queue)} to lakehouse")
-            self.send_to_lakehouse_table(table=lakehouse.lakehouse_table_name, updates=self.update_queue)
+            self.send_to_lakehouse_table(updates=self.update_queue)
 
             self.extractor.state_store.set_state(external_id=state_id, high=update_batch.cursor)
             self.extractor.state_store.synchronize()
             self.update_queue = []
 
     
-    def send_to_lakehouse_table(self, table, updates: List[DatapointsUpdate]) -> None:
+    def send_to_lakehouse_table(self, updates: List[DatapointsUpdate]) -> None:
         rows = []
 
         for update in updates:
             for i in range(0, len(update.upserts.timestamp)):
                 rows.append( 
-                    (update.upserts.external_id, 
+                    [update.upserts.external_id, 
                     datetime.datetime.fromtimestamp(update.upserts.timestamp[i]/1000), 
-                    update.upserts.value[i]) )
+                    update.upserts.value[i]] )
 
         if (len(rows) > 0):
-            ## TODO
-            ## credentials
-            ## write to lakehouse table using Python SDK?
-            #df = spark.createDataFrame(data=rows, schema = ["externalId", "timestamp", "value"])
-            self.logger.info (f"writing {df.count()} rows to '{table}' table...")
-            #df.write.mode("append").format("delta").saveAsTable(table)
+
+            token = self.azure_credential.get_token("https://storage.azure.com/.default")
+
+            self.logger.info (f"writing {len(rows)} rows to '{self.config.lakehouse.abfss_path}' table...")
+            df = pd.DataFrame(np.array(rows), columns=["external_id", "timestamp", "value"])
+            write_deltalake(self.config.lakehouse.abfss_path, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
             self.logger.info ("done.")
 
 
