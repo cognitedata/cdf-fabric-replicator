@@ -21,7 +21,8 @@ class SubscriptionsConfig:
 @dataclass
 class DataModelingConfig:
     space: str
-    lakehouse_abfss_path: str
+    lakehouse_abfss_path_nodes: str
+    lakehouse_abfss_path_edges: str
 
 @dataclass
 class Config(BaseConfig):

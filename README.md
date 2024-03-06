@@ -39,5 +39,18 @@ subscriptions:
   - externalId: ts-subscription
     partitions:
         - 0
+    lakehouse_abfss_path: ${LAKEHOUSE_ABFSS_PATH}
+
+# sync data model
+subscriptions:
+  - externalId: ts-subscription
+    partitions:
+        - 0
+    lakehouse_abfss_path: ${LAKEHOUSE_ABFSS_PATH}
+
+data_modeling:
+  - space: cc_plant
+    lakehouse_abfss_path_nodes: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/nodes
+    lakehouse_abfss_path_edges: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/edges
 
 ```
