@@ -26,15 +26,12 @@ extractor:
     ingest-batch-size: 100000
     poll-time: 5
 
-# lakehouse details
-lakehouse:
-  abfss_path: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/mtu_historic
 
 # subscriptions to stream
 subscriptions:
-  - externalId: twenceDesorberSubscription
+  - external_id: twenceDesorberSubscription
     partitions:
         - 0
-
+    lakehouse_abfss_path: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/timeseries
 #data_modeling:
 #    - space: cc_plant

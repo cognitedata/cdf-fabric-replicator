@@ -15,10 +15,14 @@ def main() -> None:
     stop_event = Event()
 
     with TimeSeriesReplicator(metrics=safe_get(Metrics)) as ts_replicator: #, stop_event=stop_event) as extractor:
-        threading.Thread(target=ts_replicator.run).start()
+        ts_worker = threading.Thread(target=ts_replicator.run)
+        ts_worker.start()
+        ts_worker.join()
 
     with DataModelingReplicator(metrics=safe_get(Metrics)) as dm_replicator: #, stop_event=stop_event) as extractor:
-        threading.Thread(target=dm_replicator.run).start()
+        dm_worker = threading.Thread(target=dm_replicator.run)
+        dm_worker.start()
+        dm_worker.join()
 
 if __name__ == "__main__":
     main()

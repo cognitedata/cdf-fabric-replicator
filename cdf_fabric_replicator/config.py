@@ -14,20 +14,17 @@ class ExtractorConfig:
 
 @dataclass
 class SubscriptionsConfig:
-    externalId: str
+    external_id: str
     partitions: List[int]
+    lakehouse_abfss_path: str
 
 @dataclass
 class DataModelingConfig:
     space: str
-
-@dataclass
-class LakehouseConfig:
-    abfss_path: str
+    lakehouse_abfss_path: str
 
 @dataclass
 class Config(BaseConfig):
     extractor: ExtractorConfig
-    lakehouse: LakehouseConfig
     subscriptions: Optional[List[SubscriptionsConfig]]
     data_modeling: Optional[List[DataModelingConfig]]
