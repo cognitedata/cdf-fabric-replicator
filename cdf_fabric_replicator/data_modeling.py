@@ -24,7 +24,7 @@ from deltalake import write_deltalake
 import pandas as pd
 
 from cdf_fabric_replicator import __version__
-from cdf_fabric_replicator.config import Config, LakehouseConfig
+from cdf_fabric_replicator.config import Config, DataModelingConfig
 from cdf_fabric_replicator.metrics import Metrics
 
 
@@ -49,7 +49,11 @@ class DataModelingReplicator(Extractor):
     def run(self) -> None:
         # init/connect to destination
         self.state_store.initialize()
-
+        
+        if self.config.data_modeling is None:         
+            logging.info("No data modeling spaces found in config")
+            return
+        
         while True: #not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
@@ -63,9 +67,7 @@ class DataModelingReplicator(Extractor):
                 time.sleep(sleep_time)
 
     def process_spaces(self) -> None:
-        if self.config.data_modeling is None:         
-            logging.info("No data modeling spaces found in config")
-            return
+
         for data_model_config in self.config.data_modeling:
             all_views = self.cognite_client.data_modeling.views.list(space=data_model_config.space, limit=-1)
             views_dict = all_views.dump()
@@ -103,18 +105,19 @@ class DataModelingReplicator(Extractor):
 
                 res = self.cognite_client.data_modeling.instances.sync(query=query)
                 # send to lakehouse
-                self.send_to_lakehouse(lakehouse=self.config.lakehouse, state_id=state_id, result=res)
+                self.send_to_lakehouse(path=data_model_config.lakehouse_abfss_path, state_id=state_id, result=res)
 
                 while ("nodes" in res.data and len(res.data["nodes"]) > 0) or ("edges" in res.data and len(res.data["edges"])) > 0:
                     query.cursors = res.cursors
                     res = self.cognite_client.data_modeling.instances.sync(query=query)
-                    self.send_to_lakehouse(state_id=state_id, result=res)
+                    self.send_to_lakehouse(path=data_model_config.lakehouse_abfss_path, state_id=state_id, result=res)
 
                 self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
                 self.state_store.synchronize()
 
     def send_to_lakehouse(
         self,
+        path: str,
         state_id: str,
         result: QueryResult,
     ) -> None:
@@ -124,6 +127,6 @@ class DataModelingReplicator(Extractor):
         #NOTDONE: Write the result to the lakehouse
         rows = []        
         df = pd.from_records(rows, columns=["external_id", "timestamp", "value"])
-        write_deltalake(self.config.lakehouse.abfss_path, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+        write_deltalake(path, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
 
     
