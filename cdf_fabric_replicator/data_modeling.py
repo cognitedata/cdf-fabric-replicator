@@ -142,7 +142,6 @@ class DataModelingReplicator(Extractor):
         self.logger.debug(f"Ingest to lakehouse {state_id}")
 
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
-        #NOTDONE: Write the result to the lakehouse
 
         nodes = []
         for node in result.get_nodes("nodes"):
@@ -158,18 +157,17 @@ class DataModelingReplicator(Extractor):
                                 "lastUpdatedTime": node.last_updated_time,
                                 "createdTime": node.created_time,
                                 "propertyName": prop,
-                                "propertyValue": propDict[prop],
-                                #"type": {
-                                #     "space:": view.space,
-                                #    "externalId": view.external_id
-                                #}
+                                "propertyValue": str(propDict[prop]),
+                                "type": {
+                                    "space:": view.space,
+                                    "externalId": view.external_id
+                                }
                             }
                             )
 
         if (len(nodes) > 0):
             logging.info(f"Writing {len(nodes)} to '{data_model_config.lakehouse_abfss_path_nodes}' table...")
             data = pa.Table.from_pylist(nodes, schema=self.schema)
-            print(data.schema)
             write_deltalake(data_model_config.lakehouse_abfss_path_nodes, data, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
 
     
