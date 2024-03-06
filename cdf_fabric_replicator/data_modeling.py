@@ -4,24 +4,22 @@ import threading
 import time
 
 from concurrent.futures import ThreadPoolExecutor
-from threading import Event
 from typing import Any, Dict, List
 
-from cognite.client import CogniteClient
 from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.query import SourceSelector
 from cognite.client.data_classes.data_modeling.query import Query, Select, NodeResultSetExpression, QueryResult, EdgeResultSetExpression
 from cognite.client.data_classes.filters import HasData, Equals
 from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.base import Extractor
-from cognite.extractorutils.configtools import CogniteConfig
-from cognite.extractorutils.metrics import BaseMetrics
-from cognite.extractorutils.statestore import AbstractStateStore
-from cognite.extractorutils.util import retry
 
 from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake
 import pandas as pd
+import numpy as np
+import pyarrow as pa
+from collections import OrderedDict
+
 
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config, DataModelingConfig
@@ -44,6 +42,22 @@ class DataModelingReplicator(Extractor):
         self.endpoint_source_map: Dict[str, Any] = {}
         self.errors: List[str] = []
         self.azure_credential = DefaultAzureCredential()
+
+        self.schema = pa.schema([
+                pa.field('space', pa.string()),
+                pa.field('instanceType', pa.string()),
+                pa.field('externalId', pa.string()),
+                pa.field('version', pa.int32()),
+                pa.field('lastUpdatedTime', pa.int64()),
+                pa.field('createdTime', pa.int64()),
+                pa.field('propertyName', pa.string()),
+                pa.field('propertyValue', pa.string()),
+                pa.field('type', pa.struct([
+                    pa.field('space', pa.string()),
+                    pa.field('externalId', pa.string()),
+                ]))
+                ]
+                )
 
 
     def run(self) -> None:
@@ -74,13 +88,13 @@ class DataModelingReplicator(Extractor):
 
             for item in views_dict:
                 view_properties = list(item["properties"].keys())
-                state_id = f"state_{data_model_config.space}_{item['externalId']}_{item['version']}"
+                state_id = f"state_{data_model_config.space}_{item['external_id']}_{item['version']}"
                 cursors = self.state_store.get_state(external_id=state_id)[1]
-                logging.debug(f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursors}")
+                logging.debug(f"State for {state_id} is {cursors}")
 
-                view_id = ViewId(space=item["space"], external_id=item["externalId"], version=item["version"])
+                view_id = ViewId(space=item["space"], external_id=item["external_id"], version=item["version"])
 
-                if item["usedFor"] != "edge":
+                if item["used_for"] != "edge":
                     query = Query(
                         with_ = {
                         "nodes": NodeResultSetExpression(filter=HasData(views=[view_id])),
@@ -92,7 +106,7 @@ class DataModelingReplicator(Extractor):
                 else:
                     query = Query(
                         with_ = {
-                            "edges": EdgeResultSetExpression(filter=Equals(["edge", "type"], {"space": view_id.space, "externalId": view_id.external_id})),
+                            "edges": EdgeResultSetExpression(filter=Equals(["edge", "type"], {"space": view_id.space, "external_id": view_id.external_id})),
                         },
                         select = {
                             "edges": Select([SourceSelector(source=view_id, properties=view_properties)]),
@@ -103,30 +117,57 @@ class DataModelingReplicator(Extractor):
                     query.cursors = json.loads(cursors)
                 logging.debug(query.dump())
 
-                res = self.cognite_client.data_modeling.instances.sync(query=query)
+                try:
+                    res = self.cognite_client.data_modeling.instances.sync(query=query)
+                except CogniteAPIError as e:
+                    query.cursors = None
+                    res = self.cognite_client.data_modeling.instances.sync(query=query)
                 # send to lakehouse
-                self.send_to_lakehouse(path=data_model_config.lakehouse_abfss_path, state_id=state_id, result=res)
+                self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
 
                 while ("nodes" in res.data and len(res.data["nodes"]) > 0) or ("edges" in res.data and len(res.data["edges"])) > 0:
                     query.cursors = res.cursors
                     res = self.cognite_client.data_modeling.instances.sync(query=query)
-                    self.send_to_lakehouse(path=data_model_config.lakehouse_abfss_path, state_id=state_id, result=res)
+                    self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
 
                 self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
                 self.state_store.synchronize()
 
     def send_to_lakehouse(
         self,
-        path: str,
+        data_model_config: DataModelingConfig,
         state_id: str,
         result: QueryResult,
     ) -> None:
-        self.logger.info(f"Ingest to lakehouse {state_id}")
+        self.logger.debug(f"Ingest to lakehouse {state_id}")
 
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
-        #NOTDONE: Write the result to the lakehouse
-        rows = []        
-        df = pd.from_records(rows, columns=["external_id", "timestamp", "value"])
-        write_deltalake(path, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+
+        nodes = []
+        for node in result.get_nodes("nodes"):
+                for view in node.properties.data:
+                    propDict = node.properties.data[view]
+                    for prop in propDict:
+                        nodes.append(
+                            {
+                                "space": node.space,
+                                "instanceType": "node",
+                                "externalId": node.external_id,
+                                "version": node.version,
+                                "lastUpdatedTime": node.last_updated_time,
+                                "createdTime": node.created_time,
+                                "propertyName": prop,
+                                "propertyValue": str(propDict[prop]),
+                                "type": {
+                                    "space:": view.space,
+                                    "externalId": view.external_id
+                                }
+                            }
+                            )
+
+        if (len(nodes) > 0):
+            logging.info(f"Writing {len(nodes)} to '{data_model_config.lakehouse_abfss_path_nodes}' table...")
+            data = pa.Table.from_pylist(nodes, schema=self.schema)
+            write_deltalake(data_model_config.lakehouse_abfss_path_nodes, data, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
 
     
