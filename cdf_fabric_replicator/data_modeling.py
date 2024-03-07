@@ -43,23 +43,6 @@ class DataModelingReplicator(Extractor):
         self.errors: List[str] = []
         self.azure_credential = DefaultAzureCredential()
 
-        self.schema = pa.schema([
-                pa.field('space', pa.string()),
-                pa.field('instanceType', pa.string()),
-                pa.field('externalId', pa.string()),
-                pa.field('version', pa.int32()),
-                pa.field('lastUpdatedTime', pa.int64()),
-                pa.field('createdTime', pa.int64()),
-                pa.field('propertyName', pa.string()),
-                pa.field('propertyValue', pa.string()),
-                pa.field('type', pa.struct([
-                    pa.field('space', pa.string()),
-                    pa.field('externalId', pa.string()),
-                ]))
-                ]
-                )
-
-
     def run(self) -> None:
         # init/connect to destination
         self.state_store.initialize()
@@ -89,7 +72,7 @@ class DataModelingReplicator(Extractor):
             for item in views_dict:
                 view_properties = list(item["properties"].keys())
                 state_id = f"state_{data_model_config.space}_{item['external_id']}_{item['version']}"
-                cursors = None #self.state_store.get_state(external_id=state_id)[1]
+                cursors = self.state_store.get_state(external_id=state_id)[1]
                 logging.debug(f"State for {state_id} is {cursors}")
 
                 view_id = ViewId(space=item["space"], external_id=item["external_id"], version=item["version"])
