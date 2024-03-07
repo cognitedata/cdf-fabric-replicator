@@ -9,7 +9,7 @@ class ExtractorConfig:
     state_store: StateStoreConfig = StateStoreConfig()
     subscription_batch_size: int = 10_000
     ingest_batch_size: int = 100_000
-    poll_time: int = 5
+    poll_time: int = 3600
 
 
 @dataclass
@@ -21,8 +21,7 @@ class SubscriptionsConfig:
 @dataclass
 class DataModelingConfig:
     space: str
-    lakehouse_abfss_path_nodes: str
-    lakehouse_abfss_path_edges: str
+    lakehouse_abfss_prefix: str
 
 @dataclass
 class Config(BaseConfig):

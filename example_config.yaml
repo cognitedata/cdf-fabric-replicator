@@ -32,10 +32,9 @@ extractor:
 #  - external_id: twenceDesorberSubscription
 #    partitions:
 #        - 0
-#    lakehouse_abfss_path: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/timeseries
+#    lakehouse_abfss_path: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/timeseries2
 
 # sync data model
 data_modeling:
   - space: cc_plant
-    lakehouse_abfss_path_nodes: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/nodes
-    lakehouse_abfss_path_edges: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/edges
+    lakehouse_abfss_prefix: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse

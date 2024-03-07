@@ -77,7 +77,7 @@ class DataModelingReplicator(Extractor):
             elapsed_time = end_time - start_time
             sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)  # 900s = 15min
             if sleep_time > 0:
-                logging.debug(f"Sleep for {sleep_time} seconds")
+                logging.info(f"Sleep for {sleep_time} seconds")
                 time.sleep(sleep_time)
 
     def process_spaces(self) -> None:
@@ -89,7 +89,7 @@ class DataModelingReplicator(Extractor):
             for item in views_dict:
                 view_properties = list(item["properties"].keys())
                 state_id = f"state_{data_model_config.space}_{item['external_id']}_{item['version']}"
-                cursors = self.state_store.get_state(external_id=state_id)[1]
+                cursors = None #self.state_store.get_state(external_id=state_id)[1]
                 logging.debug(f"State for {state_id} is {cursors}")
 
                 view_id = ViewId(space=item["space"], external_id=item["external_id"], version=item["version"])
@@ -106,7 +106,7 @@ class DataModelingReplicator(Extractor):
                 else:
                     query = Query(
                         with_ = {
-                            "edges": EdgeResultSetExpression(filter=Equals(["edge", "type"], {"space": view_id.space, "external_id": view_id.external_id})),
+                            "edges": EdgeResultSetExpression(filter=Equals(["edge", "type"], {"space": view_id.space, "externalId": view_id.external_id})),
                         },
                         select = {
                             "edges": Select([SourceSelector(source=view_id, properties=view_properties)]),
@@ -141,33 +141,41 @@ class DataModelingReplicator(Extractor):
     ) -> None:
         self.logger.debug(f"Ingest to lakehouse {state_id}")
 
-        token = self.azure_credential.get_token("https://storage.azure.com/.default")
-
-        nodes = []
-        for node in result.get_nodes("nodes"):
+        nodes = {}
+        edges = {}
+        if "nodes" in result:
+            for node in result.get_nodes("nodes"):
+                item = {
+                    "space": node.space,
+                    "instanceType": "node",
+                    "externalId": node.external_id,
+                    "version": node.version,
+                    "lastUpdatedTime": node.last_updated_time,
+                    "createdTime": node.created_time,
+                }
                 for view in node.properties.data:
                     propDict = node.properties.data[view]
-                    for prop in propDict:
-                        nodes.append(
-                            {
-                                "space": node.space,
-                                "instanceType": "node",
-                                "externalId": node.external_id,
-                                "version": node.version,
-                                "lastUpdatedTime": node.last_updated_time,
-                                "createdTime": node.created_time,
-                                "propertyName": prop,
-                                "propertyValue": str(propDict[prop]),
-                                "type": {
-                                    "space:": view.space,
-                                    "externalId": view.external_id
-                                }
-                            }
-                            )
+                    item.update(propDict)
+
+                table_name = f"{view.space}_{view.external_id}_{view.version}"
+                if table_name not in nodes:
+                    nodes[table_name] = [item]
+                else:
+                    nodes[table_name].append(item)
+            
 
         if (len(nodes) > 0):
-            logging.info(f"Writing {len(nodes)} to '{data_model_config.lakehouse_abfss_path_nodes}' table...")
-            data = pa.Table.from_pylist(nodes, schema=self.schema)
-            write_deltalake(data_model_config.lakehouse_abfss_path_nodes, data, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+            token = self.azure_credential.get_token("https://storage.azure.com/.default")
+            for table in nodes:
+                abfss_path = f"{data_model_config.lakehouse_abfss_prefix}/Tables/{table}"
+                logging.info(f"Writing {len(nodes[table])} to '{abfss_path}' table...")
+                data = pa.Table.from_pylist(nodes[table])
+                write_deltalake(abfss_path, data, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+
+        if (len(edges) > 0):
+            token = self.azure_credential.get_token("https://storage.azure.com/.default")
+            logging.info(f"Writing {len(edges)} to '{data_model_config.lakehouse_abfss_path_edges}' table...")
+            data = pa.Table.from_pylist(edges, schema=self.schema)
+            write_deltalake(data_model_config.lakehouse_abfss_path_edges, data, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
 
     
