@@ -60,7 +60,7 @@ class DataModelingReplicator(Extractor):
             elapsed_time = end_time - start_time
             sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)  # 900s = 15min
             if sleep_time > 0:
-                logging.info(f"Sleep for {sleep_time} seconds")
+                logging.debug(f"Sleep for {sleep_time} seconds")
                 time.sleep(sleep_time)
 
     def process_spaces(self) -> None:
@@ -98,6 +98,7 @@ class DataModelingReplicator(Extractor):
 
                 if cursors:
                     query.cursors = json.loads(cursors)
+                
                 logging.debug(query.dump())
 
                 try:
@@ -115,6 +116,31 @@ class DataModelingReplicator(Extractor):
 
                 self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
                 self.state_store.synchronize()
+
+            # edges without view
+            query = Query(
+                with_ = {
+                    "edges": EdgeResultSetExpression(),
+                },
+                select = {
+                    "edges": Select(),
+                }
+            )
+
+            state_id = f"state_{data_model_config.space}_edges"
+            cursors = self.state_store.get_state(external_id=state_id)[1]
+            if cursors:
+                query.cursors = json.loads(cursors)
+
+            res = self.cognite_client.data_modeling.instances.sync(query=query)
+            self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
+            while ("edges" in res.data and len(res.data["edges"])) > 0:
+                query.cursors = res.cursors
+                res = self.cognite_client.data_modeling.instances.sync(query=query)
+                self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
+
+            self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
+            self.state_store.synchronize()
 
     def send_to_lakehouse(
         self,
@@ -145,6 +171,24 @@ class DataModelingReplicator(Extractor):
                     nodes[table_name] = [item]
                 else:
                     nodes[table_name].append(item)
+        if "edges" in result:
+            for node in result.get_edges("edges"):
+                item = {
+                    "space": node.space,
+                    "instanceType": "edge",
+                    "externalId": node.external_id,
+                    "version": node.version,
+                    "lastUpdatedTime": node.last_updated_time,
+                    "createdTime": node.created_time,
+                    "startNode": {"space": node.start_node.space, "externalId": node.start_node.external_id },
+                    "endNode": {"space": node.end_node.space, "externalId": node.end_node.external_id },
+                }
+
+                table_name = f"{node.space}_edges"
+                if table_name not in edges:
+                    edges[table_name] = [item]
+                else:
+                    edges[table_name].append(item)
             
 
         if (len(nodes) > 0):
@@ -157,8 +201,10 @@ class DataModelingReplicator(Extractor):
 
         if (len(edges) > 0):
             token = self.azure_credential.get_token("https://storage.azure.com/.default")
-            logging.info(f"Writing {len(edges)} to '{data_model_config.lakehouse_abfss_path_edges}' table...")
-            data = pa.Table.from_pylist(edges, schema=self.schema)
-            write_deltalake(data_model_config.lakehouse_abfss_path_edges, data, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+            for table in edges:
+                abfss_path = f"{data_model_config.lakehouse_abfss_prefix}/Tables/{table}"
+                logging.info(f"Writing {len(edges[table])} to '{abfss_path}' table...")
+                data = pa.Table.from_pylist(edges[table])
+                write_deltalake(abfss_path, data, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
 
     
