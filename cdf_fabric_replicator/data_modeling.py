@@ -166,7 +166,7 @@ class DataModelingReplicator(Extractor):
                     propDict = node.properties.data[view]
                     item.update(propDict)
 
-                table_name = f"{view.space}/{view.external_id}"#_{view.version}"
+                table_name = f"{view.space}_{view.external_id}"#_{view.version}"
                 if table_name not in nodes:
                     nodes[table_name] = [item]
                 else:
@@ -184,7 +184,7 @@ class DataModelingReplicator(Extractor):
                     "endNode": {"space": node.end_node.space, "externalId": node.end_node.external_id },
                 }
 
-                table_name = f"{node.space}/edges"
+                table_name = f"{node.space}_edges"
                 if table_name not in edges:
                     edges[table_name] = [item]
                 else:
