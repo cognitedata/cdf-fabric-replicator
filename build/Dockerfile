@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.10-slim
 
 RUN set -ex && pip install --upgrade pip && pip install poetry pipx
 ENV PATH /root/.local/bin:$PATH
