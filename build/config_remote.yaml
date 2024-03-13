@@ -11,8 +11,7 @@ cognite:
         client-id: ${COGNITE_CLIENT_ID}
         secret: ${COGNITE_CLIENT_SECRET}
         scopes:
-            - user_impersonation
-        audience: ${COGNITE_AUDIENCE}
+            - ${COGNITE_BASE_URL}/.default
 
     extraction-pipeline:
         external-id: ${COGNITE_EXTRACTION_PIPELINE}
