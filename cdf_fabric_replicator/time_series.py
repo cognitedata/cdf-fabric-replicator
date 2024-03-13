@@ -12,6 +12,7 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 )
 from cognite.extractorutils.base import Extractor
 from cognite.extractorutils.util import retry
+from cognite.extractorutils.base import CancellationToken
 
 from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake
@@ -24,7 +25,7 @@ from cdf_fabric_replicator.metrics import Metrics
 
 
 class TimeSeriesReplicator(Extractor):
-    def __init__(self, metrics: Metrics) -> None: #, stop_event: Event) -> None:
+    def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
         super().__init__(
             name="cdf_fabric_replicator",
             description="CDF Fabric Replicator",
@@ -32,7 +33,7 @@ class TimeSeriesReplicator(Extractor):
             metrics=metrics,
             use_default_state_store=False,
             version=__version__,
-            #cancellation_token=Event(),
+            cancellation_token=stop_event,
         )
         self.metrics: Metrics
         #self.stop_event = stop_event

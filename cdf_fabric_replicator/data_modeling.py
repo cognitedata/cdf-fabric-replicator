@@ -1,10 +1,11 @@
 import json
 import logging
-import threading
 import time
 
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
+from cognite.extractorutils.base import CancellationToken
+
 
 from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.query import SourceSelector
@@ -27,7 +28,7 @@ from cdf_fabric_replicator.metrics import Metrics
 
 
 class DataModelingReplicator(Extractor):
-    def __init__(self, metrics: Metrics) -> None: #, stop_event: Event) -> None:
+    def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
         super().__init__(
             name="cdf_fabric_replicator",
             description="CDF Fabric Replicator",
@@ -35,7 +36,7 @@ class DataModelingReplicator(Extractor):
             metrics=metrics,
             use_default_state_store=False,
             version=__version__,
-            #cancellation_token=stop_event,
+            cancellation_token=stop_event,
         )
         self.metrics: Metrics
         #self.stop_event = stop_event
