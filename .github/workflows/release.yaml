@@ -38,9 +38,6 @@ jobs:
       run: |
         python3 -m pip install --upgrade pip cognite-extractor-manager poetry
 
-    - name: Generate Dockerfile
-      run: cogex build --dockerfile
-
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:

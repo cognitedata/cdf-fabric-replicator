@@ -1,0 +1,19 @@
+
+type: remote
+cognite:
+    # Read these from environment variables
+    host: ${COGNITE_BASE_URL}
+    project: ${COGNITE_PROJECT}
+
+    idp-authentication:
+        token-url: ${COGNITE_TOKEN_URL}
+
+        client-id: ${COGNITE_CLIENT_ID}
+        secret: ${COGNITE_CLIENT_SECRET}
+        scopes:
+            - user_impersonation
+        audience: ${COGNITE_AUDIENCE}
+
+    extraction-pipeline:
+        external-id: ${COGNITE_EXTRACTION_PIPELINE}
+
