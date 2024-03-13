@@ -19,8 +19,8 @@ known_third_party = ["azure", "cognite", "prometheus_client"]
 
 [tool.poetry.dependencies]
 python = ">=3.9,<3.11"
-cognite-sdk = "^6.26.0"
-cognite-extractor-utils = "^5.4.1"
+cognite-sdk = "^7.26.0"
+cognite-extractor-utils = "^7.0.0"
 azure-identity = "^1.15.0"
 deltalake = "^0.15.3"
 pandas = "^2.2.1"
