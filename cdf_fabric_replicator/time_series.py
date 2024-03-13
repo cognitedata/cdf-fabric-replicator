@@ -5,7 +5,7 @@ import time
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
-
+from cognite.client.data_classes import ExtractionPipelineRunWrite
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionBatch,
     DatapointsUpdate,
@@ -36,7 +36,7 @@ class TimeSeriesReplicator(Extractor):
             cancellation_token=stop_event,
         )
         self.metrics: Metrics
-        #self.stop_event = stop_event
+        self.stop_event = stop_event
         self.endpoint_source_map: Dict[str, Any] = {}
         self.errors: List[str] = []
         self.update_queue: List[DatapointsUpdate] = []
@@ -57,11 +57,11 @@ class TimeSeriesReplicator(Extractor):
                 f"{self.cognite_client.time_series.subscriptions.retrieve(external_id=subscription.external_id)}"
             )
 
-        while True: # not self.stop_event.is_set():
+        while not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
             self.process_subscriptions()
-
+            self.cognite_client.extraction_pipelines.runs.create(ExtractionPipelineRunWrite(status="success", extpipe_external_id=self.config.cognite.extraction_pipeline.external_id))            
             end_time = time.time()  # Get the time after function execution
             elapsed_time = end_time - start_time
             sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)  # 900s = 15min
