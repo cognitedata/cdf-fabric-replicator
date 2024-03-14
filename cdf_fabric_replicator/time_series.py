@@ -42,7 +42,7 @@ class TimeSeriesReplicator(Extractor):
         self.update_queue: List[DatapointsUpdate] = []
         # logged in credentials, either local user or managed identity
         self.azure_credential = DefaultAzureCredential()
-
+        self.ts_cache = {}
 
     def run(self) -> None:
         # init/connect to destination
@@ -87,9 +87,9 @@ class TimeSeriesReplicator(Extractor):
             limit=self.config.extractor.subscription_batch_size,
         ):
             if update_batch.has_next:
-                self.send_to_lakehouse(path=subscription.lakehouse_abfss_path, update_batch=update_batch, state_id=state_id, send_now=False)
+                self.send_to_lakehouse(subscription=subscription, update_batch=update_batch, state_id=state_id, send_now=False)
             else:
-                self.send_to_lakehouse(path=subscription.lakehouse_abfss_path, update_batch=update_batch, state_id=state_id, send_now=True)
+                self.send_to_lakehouse(subscription=subscription, update_batch=update_batch, state_id=state_id, send_now=True)
 
             if not update_batch.has_next:
                 return f"{state_id} no more data at {update_batch.cursor}"
@@ -98,7 +98,7 @@ class TimeSeriesReplicator(Extractor):
 
     def send_to_lakehouse(
         self,
-        path: str,
+        subscription: SubscriptionsConfig,
         update_batch: DatapointSubscriptionBatch,
         state_id: str,
         send_now: bool = False,
@@ -107,15 +107,14 @@ class TimeSeriesReplicator(Extractor):
         logging.debug(f"update_queue length: {len(self.update_queue)}")
 
         if len(self.update_queue) > self.config.extractor.ingest_batch_size or send_now:
-            self.logger.info(f"Ingest to queue of length {len(self.update_queue)} to lakehouse")
-            self.send_to_lakehouse_table(path=path, updates=self.update_queue)
+            self.send_to_lakehouse_table(subscription=subscription, updates=self.update_queue)
 
             self.state_store.set_state(external_id=state_id, high=update_batch.cursor)
             self.state_store.synchronize()
             self.update_queue = []
 
     
-    def send_to_lakehouse_table(self, path: str,  updates: List[DatapointsUpdate]) -> None:
+    def send_to_lakehouse_table(self, subscription: SubscriptionsConfig,  updates: List[DatapointsUpdate]) -> None:
         rows = []
 
         for update in updates:
@@ -124,14 +123,25 @@ class TimeSeriesReplicator(Extractor):
                     [update.upserts.external_id, 
                     datetime.datetime.fromtimestamp(update.upserts.timestamp[i]/1000), 
                     update.upserts.value[i]] )
+                
+                if update.upserts.external_id not in self.ts_cache:
+                    ts=self.cognite_client.time_series.retrieve(external_id=update.upserts.external_id)
+                    token = self.azure_credential.get_token("https://storage.azure.com/.default")
+                    asset = self.cognite_client.assets.retrieve(id=ts.asset_id) if ts.asset_id is not None else None
+                    asset_xid = asset.external_id if asset is not None else ""
+                    df = pd.DataFrame(np.array([[ts.external_id, ts.name, ts.description if ts.description else "" , ts.is_string, ts.is_step, ts.unit, ts.metadata, asset_xid]]), columns=["externalId", "name", "description", "isString", "isStep", "unit", "metadata", "assetExternalId"])
+                    df = df.dropna()
+                    self.logger.info (f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table...")
+                    write_deltalake(subscription.lakehouse_abfss_path_ts, df, mode="overwrite", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+                    self.ts_cache[update.upserts.external_id] = 1
 
         if (len(rows) > 0):
 
             token = self.azure_credential.get_token("https://storage.azure.com/.default")
 
-            self.logger.info (f"Writing {len(rows)} rows to '{path}' table...")
+            self.logger.info (f"Writing {len(rows)} rows to '{subscription.lakehouse_abfss_path_dps}' table...")
             df = pd.DataFrame(np.array(rows), columns=["externalId", "timestamp", "value"])
-            write_deltalake(path, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+            write_deltalake(subscription.lakehouse_abfss_path_dps, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
             self.logger.info ("Done.")
 
 
