@@ -24,6 +24,8 @@ cognite-extractor-utils = "^7.0.0"
 azure-identity = "^1.15.0"
 deltalake = "^0.15.3"
 pandas = "^2.2.1"
+pytest = "^6.2.5"
+pytest_mock = "^3.6.1"
 
 [tool.poetry.dev-dependencies]
 pyinstaller = "^6.0"
