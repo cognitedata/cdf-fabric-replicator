@@ -1,4 +1,3 @@
-
 logger:
     console:
         level: INFO
@@ -20,24 +19,22 @@ cognite:
 #Extractor config
 extractor:
     state-store:
-        local:
-            path: state.json
+        raw:
+            database: ${COGNITE_STATE_DB}
+            table: ${COGNITE_STATE_TABLE}
     subscription-batch-size: 10000
     ingest-batch-size: 100000
     poll-time: 5
 
-
 # subscriptions to stream
 subscriptions:
-  - external_id: charts-persisted
-    partitions:
-        - 0
-    lakehouse_abfss_path_dps: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/CalculatedTimeseries
-    lakehouse_abfss_path_ts: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/CalculatedTimeseriesMetadata
-
-
+    - external_id: ktest_subscription
+      partitions:
+          - 0
+      lakehouse_abfss_path_dps: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/CalculatedTimeseries
+      lakehouse_abfss_path_ts: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/CalculatedTimeseriesMetadata
 
 # sync data model
-#data_modeling:
-#  - space: cc_plant
-#    lakehouse_abfss_prefix: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse
+data_modeling:
+    - space: cc_plant
+      lakehouse_abfss_prefix: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse

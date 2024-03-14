@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
-from cognite.extractorutils.configtools import BaseConfig, CogniteConfig, StateStoreConfig
-
+from cognite.extractorutils.configtools import BaseConfig, StateStoreConfig
 
 @dataclass
 class ExtractorConfig:
-    state_store: StateStoreConfig = StateStoreConfig()
+    state_store: StateStoreConfig
     subscription_batch_size: int = 10_000
     ingest_batch_size: int = 100_000
     poll_time: int = 3600

@@ -2,10 +2,8 @@ import json
 import logging
 import time
 
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
 from cognite.extractorutils.base import CancellationToken
-
 
 from cognite.client.data_classes.data_modeling.ids import ViewId
 from cognite.client.data_classes.data_modeling.query import SourceSelector
@@ -16,11 +14,7 @@ from cognite.extractorutils.base import Extractor
 
 from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake
-import pandas as pd
-import numpy as np
 import pyarrow as pa
-from collections import OrderedDict
-
 
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config, DataModelingConfig
@@ -65,61 +59,54 @@ class DataModelingReplicator(Extractor):
                 time.sleep(sleep_time)
 
     def process_spaces(self) -> None:
-
         for data_model_config in self.config.data_modeling:
             all_views = self.cognite_client.data_modeling.views.list(space=data_model_config.space, limit=-1)
             views_dict = all_views.dump()
 
-            for item in views_dict:
-                view_properties = list(item["properties"].keys())
-                state_id = f"state_{data_model_config.space}_{item['external_id']}_{item['version']}"
-                cursors = self.state_store.get_state(external_id=state_id)[1]
-                logging.debug(f"State for {state_id} is {cursors}")
+            for view in views_dict:
+                state_id = f"state_{data_model_config.space}_{view['externalId']}_{view['version']}"
+                self.process_instances(data_model_config, state_id, view)
+            
+            # edge with no view 
+            state_id = f"state_{data_model_config.space}_edges"
+            self.process_instances(data_model_config, state_id)
 
-                view_id = ViewId(space=item["space"], external_id=item["external_id"], version=item["version"])
 
-                if item["used_for"] != "edge":
-                    query = Query(
-                        with_ = {
-                        "nodes": NodeResultSetExpression(filter=HasData(views=[view_id])),
-                        },
-                        select = {
-                            "nodes": Select([SourceSelector(source=view_id, properties=view_properties)]),
-                        }
-                    )
-                else:
-                    query = Query(
-                        with_ = {
-                            "edges": EdgeResultSetExpression(filter=Equals(["edge", "type"], {"space": view_id.space, "externalId": view_id.external_id})),
-                        },
-                        select = {
-                            "edges": Select([SourceSelector(source=view_id, properties=view_properties)]),
-                        }
-                    )
+    def process_instances(self, data_model_config: DataModelingConfig, state_id: str, view: Dict[str, Any]=None) -> None:
+        if view:
+            query = self.generate_query_based_on_view(view)
+        else:
+            query = self.generate_query_based_on_edge()
+        self.write_instance_to_lakehouse(data_model_config, state_id, query)
 
-                if cursors:
-                    query.cursors = json.loads(cursors)
-                
-                logging.debug(query.dump())
 
-                try:
-                    res = self.cognite_client.data_modeling.instances.sync(query=query)
-                except CogniteAPIError as e:
-                    query.cursors = None
-                    res = self.cognite_client.data_modeling.instances.sync(query=query)
-                # send to lakehouse
-                self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
+    def generate_query_based_on_view(self, view: Dict[str, Any]) -> Query:
+        view_properties = list(view["properties"].keys())
+        view_id = ViewId(space=view["space"], external_id=view["externalId"], version=view["version"])
 
-                while ("nodes" in res.data and len(res.data["nodes"]) > 0) or ("edges" in res.data and len(res.data["edges"])) > 0:
-                    query.cursors = res.cursors
-                    res = self.cognite_client.data_modeling.instances.sync(query=query)
-                    self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
-
-                self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
-                self.state_store.synchronize()
-
-            # edges without view
+        if view["usedFor"] != "edge":
             query = Query(
+                with_ = {
+                    "nodes": NodeResultSetExpression(filter=HasData(views=[view_id])),
+                },
+                select = {
+                    "nodes": Select([SourceSelector(source=view_id, properties=view_properties)]),
+                }
+            )
+        else:
+            query = Query(
+                with_ = {
+                    "edges": EdgeResultSetExpression(filter=Equals(["edge", "type"], {"space": view_id.space, "externalId": view_id.external_id})),
+                },
+                select = {
+                    "edges": Select([SourceSelector(source=view_id, properties=view_properties)]),
+                }
+            )
+        return query
+    
+
+    def generate_query_based_on_edge(self) -> Query:
+        query = Query(
                 with_ = {
                     "edges": EdgeResultSetExpression(),
                 },
@@ -127,21 +114,36 @@ class DataModelingReplicator(Extractor):
                     "edges": Select(),
                 }
             )
+        return query
 
-            state_id = f"state_{data_model_config.space}_edges"
-            cursors = self.state_store.get_state(external_id=state_id)[1]
-            if cursors:
-                query.cursors = json.loads(cursors)
 
+    def write_instance_to_lakehouse(self, data_model_config: DataModelingConfig, state_id: str, query: Query) -> None:
+        cursors = self.state_store.get_state(external_id=state_id)[1]
+
+        if cursors:
+            query.cursors = json.loads(cursors)
+
+        try:
             res = self.cognite_client.data_modeling.instances.sync(query=query)
-            self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
-            while ("edges" in res.data and len(res.data["edges"])) > 0:
-                query.cursors = res.cursors
+        except CogniteAPIError as e:
+            query.cursors = None
+            res = self.cognite_client.data_modeling.instances.sync(query=query)
+            
+        self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
+        
+        while ("nodes" in res.data and len(res.data["nodes"]) > 0) or ("edges" in res.data and len(res.data["edges"])) > 0:
+            query.cursors = res.cursors
+            
+            try:
                 res = self.cognite_client.data_modeling.instances.sync(query=query)
-                self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
+            except CogniteAPIError as e:
+                query.cursors = None
+                res = self.cognite_client.data_modeling.instances.sync(query=query)
+                
+            self.send_to_lakehouse(data_model_config=data_model_config, state_id=state_id, result=res)
 
-            self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
-            self.state_store.synchronize()
+        self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
+        self.state_store.synchronize()
 
     def send_to_lakehouse(
         self,
@@ -149,63 +151,61 @@ class DataModelingReplicator(Extractor):
         state_id: str,
         result: QueryResult,
     ) -> None:
-        self.logger.debug(f"Ingest to lakehouse {state_id}")
+        logging.debug(f"Ingest to lakehouse {state_id}")
 
-        nodes = {}
-        edges = {}
-        if "nodes" in result:
-            for node in result.get_nodes("nodes"):
-                item = {
-                    "space": node.space,
-                    "instanceType": "node",
-                    "externalId": node.external_id,
-                    "version": node.version,
-                    "lastUpdatedTime": node.last_updated_time,
-                    "createdTime": node.created_time,
-                }
-                for view in node.properties.data:
-                    propDict = node.properties.data[view]
-                    item.update(propDict)
-
-                table_name = f"{view.space}_{view.external_id}"#_{view.version}"
-                if table_name not in nodes:
-                    nodes[table_name] = [item]
-                else:
-                    nodes[table_name].append(item)
-        if "edges" in result:
-            for node in result.get_edges("edges"):
-                item = {
-                    "space": node.space,
-                    "instanceType": "edge",
-                    "externalId": node.external_id,
-                    "version": node.version,
-                    "lastUpdatedTime": node.last_updated_time,
-                    "createdTime": node.created_time,
-                    "startNode": {"space": node.start_node.space, "externalId": node.start_node.external_id },
-                    "endNode": {"space": node.end_node.space, "externalId": node.end_node.external_id },
-                }
-
-                table_name = f"{node.space}_edges"
-                if table_name not in edges:
-                    edges[table_name] = [item]
-                else:
-                    edges[table_name].append(item)
-            
-
+        nodes = self.get_instances(result, is_edge=False)
+        edges = self.get_instances(result, is_edge=True)
+        
+        abfss_prefix = data_model_config.lakehouse_abfss_prefix
         if (len(nodes) > 0):
-            token = self.azure_credential.get_token("https://storage.azure.com/.default")
-            for table in nodes:
-                abfss_path = f"{data_model_config.lakehouse_abfss_prefix}/Tables/{table}"
-                logging.info(f"Writing {len(nodes[table])} to '{abfss_path}' table...")
-                data = pa.Table.from_pylist(nodes[table])
-                write_deltalake(abfss_path, data, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+            self.write_instances_to_lakehouse_tables(nodes, abfss_prefix)
 
         if (len(edges) > 0):
-            token = self.azure_credential.get_token("https://storage.azure.com/.default")
-            for table in edges:
-                abfss_path = f"{data_model_config.lakehouse_abfss_prefix}/Tables/{table}"
-                logging.info(f"Writing {len(edges[table])} to '{abfss_path}' table...")
-                data = pa.Table.from_pylist(edges[table])
-                write_deltalake(abfss_path, data, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+            self.write_instances_to_lakehouse_tables(edges, abfss_prefix)
 
+
+    def get_instances(self, result: QueryResult, is_edge=False) -> Dict[str, Any]:
+        instances = {}
+        if (is_edge and "edges" not in result) or (not is_edge and "nodes" not in result):
+            return instances
+        
+        instance_type = "edge" if is_edge else "node"
+
+        if is_edge:
+            instances_from_result = result.get_edges("edges")
+        else:
+            instances_from_result = result.get_nodes("nodes")
+        for instance in instances_from_result:
+                item = {
+                    "space": instance.space,
+                    "instanceType": instance_type,
+                    "externalId": instance.external_id,
+                    "version": instance.version,
+                    "lastUpdatedTime": instance.last_updated_time,
+                    "createdTime": instance.created_time,
+                }
+
+                if is_edge:
+                    item["startNode"] = {"space": instance.start_node.space, "externalId": instance.start_node.external_id }
+                    item["endNode"] = {"space": instance.end_node.space, "externalId": instance.end_node.external_id }
+
+                for view in instance.properties.data:
+                    propDict = instance.properties.data[view]
+                    item.update(propDict)
+
+                table_name = f"{instance.space}_edges" if is_edge else f"{view.space}_{view.external_id}"
+                if table_name not in instances:
+                    instances[table_name] = [item]
+                else:
+                    instances[table_name].append(item)
+        return instances
     
+
+    def write_instances_to_lakehouse_tables(self, instances: Dict[str, Any], abfss_prefix: str) -> None:
+        token = self.azure_credential.get_token("https://storage.azure.com/.default")
+        for table in instances:
+            abfss_path = f"{abfss_prefix}/Tables/{table}"
+            logging.info(f"Writing {len(instances[table])} to '{abfss_path}' table...")
+            data = pa.Table.from_pylist(instances[table])
+            write_deltalake(abfss_path, data, engine="rust", mode="append", schema_mode="merge", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+            logging.info("done.")

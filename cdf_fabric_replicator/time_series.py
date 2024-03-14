@@ -1,17 +1,20 @@
-import json
 import logging
 import threading
 import time
 import datetime
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List
+
+from azure.identity import DefaultAzureCredential
+from deltalake.writer import write_deltalake
+import pandas as pd
+
 from cognite.client.data_classes import ExtractionPipelineRunWrite
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionBatch,
     DatapointsUpdate,
 )
 from cognite.extractorutils.base import Extractor
-from cognite.extractorutils.util import retry
 from cognite.extractorutils.base import CancellationToken
 
 from azure.identity import DefaultAzureCredential
@@ -107,42 +110,63 @@ class TimeSeriesReplicator(Extractor):
         logging.debug(f"update_queue length: {len(self.update_queue)}")
 
         if len(self.update_queue) > self.config.extractor.ingest_batch_size or send_now:
-            self.send_to_lakehouse_table(subscription=subscription, updates=self.update_queue)
+            self.send_data_point_to_lakehouse_table(subscription=subscription, updates=self.update_queue)
 
             self.state_store.set_state(external_id=state_id, high=update_batch.cursor)
             self.state_store.synchronize()
             self.update_queue = []
 
-    
-    def send_to_lakehouse_table(self, subscription: SubscriptionsConfig,  updates: List[DatapointsUpdate]) -> None:
+
+    def send_data_point_to_lakehouse_table(self, subscription: SubscriptionsConfig, updates: List[DatapointsUpdate]) -> None:
+        for update in updates:
+            if update.upserts.external_id not in self.ts_cache:
+                self.send_time_series_to_lakehouse_table(subscription, update)
+        
+        df = self.convert_updates_to_pandasdf(updates)
+        if df is not None:
+            
+            logging.info (f"writing {df.shape[0]} rows to '{subscription.lakehouse_abfss_path_dps}' table...")
+           
+            self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_dps, df)
+            logging.info ("done.")
+            
+    def send_time_series_to_lakehouse_table(self, subscription: SubscriptionsConfig, update: DatapointsUpdate) -> None:
+        ts=self.cognite_client.time_series.retrieve(external_id=update.upserts.external_id)
+        print("timeseries: ", ts)
+        asset = self.cognite_client.assets.retrieve(id=ts.asset_id) if ts.asset_id is not None else None
+        print("asset_id: ", asset)
+        asset_xid = asset.external_id if asset is not None else ""
+        metadata = ts.metadata if len(ts.metadata) > 0 else {"source": "cdf_fabric_replicator"}
+        df = pd.DataFrame(np.array([[ts.external_id, ts.name, ts.description if ts.description else "" , ts.is_string, ts.is_step, ts.unit, metadata, asset_xid]]), columns=["externalId", "name", "description", "isString", "isStep", "unit", "metadata", "assetExternalId"])
+        df = df.dropna()
+        self.logger.info (f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table...")
+        if not df.empty:
+            self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_ts, df)
+        self.ts_cache[update.upserts.external_id] = 1
+
+
+    def convert_updates_to_pandasdf(self, updates: List[DatapointsUpdate]) -> pd.DataFrame:
         rows = []
 
         for update in updates:
             for i in range(0, len(update.upserts.timestamp)):
                 rows.append( 
-                    [update.upserts.external_id, 
+                    (update.upserts.external_id, 
                     datetime.datetime.fromtimestamp(update.upserts.timestamp[i]/1000), 
-                    update.upserts.value[i]] )
-                
-                if update.upserts.external_id not in self.ts_cache:
-                    ts=self.cognite_client.time_series.retrieve(external_id=update.upserts.external_id)
-                    token = self.azure_credential.get_token("https://storage.azure.com/.default")
-                    asset = self.cognite_client.assets.retrieve(id=ts.asset_id) if ts.asset_id is not None else None
-                    asset_xid = asset.external_id if asset is not None else ""
-                    metadata = ts.metadata if len(ts.metadata) > 0 else {"source": "cdf_fabric_replicator"}
-                    df = pd.DataFrame(np.array([[ts.external_id, ts.name, ts.description if ts.description else "" , ts.is_string, ts.is_step, ts.unit, metadata, asset_xid]]), columns=["externalId", "name", "description", "isString", "isStep", "unit", "metadata", "assetExternalId"])
-                    df = df.dropna()
-                    self.logger.info (f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table...")
-                    write_deltalake(subscription.lakehouse_abfss_path_ts, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
-                    self.ts_cache[update.upserts.external_id] = 1
+                    update.upserts.value[i]) )
+        if len(rows) == 0:
+            logging.info ("No data in updates list.")
+            return None
+        return pd.DataFrame(data=rows, columns=["externalId", "timestamp", "value"])
 
-        if (len(rows) > 0):
 
-            token = self.azure_credential.get_token("https://storage.azure.com/.default")
+    def write_pd_to_deltalake(self, table: str, df: pd.DataFrame, mode="append") -> None:
+        token = self.get_token()
 
-            self.logger.info (f"Writing {len(rows)} rows to '{subscription.lakehouse_abfss_path_dps}' table...")
-            df = pd.DataFrame(np.array(rows), columns=["externalId", "timestamp", "value"])
-            write_deltalake(subscription.lakehouse_abfss_path_dps, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
-            self.logger.info ("Done.")
+        write_deltalake(table, df, mode=mode,engine="rust", schema_mode="merge", storage_options={"bearer_token": token, "use_fabric_endpoint": "true"})
+        return None
+    
+    def get_token(self) -> str:
+        return self.azure_credential.get_token("https://storage.azure.com/.default").token
 
 
