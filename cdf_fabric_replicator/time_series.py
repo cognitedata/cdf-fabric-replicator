@@ -132,9 +132,13 @@ class TimeSeriesReplicator(Extractor):
                     metadata = ts.metadata if len(ts.metadata) > 0 else {"source": "cdf_fabric_replicator"}
                     df = pd.DataFrame(np.array([[ts.external_id, ts.name, ts.description if ts.description else "" , ts.is_string, ts.is_step, ts.unit, metadata, asset_xid]]), columns=["externalId", "name", "description", "isString", "isStep", "unit", "metadata", "assetExternalId"])
                     df = df.dropna()
-                    self.logger.info (f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table...")
-                    write_deltalake(subscription.lakehouse_abfss_path_ts, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
-                    self.ts_cache[update.upserts.external_id] = 1
+                    try:
+                        self.logger.info (f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table...")
+                        write_deltalake(subscription.lakehouse_abfss_path_ts, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+                        self.ts_cache[update.upserts.external_id] = 1
+                    except Exception as e:
+                        self.logger.error (f"Error writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table: {e}")
+                        self.cognite_client.extraction_pipelines.runs.create(ExtractionPipelineRunWrite(status="error", extpipe_external_id=self.config.cognite.extraction_pipeline.external_id, error_message=f"Error writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table: {e}"[:1000]))
 
         if (len(rows) > 0):
 
@@ -142,7 +146,12 @@ class TimeSeriesReplicator(Extractor):
 
             self.logger.info (f"Writing {len(rows)} rows to '{subscription.lakehouse_abfss_path_dps}' table...")
             df = pd.DataFrame(np.array(rows), columns=["externalId", "timestamp", "value"])
-            write_deltalake(subscription.lakehouse_abfss_path_dps, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
-            self.logger.info ("Done.")
+            try:
+                write_deltalake(subscription.lakehouse_abfss_path_dps, df, mode="append", storage_options={"bearer_token": token.token, "use_fabric_endpoint": "true"})
+                self.logger.info ("Done.")
+            except Exception as e:
+                self.logger.error (f"Error writing {ts.external_id} to '{subscription.lakehouse_abfss_path_dps}' table: {e}")
+                self.cognite_client.extraction_pipelines.runs.create(ExtractionPipelineRunWrite(status="error", extpipe_external_id=self.config.cognite.extraction_pipeline.external_id, error_message=f"Error writing {ts.external_id} to '{subscription.lakehouse_abfss_path_dps}' table: {e}"[:1000]))
+
 
 
