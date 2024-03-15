@@ -139,6 +139,7 @@ class TimeSeriesReplicator(Extractor):
                     except Exception as e:
                         self.logger.error (f"Error writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table: {e}")
                         self.cognite_client.extraction_pipelines.runs.create(ExtractionPipelineRunWrite(status="error", extpipe_external_id=self.config.cognite.extraction_pipeline.external_id, error_message=f"Error writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table: {e}"[:1000]))
+                        raise e
 
         if (len(rows) > 0):
 
@@ -152,6 +153,6 @@ class TimeSeriesReplicator(Extractor):
             except Exception as e:
                 self.logger.error (f"Error writing {ts.external_id} to '{subscription.lakehouse_abfss_path_dps}' table: {e}")
                 self.cognite_client.extraction_pipelines.runs.create(ExtractionPipelineRunWrite(status="error", extpipe_external_id=self.config.cognite.extraction_pipeline.external_id, error_message=f"Error writing {ts.external_id} to '{subscription.lakehouse_abfss_path_dps}' table: {e}"[:1000]))
-
+                raise e
 
 
