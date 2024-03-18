@@ -22,7 +22,7 @@ python = ">=3.10,<3.13"
 cognite-sdk = "^7.26.0"
 cognite-extractor-utils = "^7.0.0"
 azure-identity = "^1.15.0"
-deltalake = "^0.15.3"
+deltalake = "^0.16.0"
 pandas = "^2.2.1"
 pytest = "^6.2.5"
 pytest_mock = "^3.6.1"
@@ -42,3 +42,6 @@ build-backend = "poetry.masonry.api"
 
 [tool.cogex.docker]
 tags = ["cognite/cdf-fabric-replicator:{version}"]
+
+[tool.pytest.ini_options]
+pythonpath = "."
