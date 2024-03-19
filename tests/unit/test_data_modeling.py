@@ -149,7 +149,9 @@ def replicator_config(lakehouse_abfss_prefix):
         logger=None,
         extractor=None,
         subscriptions=None,
-        data_modeling=DataModelingConfig(space="test_space", lakehouse_abfss_prefix=lakehouse_abfss_prefix))
+        data_modeling=DataModelingConfig(space="test_space", lakehouse_abfss_prefix=lakehouse_abfss_prefix),
+        source=None,
+        destination=None)
 
 class TestDataModelingReplicator:
     metrics = BaseMetrics(extractor_name = "test_dm_duplicator", extractor_version = "1.0.0")

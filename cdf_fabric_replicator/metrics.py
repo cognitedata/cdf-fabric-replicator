@@ -1,5 +1,5 @@
 from cognite.extractorutils.metrics import BaseMetrics
-from prometheus_client import Counter, Gauge
+from prometheus_client import Counter
 
 from cdf_fabric_replicator import __version__
 
