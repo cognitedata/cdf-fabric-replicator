@@ -9,8 +9,6 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 )
 from cognite.extractorutils.metrics import BaseMetrics
 from cognite.extractorutils.base import CancellationToken
-import pytest
-from cdf_fabric_replicator.time_series import TimeSeriesReplicator, DatapointsUpdate
 
 
 @pytest.fixture

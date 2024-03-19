@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 from azure.identity import DefaultAzureCredential
 from deltalake.writer import write_deltalake
 import pandas as pd
+import numpy as np
 
 from cognite.client.data_classes import ExtractionPipelineRunWrite
 from cognite.client.data_classes.datapoints_subscriptions import (
@@ -17,10 +18,6 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 from cognite.extractorutils.base import Extractor
 from cognite.extractorutils.base import CancellationToken
 
-from azure.identity import DefaultAzureCredential
-from deltalake import write_deltalake
-import pandas as pd
-import numpy as np
 
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config, SubscriptionsConfig
