@@ -8,10 +8,7 @@ from typing import Any, Dict, List
 from azure.identity import DefaultAzureCredential
 from deltalake.writer import write_deltalake
 import pandas as pd
-<<<<<<< HEAD
-=======
 import numpy as np
->>>>>>> e72fbbbb80b7bf234db5b08db5c1619f786d2c11
 
 from cognite.client.data_classes import ExtractionPipelineRunWrite
 from cognite.client.data_classes.datapoints_subscriptions import (

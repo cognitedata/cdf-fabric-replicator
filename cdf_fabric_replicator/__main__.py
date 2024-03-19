@@ -2,10 +2,6 @@ from cognite.extractorutils.base import CancellationToken
 
 from cognite.extractorutils.metrics import safe_get
 
-<<<<<<< HEAD
-from cdf_fabric_replicator import __version__
-=======
->>>>>>> e72fbbbb80b7bf234db5b08db5c1619f786d2c11
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
 from cdf_fabric_replicator.data_modeling import DataModelingReplicator
 from cdf_fabric_replicator.extractor import CdfFabricExtractor

@@ -125,11 +125,7 @@ class DataModelingReplicator(Extractor):
 
         try:
             res = self.cognite_client.data_modeling.instances.sync(query=query)
-<<<<<<< HEAD
-        except CogniteAPIError as e:
-=======
         except CogniteAPIError:
->>>>>>> e72fbbbb80b7bf234db5b08db5c1619f786d2c11
             query.cursors = None
             res = self.cognite_client.data_modeling.instances.sync(query=query)
             
@@ -140,11 +136,7 @@ class DataModelingReplicator(Extractor):
             
             try:
                 res = self.cognite_client.data_modeling.instances.sync(query=query)
-<<<<<<< HEAD
-            except CogniteAPIError as e:
-=======
             except CogniteAPIError:
->>>>>>> e72fbbbb80b7bf234db5b08db5c1619f786d2c11
                 query.cursors = None
                 res = self.cognite_client.data_modeling.instances.sync(query=query)
                 
