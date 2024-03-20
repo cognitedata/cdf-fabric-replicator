@@ -38,3 +38,12 @@ subscriptions:
 data_modeling:
     - space: cc_plant
       lakehouse_abfss_prefix: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse
+
+source:
+    abfss_event_table_path: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/TestEvents
+    abfss_directory: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Files/tank_thumbnail.png
+    abfss_raw_time_series_table_path: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/mtu_historic
+    data_set_id: 3351080165451477
+
+destination:
+    type: "events"

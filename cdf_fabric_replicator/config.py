@@ -26,7 +26,8 @@ class DataModelingConfig:
 @dataclass
 class SourceConfig:
     data_set_id: int
-    abfss_path: Optional[str] = None
+    abfss_event_table_path: Optional[str] = None
+    abfss_raw_time_series_table_path: Optional[str] = None
     abfss_directory: Optional[str] = None
 
 @dataclass
