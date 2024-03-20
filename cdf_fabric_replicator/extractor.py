@@ -44,7 +44,7 @@ class CdfFabricExtractor(Extractor[Config]):
             token = self.azure_credential.get_token("https://storage.azure.com/.default").token
             self.run_extraction_pipeline(status="seen")
 
-            if self.config.source.abfss_event_table_path:
+            if self.config.source.abfss_raw_time_series_table_path and self.config.destination.time_series_prefix:
                 time_series_data = self.convert_lakehouse_data_to_df(
                     self.config.source.abfss_raw_time_series_table_path, token=token
                 )
@@ -119,15 +119,34 @@ class CdfFabricExtractor(Extractor[Config]):
                         source_modified_time=modified_time, 
                         overwrite=True)
 
+
     def write_time_series_to_cdf(self, data_frame:DataFrame ) -> None:
+        external_ids = data_frame["externalId"].unique()
+        for external_id in external_ids:
+            
+            df = data_frame[data_frame["externalId"] == external_id]
+            state_id = f"{self.config.source.abfss_raw_time_series_table_path}-{external_id}-state"
+            
+            df_to_be_written = None
+            if self.state_store.get_state(state_id)[0] is None:
+                df_to_be_written = df
+            else:
+                latest_written_time = self.state_store.get_state(state_id)[0]
+                df_to_be_written = df[df["timestamp"] > latest_written_time]
 
-        data_frame["externalId"] = data_frame.apply(lambda row: "new_ktst_ts_" + row["externalId"], axis=1)
-        data_frame = data_frame.pivot(index="timestamp", columns="externalId", values="value")
-        data_frame.index = pd.to_datetime(data_frame.index)
 
-        self.client.time_series.data.insert_dataframe(data_frame)
+            if len(df_to_be_written) > 0:                
+                latest_process_time = df_to_be_written['timestamp'].max()
 
-    def write_event_data_to_cdf(self, file_path: str, token: str, state_id) -> None:
+                df_to_be_written["externalId"] = df_to_be_written.apply(lambda row: self.config.destination.time_series_prefix + row["externalId"], axis=1)
+                df_to_be_written = df_to_be_written.pivot(index="timestamp", columns="externalId", values="value")
+                df_to_be_written.index = pd.to_datetime(df_to_be_written.index)
+                self.client.time_series.data.insert_dataframe(df_to_be_written)
+
+                self.set_state(state_id, latest_process_time)
+
+
+    def write_event_data_to_cdf(self, file_path: str, token: str, state_id: str) -> None:
         df = self.convert_lakehouse_data_to_df(file_path, token)
 
         if str(self.state_store.get_state(state_id)[0]) != str(len(df)):
@@ -136,8 +155,13 @@ class CdfFabricExtractor(Extractor[Config]):
             self.client.events.upsert(events)
             self.run_extraction_pipeline(status="success")
 
-            self.state_store.set_state(state_id, str(len(df)))
-            self.state_store.synchronize()
+            self.set_state(state_id, str(len(df)))
+
+    
+    def set_state(self, state_id: str, value) -> None:
+        self.state_store.set_state(state_id, value)
+        self.state_store.synchronize()
+
 
     def get_events(self, df: DataFrame) -> list[EventWrite]:
         events = []

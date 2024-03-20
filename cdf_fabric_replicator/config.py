@@ -33,6 +33,7 @@ class SourceConfig:
 @dataclass
 class DestinationConfig:
     type: str
+    time_series_prefix: Optional[str] = None
 
 @dataclass
 class Config(BaseConfig):
