@@ -10,6 +10,8 @@ from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
 
 load_dotenv()
 
+TEST_TIMESERIES_TABLE_NAME = "timeseries"
+
 @pytest.fixture(scope="session")
 def cognite_client():
     credentials = OAuthClientCredentials(
@@ -33,7 +35,7 @@ def azure_credential():
 
 @pytest.fixture(scope="session")
 def lakehouse_timeseries_path(azure_credential):
-    lakehouse_timeseries_path = os.environ["LAKEHOUSE_BASE_URL"] + "/" + os.environ["LAKEHOUSE_TABLE_NAME"]
+    lakehouse_timeseries_path = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + TEST_TIMESERIES_TABLE_NAME
     yield lakehouse_timeseries_path
     delta_table = get_ts_delta_table(azure_credential, lakehouse_timeseries_path)
     delta_table.delete()
