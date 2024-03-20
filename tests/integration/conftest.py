@@ -5,7 +5,7 @@ from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
 from azure.identity import DefaultAzureCredential
 from tests.integration.integration_steps.cdf_steps import remove_time_series_data
-from tests.integration.integration_steps.time_series_generation import generate_datapoints, generate_timeseries_set
+from tests.integration.integration_steps.time_series_generation import generate_timeseries_set
 from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
 
 load_dotenv()

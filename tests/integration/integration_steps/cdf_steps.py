@@ -2,7 +2,7 @@ import pandas as pd
 from datetime import datetime
 from time import sleep
 from cognite.client import CogniteClient
-from cognite.client.data_classes import Datapoint, DatapointsArray, TimeSeries, TimeSeriesWrite, TimeSeriesList
+from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
 
 
