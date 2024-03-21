@@ -7,6 +7,7 @@ from cognite.client.data_classes import EventWrite, FileMetadata
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
 from cdf_fabric_replicator.config import Config
 from cognite.extractorutils.base import CancellationToken
+from cognite.extractorutils.metrics import BaseMetrics
 from cognite.extractorutils.statestore import LocalStateStore, NoStateStore, RawStateStore
 from cognite.extractorutils.configtools import (
     BaseConfig,
@@ -67,7 +68,8 @@ def config(config_raw):
 @pytest.fixture
 def extractor(config):
     stop_event = CancellationToken()
-    extractor = CdfFabricExtractor(stop_event=stop_event)
+    metrics = BaseMetrics(extractor_name = "test_extractor", extractor_version = "1.0.0")
+    extractor = CdfFabricExtractor(metrics=metrics, stop_event=stop_event)
     extractor.config = config
     extractor.client = extractor.config.cognite.get_cognite_client("test_extractor")
     extractor.state_store = LocalStateStore(extractor.config.extractor.state_store.local.path)
