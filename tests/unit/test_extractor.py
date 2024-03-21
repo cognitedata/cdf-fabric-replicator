@@ -1,9 +1,6 @@
 import pytest
-from pytest_mock import mocker
 import pandas as pd
-from pandas import DataFrame
-from azure.storage.filedatalake import DataLakeServiceClient
-from cognite.client.data_classes import EventWrite, FileMetadata
+from cognite.client.data_classes import EventWrite
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
 from cdf_fabric_replicator.config import Config
 from cognite.extractorutils.base import CancellationToken
@@ -75,9 +72,14 @@ def test_parse_abfss_url(extractor):
 
 def test_write_time_series_to_cdf(extractor, mocker):
     data = {
-        'externalId': ['id1', 'id2', 'id1', 'id2'],
-        'timestamp': ['2021-01-01', '2021-01-02', '2021-01-03', '2021-01-04'],
-        'value': [1.0, 2.0, 3.0, 4.0]
+        "externalId": ["id1", "id2", "id1", "id2"],
+        "timestamp": [
+            "2022-02-07T16:01:27.001Z",
+            "2022-02-07T16:03:47.000Z",
+            "2022-02-07T16:03:52.000Z",
+            "2022-02-07T16:04:12.000Z",
+        ],
+        "value": [1.0, 2.0, 3.0, 4.0],
     }
     df = pd.DataFrame(data)
 
@@ -90,10 +92,65 @@ def test_write_time_series_to_cdf(extractor, mocker):
     extractor.state_store.get_state.assert_any_call('/table/path-id1-state')
     extractor.state_store.get_state.assert_any_call('/table/path-id2-state')
     assert(extractor.client.time_series.data.insert_dataframe.call_count == 2)
-    extractor.set_state.assert_any_call('/table/path-id1-state', '2021-01-03')
-    extractor.set_state.assert_any_call('/table/path-id2-state', '2021-01-04')
+    extractor.set_state.assert_any_call("/table/path-id1-state", "2022-02-07T16:03:52.000Z")
+    extractor.set_state.assert_any_call("/table/path-id2-state", "2022-02-07T16:04:12.000Z")
 
-    
+
+def test_write_time_series_to_cdf_filter_old_data_points(extractor, mocker):
+    data = {
+        "externalId": ["id1", "id1", "id1", "id1"],
+        "timestamp": [
+            "2022-02-07T16:01:27.001Z",
+            "2022-02-07T16:03:47.000Z",
+            "2022-02-07T16:03:52.000Z",
+            "2022-02-07T16:04:12.000Z",
+        ],
+        "value": [1.0, 2.0, 3.0, 4.0],
+    }
+    df = pd.DataFrame(data)
+
+    last_update_time = "2022-02-07T16:03:47.000Z"
+
+    mocker.patch.object(extractor.state_store, "get_state", return_value=(last_update_time,))
+    mocker.patch.object(extractor.client.time_series.data, "insert_dataframe", return_value=None)
+    mocker.patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.set_state", return_value=None)
+
+    extractor.write_time_series_to_cdf(df)
+
+    expected_update_list = df[df["timestamp"] > last_update_time]
+
+    extractor.state_store.get_state.assert_any_call("/table/path-id1-state")
+    assert extractor.client.time_series.data.insert_dataframe.call_count == 1
+    assert len(extractor.client.time_series.data.insert_dataframe.call_args_list[0]) == len(expected_update_list)
+    extractor.set_state.assert_any_call("/table/path-id1-state", "2022-02-07T16:04:12.000Z")
+
+
+def test_write_time_series_to_cdf_no_new_data_points(extractor, mocker):
+    data = {
+        "externalId": ["id1", "id1", "id1", "id1"],
+        "timestamp": [
+            "2022-02-07T16:01:27.001Z",
+            "2022-02-07T16:03:47.000Z",
+            "2022-02-07T16:03:52.000Z",
+            "2022-02-07T16:04:12.000Z",
+        ],
+        "value": [1.0, 2.0, 3.0, 4.0],
+    }
+    df = pd.DataFrame(data)
+
+    last_update_time = "2022-02-07T16:04:12.000Z"
+
+    mocker.patch.object(extractor.state_store, "get_state", return_value=(last_update_time,))
+    mocker.patch.object(extractor.client.time_series.data, "insert_dataframe", return_value=None)
+    mocker.patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.set_state", return_value=None)
+
+    extractor.write_time_series_to_cdf(df)
+
+    extractor.state_store.get_state.assert_any_call("/table/path-id1-state")
+    extractor.client.time_series.data.insert_dataframe.assert_not_called()
+    extractor.set_state.assert_not_called()
+
+
 def test_write_event_data_to_cdf(extractor, mocker):
     file_path = "test_file_path"
     token = "test_token"
