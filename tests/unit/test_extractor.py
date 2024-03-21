@@ -19,7 +19,7 @@ from cognite.extractorutils.configtools import (
 )
 from cognite.client import CogniteClient
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def config_raw():
     yield """
     # Logging configuration
@@ -60,16 +60,16 @@ def config_raw():
         type: test_events
         time_series_prefix: test_ts_
     """
-@pytest.fixture
+@pytest.fixture(scope="session")
 def config(config_raw):
     yield load_yaml(config_raw, Config)
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def extractor(config):
     stop_event = CancellationToken()
-    metrics = BaseMetrics(extractor_name = "test_extractor", extractor_version = "1.0.0")
-    extractor = CdfFabricExtractor(metrics=metrics, stop_event=stop_event)
+    # metrics = BaseMetrics(extractor_name = "test_extractor", extractor_version = "1.0.0")
+    extractor = CdfFabricExtractor(stop_event=stop_event)
     extractor.config = config
     extractor.client = extractor.config.cognite.get_cognite_client("test_extractor")
     extractor.state_store = LocalStateStore(extractor.config.extractor.state_store.local.path)
