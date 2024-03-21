@@ -1,4 +1,6 @@
 import time
+import logging
+
 from urllib.parse import urlparse
 
 from azure.identity import DefaultAzureCredential
@@ -38,8 +40,6 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error("No source path or directory provided")
             return
 
-        state_id = f"{self.config.source.abfss_event_table_path}-state"
-
         while self.stop_event.is_set() is False:
             token = self.azure_credential.get_token("https://storage.azure.com/.default").token
             self.run_extraction_pipeline(status="seen")
@@ -51,6 +51,7 @@ class CdfFabricExtractor(Extractor[Config]):
                 self.write_time_series_to_cdf(time_series_data)
 
             if self.config.source.abfss_event_table_path:
+                state_id = f"{self.config.source.abfss_event_table_path}-state"
                 self.write_event_data_to_cdf(self.config.source.abfss_event_table_path, token=token, state_id=state_id)
 
             if self.config.source.abfss_directory:
@@ -119,14 +120,11 @@ class CdfFabricExtractor(Extractor[Config]):
                         source_modified_time=modified_time, 
                         overwrite=True)
 
-
     def write_time_series_to_cdf(self, data_frame:DataFrame ) -> None:
         external_ids = data_frame["externalId"].unique()
         for external_id in external_ids:
-            
             df = data_frame[data_frame["externalId"] == external_id]
             state_id = f"{self.config.source.abfss_raw_time_series_table_path}-{external_id}-state"
-            
             df_to_be_written = None
             if self.state_store.get_state(state_id)[0] is None:
                 df_to_be_written = df
@@ -134,17 +132,17 @@ class CdfFabricExtractor(Extractor[Config]):
                 latest_written_time = self.state_store.get_state(state_id)[0]
                 df_to_be_written = df[df["timestamp"] > latest_written_time]
 
-
             if len(df_to_be_written) > 0:                
                 latest_process_time = df_to_be_written['timestamp'].max()
 
-                df_to_be_written["externalId"] = df_to_be_written.apply(lambda row: self.config.destination.time_series_prefix + row["externalId"], axis=1)
+                df_to_be_written.loc[:, "externalId"] = df_to_be_written.apply(
+                    lambda row: self.config.destination.time_series_prefix + row["externalId"], axis=1
+                )
                 df_to_be_written = df_to_be_written.pivot(index="timestamp", columns="externalId", values="value")
                 df_to_be_written.index = pd.to_datetime(df_to_be_written.index)
                 self.client.time_series.data.insert_dataframe(df_to_be_written)
 
                 self.set_state(state_id, latest_process_time)
-
 
     def write_event_data_to_cdf(self, file_path: str, token: str, state_id: str) -> None:
         df = self.convert_lakehouse_data_to_df(file_path, token)
@@ -157,11 +155,9 @@ class CdfFabricExtractor(Extractor[Config]):
 
             self.set_state(state_id, str(len(df)))
 
-    
     def set_state(self, state_id: str, value) -> None:
         self.state_store.set_state(state_id, value)
         self.state_store.synchronize()
-
 
     def get_events(self, df: DataFrame) -> list[EventWrite]:
         events = []

@@ -19,7 +19,6 @@ def main() -> None:
     with CdfFabricExtractor(stop_event=stop_event) as extractor:
         extractor_worker = threading.Thread(target=extractor.run)
         extractor_worker.start()
-        extractor.run()
 
     with DataModelingReplicator(metrics=safe_get(Metrics), stop_event=stop_event) as dm_replicator:
         dm_worker = threading.Thread(target=dm_replicator.run)
