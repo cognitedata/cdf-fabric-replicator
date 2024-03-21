@@ -19,11 +19,9 @@ cognite:
 #Extractor config
 extractor:
     state-store:
-        # raw:
-        #     database: ${COGNITE_STATE_DB}
-        #     table: ${COGNITE_STATE_TABLE}
-        local:
-            path: states.json
+        raw:
+            database: ${COGNITE_STATE_DB}
+            table: ${COGNITE_STATE_TABLE}
     subscription-batch-size: 10000
     ingest-batch-size: 100000
     poll-time: 5
