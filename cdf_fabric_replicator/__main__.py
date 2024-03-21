@@ -12,19 +12,19 @@ import threading
 def main() -> None:
     stop_event = CancellationToken()
 
-    # with TimeSeriesReplicator(metrics=safe_get(Metrics), stop_event=stop_event) as ts_replicator:
-    #     ts_worker = threading.Thread(target=ts_replicator.run)
-    #     ts_worker.start()
+    with TimeSeriesReplicator(metrics=safe_get(Metrics), stop_event=stop_event) as ts_replicator:
+        ts_worker = threading.Thread(target=ts_replicator.run)
+        ts_worker.start()
 
     with CdfFabricExtractor(stop_event=stop_event) as extractor:
-        # extractor_worker = threading.Thread(target=extractor.run)
-        # extractor_worker.start()
+        extractor_worker = threading.Thread(target=extractor.run)
+        extractor_worker.start()
         extractor.run()
 
-    # with DataModelingReplicator(metrics=safe_get(Metrics), stop_event=stop_event) as dm_replicator:
-    #     dm_worker = threading.Thread(target=dm_replicator.run)
-    #     dm_worker.start()
-    #     dm_worker.join()
+    with DataModelingReplicator(metrics=safe_get(Metrics), stop_event=stop_event) as dm_replicator:
+        dm_worker = threading.Thread(target=dm_replicator.run)
+        dm_worker.start()
+        dm_worker.join()
 
 if __name__ == "__main__":
     main()
