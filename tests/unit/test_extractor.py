@@ -7,17 +7,8 @@ from cognite.client.data_classes import EventWrite, FileMetadata
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
 from cdf_fabric_replicator.config import Config
 from cognite.extractorutils.base import CancellationToken
-from cognite.extractorutils.metrics import BaseMetrics
-from cognite.extractorutils.statestore import LocalStateStore, NoStateStore, RawStateStore
-from cognite.extractorutils.configtools import (
-    BaseConfig,
-    CogniteConfig,
-    FileSizeConfig,
-    LoggingConfig,
-    TimeIntervalConfig,
-    load_yaml,
-)
-from cognite.client import CogniteClient
+from cognite.extractorutils.statestore import LocalStateStore
+from cognite.extractorutils.configtools import load_yaml
 
 @pytest.fixture(scope="session")
 def config_raw():
@@ -68,7 +59,6 @@ def config(config_raw):
 @pytest.fixture(scope="session")
 def extractor(config):
     stop_event = CancellationToken()
-    # metrics = BaseMetrics(extractor_name = "test_extractor", extractor_version = "1.0.0")
     extractor = CdfFabricExtractor(stop_event=stop_event)
     extractor.config = config
     extractor.client = extractor.config.cognite.get_cognite_client("test_extractor")
@@ -91,17 +81,35 @@ def test_write_time_series_to_cdf(extractor, mocker):
     }
     df = pd.DataFrame(data)
 
-    # Mocking dependencies
     mocker.patch.object(extractor.state_store, 'get_state', return_value=(None, ))
-    mocker.patch.object(extractor.client.time_series.data, 'insert_dataframe')
+    mocker.patch.object(extractor.client.time_series.data, 'insert_dataframe', return_value=None)
     mocker.patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.set_state", return_value=None)
 
-    # Call the method with the DataFrame
     extractor.write_time_series_to_cdf(df)
 
-    # Assertions to check if the methods were called with the correct arguments
     extractor.state_store.get_state.assert_any_call('/table/path-id1-state')
     extractor.state_store.get_state.assert_any_call('/table/path-id2-state')
-    extractor.client.time_series.data.insert_dataframe.assert_any_call()
+    assert(extractor.client.time_series.data.insert_dataframe.call_count == 2)
     extractor.set_state.assert_any_call('/table/path-id1-state', '2021-01-03')
     extractor.set_state.assert_any_call('/table/path-id2-state', '2021-01-04')
+
+    
+def test_write_event_data_to_cdf(extractor, mocker):
+    file_path = "test_file_path"
+    token = "test_token"
+    state_id = "/table/path-state"
+
+    mocker.patch.object(extractor, 'convert_lakehouse_data_to_df', return_value=pd.DataFrame())
+    mocker.patch.object(extractor.state_store, 'get_state', return_value=(None, ))
+    mocker.patch.object(extractor, 'get_events', return_value=[EventWrite()])
+    mocker.patch.object(extractor.client.events, 'upsert', return_value=None)
+    mocker.patch.object(extractor, 'run_extraction_pipeline', return_value=None)
+    mocker.patch.object(extractor, 'set_state', return_value=None)
+
+    extractor.write_event_data_to_cdf(file_path, token, state_id)
+
+    extractor.convert_lakehouse_data_to_df.assert_called_once_with(file_path, token)
+    extractor.state_store.get_state.assert_called_once_with(state_id)
+    extractor.client.events.upsert.assert_called_once_with([EventWrite()])
+    extractor.run_extraction_pipeline.assert_called_once_with(status="success")
+    extractor.set_state.assert_called_once_with(state_id, str(len(pd.DataFrame())))
