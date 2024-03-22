@@ -1,6 +1,6 @@
 # CDF Fabric replicator
 
-Application which utilize the CDF APIs to replicate data to Microsoft Fabrc
+Application which utilize the CDF APIs to replicate data to Microsoft Fabric
 
 Before running the extractor you need to setup a data point subscriptions, see the [SDK documentation](https://cognite-sdk-python.readthedocs-hosted.com/en/latest/core_data_model.html#create-data-point-subscriptions)
 
