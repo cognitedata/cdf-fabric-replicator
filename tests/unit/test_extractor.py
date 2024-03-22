@@ -92,8 +92,8 @@ def test_write_time_series_to_cdf(extractor, mocker):
     extractor.state_store.get_state.assert_any_call('/table/path-id1-state')
     extractor.state_store.get_state.assert_any_call('/table/path-id2-state')
     assert(extractor.client.time_series.data.insert_dataframe.call_count == 2)
-    extractor.set_state.assert_any_call("/table/path-id1-state", "2022-02-07T16:03:52.000Z")
-    extractor.set_state.assert_any_call("/table/path-id2-state", "2022-02-07T16:04:12.000Z")
+    extractor.set_state.assert_any_call("/table/path-id1-state", df[df["externalId"] == "id1"]["timestamp"].max())
+    extractor.set_state.assert_any_call("/table/path-id2-state", df[df["externalId"] == "id2"]["timestamp"].max())
 
 
 def test_write_time_series_to_cdf_filter_old_data_points(extractor, mocker):
@@ -122,7 +122,7 @@ def test_write_time_series_to_cdf_filter_old_data_points(extractor, mocker):
     extractor.state_store.get_state.assert_any_call("/table/path-id1-state")
     assert extractor.client.time_series.data.insert_dataframe.call_count == 1
     assert len(extractor.client.time_series.data.insert_dataframe.call_args_list[0]) == len(expected_update_list)
-    extractor.set_state.assert_any_call("/table/path-id1-state", "2022-02-07T16:04:12.000Z")
+    extractor.set_state.assert_any_call("/table/path-id1-state", df[df["externalId"] == "id1"]["timestamp"].max())
 
 
 def test_write_time_series_to_cdf_no_new_data_points(extractor, mocker):
