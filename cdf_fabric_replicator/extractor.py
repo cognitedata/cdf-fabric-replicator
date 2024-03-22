@@ -40,8 +40,9 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error("No source path or directory provided")
             return
 
+        token = self.azure_credential.get_token("https://storage.azure.com/.default").token
+        
         while self.stop_event.is_set() is False:
-            token = self.azure_credential.get_token("https://storage.azure.com/.default").token
             self.run_extraction_pipeline(status="seen")
 
             if self.config.source.abfss_raw_time_series_table_path and self.config.destination.time_series_prefix:
