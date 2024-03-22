@@ -1,18 +1,11 @@
-import time
 import pytest
 from integration_steps.cdf_steps import (
     push_data_to_cdf,
-    create_data_model_in_cdf,
-    update_data_model_in_cdf,
     remove_time_series_data
 )
 from integration_steps.time_series_generation import TimeSeriesGeneratorArgs
-from integration_steps.fabric_steps import (
-    assert_timeseries_data_in_fabric,
-    assert_data_model_in_fabric,
-    assert_data_model_update,
-)
-from integration_steps.service_steps import start_replicator, stop_replicator, setup_data_model_sync
+from integration_steps.fabric_steps import assert_timeseries_data_in_fabric
+from integration_steps.service_steps import start_replicator
 
 
 # Test for Timeseries data integration service
