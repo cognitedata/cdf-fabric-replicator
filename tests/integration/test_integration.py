@@ -33,37 +33,3 @@ def test_timeseries_data_integration_service(cognite_client, lakehouse_timeserie
     # Assert timeseries data is populated in a Fabric lakehouse
     for ts_external_id, data_points in pushed_data.items():
         assert_timeseries_data_in_fabric(ts_external_id, data_points, lakehouse_timeseries_path, azure_credential)
-
-@pytest.mark.skip("Skipping test", allow_module_level=True)
-def test_timeseries_data_integration_service_restart(
-    cognite_client, lakehouse_timeseries_path, time_series, azure_credential
-):
-    # Setup time series integration service between CDF and Fabric
-    start_replicator()
-    # Stop and restart the service
-    stop_replicator()
-    data_points = push_data_to_cdf(time_series, cognite_client)
-    time.sleep(60)
-    start_replicator()
-    # Assert CDF timeseries data from the stopped time period is populated in a Fabric lakehouse
-    assert_timeseries_data_in_fabric(data_points, lakehouse_timeseries_path, azure_credential)
-
-# Test for data model sync service
-@pytest.mark.skip("Skipping test", allow_module_level=True)
-def test_data_model_sync_service_creation():
-    # Setup data model sync service between CDF and Fabric
-    setup_data_model_sync()
-    # Create a data model in CDF
-    create_data_model_in_cdf()
-    # Assert the data model is populated in a Fabric lakehouse
-    assert_data_model_in_fabric()
-
-@pytest.mark.skip("Skipping test", allow_module_level=True)
-def test_data_model_sync_service_update():
-    # Setup data model sync service between CDF and Fabric and Create Model
-    setup_data_model_sync()
-    create_data_model_in_cdf()
-    # Update a data model in CDF
-    update_data_model_in_cdf()
-    # Assert the data model changes including versions and last updated timestamps are propagated to a Fabric lakehouse
-    assert_data_model_update()
