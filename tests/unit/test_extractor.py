@@ -42,11 +42,11 @@ def test_write_time_series_to_cdf(extractor, mocker):
 
     extractor.write_time_series_to_cdf(df)
 
-    extractor.state_store.get_state.assert_any_call('/table/path-id1-state')
-    extractor.state_store.get_state.assert_any_call('/table/path-id2-state')
+    for external_id in list(set(data["externalId"])):
+        extractor.state_store.get_state.assert_any_call(f'/table/path-{external_id}-state')
+        extractor.set_state.assert_any_call(f"/table/path-{external_id}-state", df[df["externalId"] == external_id]["timestamp"].max())
+
     assert(extractor.client.time_series.data.insert_dataframe.call_count == 2)
-    extractor.set_state.assert_any_call("/table/path-id1-state", df[df["externalId"] == "id1"]["timestamp"].max())
-    extractor.set_state.assert_any_call("/table/path-id2-state", df[df["externalId"] == "id2"]["timestamp"].max())
 
 
 def test_write_time_series_to_cdf_filter_old_data_points(extractor, mocker):
@@ -73,10 +73,12 @@ def test_write_time_series_to_cdf_filter_old_data_points(extractor, mocker):
 
     expected_update_list = df[df["timestamp"] > LAST_UPDATE_TIME]
 
-    extractor.state_store.get_state.assert_any_call("/table/path-id1-state")
+    for external_id in list(set(data["externalId"])):
+        extractor.state_store.get_state.assert_any_call(f'/table/path-{external_id}-state')
+        extractor.set_state.assert_any_call(f"/table/path-{external_id}-state", df[df["externalId"] == external_id]["timestamp"].max())
+
     assert extractor.client.time_series.data.insert_dataframe.call_count == 1
     assert len(extractor.client.time_series.data.insert_dataframe.call_args_list[0]) == len(expected_update_list)
-    extractor.set_state.assert_any_call("/table/path-id1-state", df[df["externalId"] == "id1"]["timestamp"].max())
 
 
 def test_write_time_series_to_cdf_no_new_data_points(extractor, mocker):
@@ -100,7 +102,9 @@ def test_write_time_series_to_cdf_no_new_data_points(extractor, mocker):
 
     extractor.write_time_series_to_cdf(df)
 
-    extractor.state_store.get_state.assert_any_call("/table/path-id1-state")
+    for external_id in list(set(data["externalId"])):
+        extractor.state_store.get_state.assert_any_call(f'/table/path-{external_id}-state')
+
     extractor.client.time_series.data.insert_dataframe.assert_not_called()
     extractor.set_state.assert_not_called()
 
