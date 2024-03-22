@@ -4,7 +4,7 @@ from time import sleep
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
-
+from cognite.client.data_classes import DataPointSubscriptionWrite
 
 def push_data_points_to_cdf(
     external_id: str, data_points: list[Datapoint], cognite_client: CogniteClient
@@ -16,9 +16,9 @@ def push_data_points_to_cdf(
     for datapoint in data_points:
         data_point_list.append(
             {
-                "timestamp": str(datapoint.timestamp),
-                "value": datapoint.value,
                 "externalId": external_id,
+                "timestamp": str(datapoint.timestamp),
+                "value": datapoint.value
             }
         )
 
@@ -48,8 +48,6 @@ def push_time_series_to_cdf(time_series_data: list[TimeSeries], cognite_client: 
     return time_series_data
 
 def push_data_to_cdf(time_series_data: list[TimeSeries], cognite_client: CogniteClient):
-    push_time_series_to_cdf(time_series_data, cognite_client)
-    sleep(5)
     time_series_data_points_pushed = {}
     for ts in time_series_data:
         time_series_data_points_pushed[ts.external_id] = push_data_points_to_cdf(
@@ -57,7 +55,11 @@ def push_data_to_cdf(time_series_data: list[TimeSeries], cognite_client: Cognite
         )
     sleep(5)
     return time_series_data_points_pushed
-    
+
+def create_subscription_in_cdf(time_series_data: list[TimeSeries], sub_name: str, cognite_client: CogniteClient):
+    ts_external_ids = [ts.external_id for ts in time_series_data]
+    sub = DataPointSubscriptionWrite(sub_name, partition_count=1, time_series_ids=ts_external_ids, name="Test subscription")
+    return cognite_client.time_series.subscriptions.create(sub)
 
 def create_data_model_in_cdf():
     # Create a data model in CDF

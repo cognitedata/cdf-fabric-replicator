@@ -1,6 +1,8 @@
-def setup_timeseries_replicator():
-    # Setup integration service for data point subscription between CDF and Fabric
-    pass
+from cdf_fabric_replicator.time_series import TimeSeriesReplicator
+
+def run_replicator(test_replicator: TimeSeriesReplicator):
+    # Processes data point subscription batches
+    test_replicator.process_subscriptions()
 
 def start_replicator():
     # Start the replicator service
