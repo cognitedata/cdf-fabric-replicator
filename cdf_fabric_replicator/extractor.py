@@ -45,15 +45,15 @@ class CdfFabricExtractor(Extractor[Config]):
         while self.stop_event.is_set() is False:
             self.run_extraction_pipeline(status="seen")
 
-            if self.config.source.abfss_raw_time_series_table_path and self.config.destination.time_series_prefix:
+            if self.config.source.raw_time_series_path and self.config.destination.time_series_prefix:
                 time_series_data = self.convert_lakehouse_data_to_df(
-                    self.config.source.abfss_raw_time_series_table_path, token=token
+                    self.config.source.raw_time_series_path, token=token
                 )
                 self.write_time_series_to_cdf(time_series_data)
 
-            if self.config.source.abfss_event_table_path:
-                state_id = f"{self.config.source.abfss_event_table_path}-state"
-                self.write_event_data_to_cdf(self.config.source.abfss_event_table_path, token=token, state_id=state_id)
+            if self.config.source.event_path:
+                state_id = f"{self.config.source.event_path}-state"
+                self.write_event_data_to_cdf(self.config.source.event_path, token=token, state_id=state_id)
 
             if self.config.source.abfss_directory:
                 self.download_files_from_abfss(self.config.source.abfss_directory)
@@ -125,7 +125,7 @@ class CdfFabricExtractor(Extractor[Config]):
         external_ids = data_frame["externalId"].unique()
         for external_id in external_ids:
             df = data_frame[data_frame["externalId"] == external_id]
-            state_id = f"{self.config.source.abfss_raw_time_series_table_path}-{external_id}-state"
+            state_id = f"{self.config.source.raw_time_series_path}-{external_id}-state"
             df_to_be_written = None
             if self.state_store.get_state(state_id)[0] is None:
                 df_to_be_written = df

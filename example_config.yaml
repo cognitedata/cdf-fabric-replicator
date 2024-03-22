@@ -40,9 +40,9 @@ data_modeling:
       lakehouse_abfss_prefix: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse
 
 source:
-    abfss_event_table_path: abfss://ed261bd7-3d7d-4ab5-b70e-a23600c10a62@msit-onelake.dfs.fabric.microsoft.com/ab54a389-a6e8-417f-990f-45edd7d99455/Tables/TestEvents
+    event_path: abfss://ed261bd7-3d7d-4ab5-b70e-a23600c10a62@msit-onelake.dfs.fabric.microsoft.com/ab54a389-a6e8-417f-990f-45edd7d99455/Tables/TestEvents
     abfss_directory: abfss://ed261bd7-3d7d-4ab5-b70e-a23600c10a62@msit-onelake.dfs.fabric.microsoft.com/ab54a389-a6e8-417f-990f-45edd7d99455/Files/tank_thumbnail.png
-    abfss_raw_time_series_table_path: abfss://ebbedac0-b667-4db5-895f-86eba7a8bc44@msit-onelake.dfs.fabric.microsoft.com/8e66858c-c1f3-40b6-92e3-a86e747a7c9d/Tables/mtu_historic
+    raw_time_series_path: abfss://ebbedac0-b667-4db5-895f-86eba7a8bc44@msit-onelake.dfs.fabric.microsoft.com/8e66858c-c1f3-40b6-92e3-a86e747a7c9d/Tables/mtu_historic
     data_set_id: 3351080165451477
 
 destination:
