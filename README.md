@@ -29,28 +29,17 @@ extractor:
     ingest-batch-size: 100000
     poll-time: 5
 
-
-# lakehouse details
-lakehouse:
-  - lakehouse_table_name: ${LAKEHOUSE_TABLE_NAME}
-
 # subscriptions to stream
 subscriptions:
   - externalId: ts-subscription
     partitions:
         - 0
-    lakehouse_abfss_path: ${LAKEHOUSE_ABFSS_PATH}
+    lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${DPS_TABLE_NAME}
+    lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${TS_TABLE_NAME}
 
 # sync data model
-subscriptions:
-  - externalId: ts-subscription
-    partitions:
-        - 0
-    lakehouse_abfss_path: ${LAKEHOUSE_ABFSS_PATH}
-
 data_modeling:
   - space: cc_plant
-    lakehouse_abfss_path_nodes: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/nodes
-    lakehouse_abfss_path_edges: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/edges
+    lakehouse_abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
 
 ```

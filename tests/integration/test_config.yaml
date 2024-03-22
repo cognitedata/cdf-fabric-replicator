@@ -1,0 +1,39 @@
+
+logger:
+    console:
+        level: INFO
+
+# Cognite project to stream your datapoints from
+cognite:
+    host: ${COGNITE_BASE_URL}
+    project: ${COGNITE_PROJECT}
+
+    idp-authentication:
+        token-url: ${COGNITE_TOKEN_URL}
+        client-id: ${COGNITE_CLIENT_ID}
+        secret: ${COGNITE_CLIENT_SECRET}
+        scopes:
+            - ${COGNITE_BASE_URL}/.default
+    extraction-pipeline:
+        external-id: test-replicator
+
+#Extractor config
+extractor:
+    state-store:
+        local:
+            path: states.json
+    subscription-batch-size: 10000
+    ingest-batch-size: 100000
+    poll-time: 5
+
+subscriptions:
+    - external_id: testSubscription
+      partitions:
+          - 0
+      lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${DPS_TABLE_NAME}
+      lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${TS_TABLE_NAME}
+
+# sync data model
+data_modeling:
+    - space: cc_plant
+      lakehouse_abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
