@@ -1,5 +1,6 @@
 import os
 import pytest
+import yaml
 from unittest.mock import Mock
 from azure.identity import DefaultAzureCredential
 from cognite.client import ClientConfig, CogniteClient
@@ -22,11 +23,16 @@ from tests.integration.integration_steps.time_series_generation import generate_
 
 load_dotenv()
 RESOURCES = Path(__file__).parent / "resources"
-SPACE_ID = "IntegrationTestSpace"
 VIEWS = ["Movie", "Actor", "Role", "Person"]
 
 def lakehouse_table_name(table_name:str):
     return os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + table_name
+
+@pytest.fixture(scope="session")
+def test_config():
+    with open(os.environ["TEST_CONFIG_PATH"]) as file:
+        config = yaml.safe_load(file)
+    return config
 
 @pytest.fixture(scope="function")
 def test_replicator():
@@ -80,13 +86,18 @@ def time_series(request, cognite_client):
     cognite_client.time_series.subscriptions.delete(sub_name)
 
 @pytest.fixture(scope="session")
-def test_space(cognite_client: CogniteClient):
-    space = cognite_client.data_modeling.spaces.retrieve(SPACE_ID)
+def test_space(test_config, cognite_client: CogniteClient):
+    space_id = test_config["data_modeling"][0]["space"]
+    space = cognite_client.data_modeling.spaces.retrieve(space_id)
     if space is None:
-        new_space = SpaceApply(SPACE_ID, name="Integration Test Space", description="The space used for integration tests.")
+        new_space = SpaceApply(space_id, name="Integration Test Space", description="The space used for integration tests.")
         space = cognite_client.data_modeling.spaces.apply(new_space)
+    else: # Ensure there aren't existing data models
+        data_model_list = cognite_client.data_modeling.data_models.list(space=space_id)
+        for data_model in data_model_list:
+            cognite_client.data_modeling.data_models.delete((space_id, data_model.external_id, data_model.version))
     yield space
-    cognite_client.data_modeling.spaces.delete(spaces=[SPACE_ID])
+    cognite_client.data_modeling.spaces.delete(spaces=[space_id])
     
 
 @pytest.fixture(scope="session")
@@ -104,12 +115,12 @@ def test_model(cognite_client: CogniteClient, test_space: Space, test_dml: str):
     cognite_client.data_modeling.data_models.delete(ids=[movie_id])
     views = models.data[0].views
     for view in views: # Views and containers need to be deleted so the space can be deleted
-        cognite_client.data_modeling.views.delete((SPACE_ID, view.external_id, view.version))
-        cognite_client.data_modeling.containers.delete((SPACE_ID, view.external_id))
+        cognite_client.data_modeling.views.delete((test_space.space, view.external_id, view.version))
+        cognite_client.data_modeling.containers.delete((test_space.space, view.external_id))
 
 @pytest.fixture(scope="function")
-def edge_table_name(azure_credential):
-    edge_table_name = lakehouse_table_name(SPACE_ID + "_edges")
+def edge_table_name(test_space, azure_credential):
+    edge_table_name = lakehouse_table_name(test_space.space + "_edges")
     yield edge_table_name
     try:
         delta_table = get_ts_delta_table(azure_credential, edge_table_name)
@@ -118,10 +129,10 @@ def edge_table_name(azure_credential):
         print(f"Table not found {edge_table_name}")
 
 @pytest.fixture(scope="function")
-def view_tables(azure_credential):
+def view_tables(test_space, azure_credential):
     view_tables = []
     for view in VIEWS:
-        view_table_name = lakehouse_table_name(SPACE_ID + "_" + view)
+        view_table_name = lakehouse_table_name(test_space.space + "_" + view)
         view_tables.append(view_table_name)
     yield view_tables
     for view_table in view_tables:
