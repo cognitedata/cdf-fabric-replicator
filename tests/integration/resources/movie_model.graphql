@@ -1,0 +1,24 @@
+type Person {
+    name: String!
+    birthYear: Int
+    roles: [Role]
+}
+
+interface Role{
+    movies: [Movie]
+    person: Person
+}
+
+type Actor implements Role {
+    movies: [Movie]
+    wonOscar: Boolean
+    person: Person
+}
+
+type Movie{
+    title: String!
+    actors: [Actor]
+    releaseYear: Int
+    runTimeMinutes: Float
+    meta: JSONObject
+}

@@ -4,8 +4,15 @@ from unittest.mock import Mock
 from azure.identity import DefaultAzureCredential
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
+from pathlib import Path
+from cognite.client.data_classes.data_modeling import (
+    Space, 
+    SpaceApply
+)
+from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.metrics import safe_get
+from deltalake.exceptions import TableNotFoundError
 from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
 from dotenv import load_dotenv
@@ -14,6 +21,9 @@ from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
 from tests.integration.integration_steps.time_series_generation import generate_timeseries_set
 
 load_dotenv()
+RESOURCES = Path(__file__).parent / "resources"
+SPACE_ID = "IntegrationTestSpace"
+VIEWS = ["Movie", "Actor", "Role", "Person"]
 
 @pytest.fixture(scope="function")
 def test_replicator():
@@ -65,3 +75,56 @@ def time_series(request, cognite_client):
     yield timeseries_set
     remove_time_series_data(timeseries_set, cognite_client)
     cognite_client.time_series.subscriptions.delete(sub_name)
+
+@pytest.fixture(scope="session")
+def test_space(cognite_client: CogniteClient):
+    space = cognite_client.data_modeling.spaces.retrieve(SPACE_ID)
+    if space is not None:
+        yield space
+    else:
+        new_space = SpaceApply(SPACE_ID, name="Integration Test Space", description="The space used for integration tests.")
+        yield cognite_client.data_modeling.spaces.apply(new_space)
+    cognite_client.data_modeling.spaces.delete(spaces=[SPACE_ID])
+    
+
+@pytest.fixture(scope="session")
+def test_dml():
+    return (RESOURCES / "movie_model.graphql").read_text()
+
+@pytest.fixture(scope="function")
+def test_model(cognite_client: CogniteClient, test_space: Space, test_dml: str):
+    movie_id = DataModelId(space=test_space.space, external_id="Movie", version="1")
+    created = cognite_client.data_modeling.graphql.apply_dml(
+        id=movie_id, dml=test_dml, name="Movie Model", description="The Movie Model used in Integration Tests"
+    )
+    models = cognite_client.data_modeling.data_models.retrieve(created.as_id(), inline_views=True)
+    yield models.latest_version()
+    cognite_client.data_modeling.data_models.delete(ids=[movie_id])
+    views = models.data[0].views
+    for view in views: # Views and containers need to be deleted so the space can be deleted
+        cognite_client.data_modeling.views.delete((SPACE_ID, view.external_id, view.version))
+        cognite_client.data_modeling.containers.delete((SPACE_ID, view.external_id))
+
+@pytest.fixture(scope="function")
+def edge_table_name(azure_credential):
+    edge_table_name = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" +  SPACE_ID + "_edges"
+    yield edge_table_name
+    try:
+        delta_table = get_ts_delta_table(azure_credential, edge_table_name)
+        delta_table.delete()
+    except TableNotFoundError:
+        print(f"Table not found {edge_table_name}")
+
+@pytest.fixture(scope="function")
+def view_tables(azure_credential):
+    view_tables = []
+    for view in VIEWS:
+        view_table_name = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + SPACE_ID + "_" + view
+        view_tables.append(view_table_name)
+    yield view_tables
+    for view_table in view_tables:
+        try:
+            delta_table = get_ts_delta_table(azure_credential, view_table)
+            delta_table.delete()
+        except TableNotFoundError:
+            print(f"Table not found {view_table}")
