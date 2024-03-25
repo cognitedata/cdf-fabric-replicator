@@ -47,5 +47,5 @@ source:
     data_set_id: ${EXTRACTOR_DATASET_ID}
 
 destination:
-    type: "events"
-    time_series_prefix: ktst_new_extract_
+    type: ${EXTRACTOR_DESTINATION_TYPE}
+    time_series_prefix: ${EXTRACTOR_TS_PREFIX}

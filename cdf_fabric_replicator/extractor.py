@@ -40,9 +40,13 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error("No source path or directory provided")
             return
 
-        token = self.azure_credential.get_token("https://storage.azure.com/.default").token
+        access_token = self.azure_credential.get_token("https://storage.azure.com/.default")
 
         while self.stop_event.is_set() is False:
+            if access_token.expires_on <= time.time():
+                access_token = self.azure_credential.get_token("https://storage.azure.com/.default");
+            token = access_token.token
+
             self.run_extraction_pipeline(status="seen")
 
             if self.config.source.raw_time_series_path and self.config.destination.time_series_prefix:
@@ -113,7 +117,7 @@ class CdfFabricExtractor(Extractor[Config]):
     def upload_files_to_cdf(self, file_client:  DataLakeServiceClient, file) -> FileMetadata:
         content = file_client.download_file().readall()
         file_name = file.name.split("/")[-1]
-        data_set_id = self.config.source.data_set_id if self.config.source.data_set_id else None
+        data_set_id = int(self.config.source.data_set_id) if self.config.source.data_set_id else None
         created_time = int(file.creation_time.timestamp() * 1000)
         modified_time = int(file.last_modified.timestamp() * 1000)
         return self.cognite_client.files.upload_bytes(
