@@ -43,6 +43,3 @@ build-backend = "poetry.masonry.api"
 
 [tool.cogex.docker]
 tags = ["cognite/cdf-fabric-replicator:{version}"]
-
-[tool.pytest.ini_options]
-pythonpath = "."
