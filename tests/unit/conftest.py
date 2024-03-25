@@ -34,9 +34,9 @@ def config_raw():
         poll-time: 5
 
     source:
-        abfss_event_table_path: source_table_path
-        abfss_directory: file_path
-        abfss_raw_time_series_table_path: /table/path
+        event_path: source_table_path
+        file_path: file_path
+        raw_time_series_path: /table/path
         data_set_id: 123456
 
     destination:

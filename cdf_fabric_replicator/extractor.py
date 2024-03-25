@@ -40,22 +40,27 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error("No source path or directory provided")
             return
 
+        token = self.azure_credential.get_token("https://storage.azure.com/.default").token
+
         while self.stop_event.is_set() is False:
-            token = self.azure_credential.get_token("https://storage.azure.com/.default").token
             self.run_extraction_pipeline(status="seen")
 
-            if self.config.source.abfss_raw_time_series_table_path and self.config.destination.time_series_prefix:
+            if self.config.source.raw_time_series_path and self.config.destination.time_series_prefix:
                 time_series_data = self.convert_lakehouse_data_to_df(
-                    self.config.source.abfss_raw_time_series_table_path, token=token
+                    self.config.source.abfss_prefix + "/" + self.config.source.raw_time_series_path, token=token
                 )
                 self.write_time_series_to_cdf(time_series_data)
 
-            if self.config.source.abfss_event_table_path:
-                state_id = f"{self.config.source.abfss_event_table_path}-state"
-                self.write_event_data_to_cdf(self.config.source.abfss_event_table_path, token=token, state_id=state_id)
+            if self.config.source.event_path:
+                state_id = f"{self.config.source.event_path}-state"
+                self.write_event_data_to_cdf(
+                    self.config.source.abfss_prefix + "/" + self.config.source.event_path,
+                    token=token,
+                    state_id=state_id,
+                )
 
-            if self.config.source.abfss_directory:
-                self.download_files_from_abfss(self.config.source.abfss_directory)
+            if self.config.source.file_path:
+                self.download_files_from_abfss(self.config.source.abfss_prefix + "/" + self.config.source.file_path)
 
             time.sleep(5)
 
@@ -84,8 +89,8 @@ class CdfFabricExtractor(Extractor[Config]):
 
         return service_client
 
-    def download_files_from_abfss(self, abfss_directory: str) -> None:
-        container_name, account_name, file_path = self.parse_abfss_url(abfss_directory)
+    def download_files_from_abfss(self, file_path: str) -> None:
+        container_name, account_name, file_path = self.parse_abfss_url(file_path)
 
         service_client = self.get_service_client_token_credential(account_name)
 
@@ -124,7 +129,7 @@ class CdfFabricExtractor(Extractor[Config]):
         external_ids = data_frame["externalId"].unique()
         for external_id in external_ids:
             df = data_frame[data_frame["externalId"] == external_id]
-            state_id = f"{self.config.source.abfss_raw_time_series_table_path}-{external_id}-state"
+            state_id = f"{self.config.source.raw_time_series_path}-{external_id}-state"
             df_to_be_written = None
             if self.state_store.get_state(state_id)[0] is None:
                 df_to_be_written = df
