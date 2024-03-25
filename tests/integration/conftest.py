@@ -25,6 +25,9 @@ RESOURCES = Path(__file__).parent / "resources"
 SPACE_ID = "IntegrationTestSpace"
 VIEWS = ["Movie", "Actor", "Role", "Person"]
 
+def lakehouse_table_name(table_name:str):
+    return os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + table_name
+
 @pytest.fixture(scope="function")
 def test_replicator():
     stop_event = CancellationToken()
@@ -60,7 +63,7 @@ def azure_credential():
 
 @pytest.fixture(scope="session")
 def lakehouse_timeseries_path(azure_credential):
-    lakehouse_timeseries_path = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + os.environ["DPS_TABLE_NAME"]
+    lakehouse_timeseries_path = lakehouse_table_name(os.environ["DPS_TABLE_NAME"])
     yield lakehouse_timeseries_path
     delta_table = get_ts_delta_table(azure_credential, lakehouse_timeseries_path)
     delta_table.delete()
@@ -79,11 +82,10 @@ def time_series(request, cognite_client):
 @pytest.fixture(scope="session")
 def test_space(cognite_client: CogniteClient):
     space = cognite_client.data_modeling.spaces.retrieve(SPACE_ID)
-    if space is not None:
-        yield space
-    else:
+    if space is None:
         new_space = SpaceApply(SPACE_ID, name="Integration Test Space", description="The space used for integration tests.")
-        yield cognite_client.data_modeling.spaces.apply(new_space)
+        space = cognite_client.data_modeling.spaces.apply(new_space)
+    yield space
     cognite_client.data_modeling.spaces.delete(spaces=[SPACE_ID])
     
 
@@ -107,7 +109,7 @@ def test_model(cognite_client: CogniteClient, test_space: Space, test_dml: str):
 
 @pytest.fixture(scope="function")
 def edge_table_name(azure_credential):
-    edge_table_name = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" +  SPACE_ID + "_edges"
+    edge_table_name = lakehouse_table_name(SPACE_ID + "_edges")
     yield edge_table_name
     try:
         delta_table = get_ts_delta_table(azure_credential, edge_table_name)
@@ -119,7 +121,7 @@ def edge_table_name(azure_credential):
 def view_tables(azure_credential):
     view_tables = []
     for view in VIEWS:
-        view_table_name = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + SPACE_ID + "_" + view
+        view_table_name = lakehouse_table_name(SPACE_ID + "_" + view)
         view_tables.append(view_table_name)
     yield view_tables
     for view_table in view_tables:
