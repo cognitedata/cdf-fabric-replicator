@@ -94,8 +94,7 @@ def test_space(test_config, cognite_client: CogniteClient):
         space = cognite_client.data_modeling.spaces.apply(new_space)
     else: # Ensure there aren't existing data models
         data_model_list = cognite_client.data_modeling.data_models.list(space=space_id)
-        for data_model in data_model_list:
-            cognite_client.data_modeling.data_models.delete((space_id, data_model.external_id, data_model.version))
+        assert len(data_model_list) == 0, "Space should not have existing data models, please remove models/views/containers before testing"
     yield space
     cognite_client.data_modeling.spaces.delete(spaces=[space_id])
     
