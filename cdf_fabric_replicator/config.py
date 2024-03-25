@@ -25,10 +25,11 @@ class DataModelingConfig:
 
 @dataclass
 class SourceConfig:
+    abfss_prefix: str
     data_set_id: int
     event_path: Optional[str] = None
     raw_time_series_path: Optional[str] = None
-    abfss_directory: Optional[str] = None
+    file_path: Optional[str] = None
 
 @dataclass
 class DestinationConfig:

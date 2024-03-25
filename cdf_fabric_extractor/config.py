@@ -8,7 +8,7 @@ from cognite.extractorutils.configtools import BaseConfig
 class SourceConfig:
     data_set_id: int
     abfss_path: Optional[str] = None
-    abfss_directory: Optional[str] = None
+    file_path: Optional[str] = None
 
 
 @dataclass

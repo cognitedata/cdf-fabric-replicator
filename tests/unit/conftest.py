@@ -35,7 +35,7 @@ def config_raw():
 
     source:
         event_path: source_table_path
-        abfss_directory: file_path
+        file_path: file_path
         raw_time_series_path: /table/path
         data_set_id: 123456
 
