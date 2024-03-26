@@ -6,6 +6,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment:
+      name: CI
 
     strategy:
       fail-fast: false
