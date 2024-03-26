@@ -40,12 +40,8 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error("No source path or directory provided")
             return
 
-        access_token = self.azure_credential.get_token("https://storage.azure.com/.default")
-
         while self.stop_event.is_set() is False:
-            if access_token.expires_on <= time.time():
-                access_token = self.azure_credential.get_token("https://storage.azure.com/.default");
-            token = access_token.token
+            token = self.azure_credential.get_token("https://storage.azure.com/.default")
 
             self.run_extraction_pipeline(status="seen")
 
