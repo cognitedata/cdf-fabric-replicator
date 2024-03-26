@@ -110,10 +110,14 @@ def assert_time_series_in_cdf(expected_timeseries: list[TimeSeries], cognite_cli
 
     assert cdf_timeseries_contain_expected_timeseries(expected_timeseries, [ts.external_id for ts in result])
 
-def remove_time_series_data(list_of_time_series: list[TimeSeries], cognite_client: CogniteClient):
+def remove_time_series_data(list_of_time_series: list[TimeSeries], sub_name: str, cognite_client: CogniteClient):
     for time_series in list_of_time_series:
         try:
             cognite_client.time_series.delete(external_id=time_series.external_id)
         except CogniteNotFoundError:
             print(f'time series {time_series.external_id} not found in CDF')
-            continue
+
+    try:
+        cognite_client.time_series.subscriptions.delete(sub_name)
+    except CogniteNotFoundError:
+        print(f'subscription {sub_name} not found in CDF')
