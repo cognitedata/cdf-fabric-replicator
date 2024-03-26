@@ -64,7 +64,7 @@ class CdfFabricExtractor(Extractor[Config]):
                 )
 
             if self.config.source.file_path:
-                self.download_files_from_abfss(self.config.source.abfss_prefix + "/" + self.config.source.file_path)
+                self.upload_files_from_abfss(self.config.source.abfss_prefix + "/" + self.config.source.file_path)
 
             time.sleep(5)
 
@@ -93,7 +93,7 @@ class CdfFabricExtractor(Extractor[Config]):
 
         return service_client
 
-    def download_files_from_abfss(self, file_path: str) -> None:
+    def upload_files_from_abfss(self, file_path: str) -> None:
         container_name, account_name, file_path = self.parse_abfss_url(file_path)
 
         service_client = self.get_service_client_token_credential(account_name)
@@ -105,14 +105,12 @@ class CdfFabricExtractor(Extractor[Config]):
                 file_client = file_system_client.get_file_client(file.name)
 
                 state = self.state_store.get_state(file.name)
-                if state and state[0] == file.last_modified.timestamp():
-                    continue
-
-                res = self.upload_files_to_cdf(file_client, file)
-                self.logger.info(f"Uploaded file {file.name} to CDF with id {res.id}")
-                self.run_extraction_pipeline(status = "success")
-                self.state_store.set_state(file.name, file.last_modified.timestamp())
-                self.state_store.synchronize()
+                if state and state[0] != file.last_modified.timestamp():
+                    res = self.upload_files_to_cdf(file_client, file)
+                    self.logger.info(f"Uploaded file {file.name} to CDF with id {res.id}")
+                    self.run_extraction_pipeline(status = "success")
+                    self.state_store.set_state(file.name, file.last_modified.timestamp())
+                    self.state_store.synchronize()
 
     def upload_files_to_cdf(self, file_client:  DataLakeServiceClient, file) -> FileMetadata:
         content = file_client.download_file().readall()
