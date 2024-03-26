@@ -8,7 +8,9 @@ from cognite.client.credentials import OAuthClientCredentials
 from pathlib import Path
 from cognite.client.data_classes.data_modeling import (
     Space, 
-    SpaceApply
+    SpaceApply,
+    DataModel,
+    View
 )
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cognite.extractorutils.base import CancellationToken
@@ -23,7 +25,6 @@ from tests.integration.integration_steps.time_series_generation import generate_
 
 load_dotenv()
 RESOURCES = Path(__file__).parent / "resources"
-VIEWS = ["Movie", "Actor", "Role", "Person"]
 
 def lakehouse_table_name(table_name:str):
     return os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + table_name
@@ -98,13 +99,9 @@ def test_space(test_config, cognite_client: CogniteClient):
     yield space
     cognite_client.data_modeling.spaces.delete(spaces=[space_id])
     
-
-@pytest.fixture(scope="session")
-def test_dml():
-    return (RESOURCES / "movie_model.graphql").read_text()
-
 @pytest.fixture(scope="function")
-def test_model(cognite_client: CogniteClient, test_space: Space, test_dml: str):
+def test_model(cognite_client: CogniteClient, test_space: Space):
+    test_dml = (RESOURCES / "movie_model.graphql").read_text()
     movie_id = DataModelId(space=test_space.space, external_id="Movie", version="1")
     created = cognite_client.data_modeling.graphql.apply_dml(
         id=movie_id, dml=test_dml, name="Movie Model", description="The Movie Model used in Integration Tests"
@@ -118,25 +115,24 @@ def test_model(cognite_client: CogniteClient, test_space: Space, test_dml: str):
         cognite_client.data_modeling.containers.delete((test_space.space, view.external_id))
 
 @pytest.fixture(scope="function")
-def edge_table_name(test_space, azure_credential):
-    edge_table_name = lakehouse_table_name(test_space.space + "_edges")
-    yield edge_table_name
+def edge_table_path(test_space: Space, azure_credential: DefaultAzureCredential):
+    edge_table_path = lakehouse_table_name(test_space.space + "_edges")
+    yield edge_table_path
     try:
-        delta_table = get_ts_delta_table(azure_credential, edge_table_name)
+        delta_table = get_ts_delta_table(azure_credential, edge_table_path)
         delta_table.delete()
     except TableNotFoundError:
-        print(f"Table not found {edge_table_name}")
+        print(f"Table not found {edge_table_path}")
 
 @pytest.fixture(scope="function")
-def view_tables(test_space, azure_credential):
-    view_tables = []
-    for view in VIEWS:
-        view_table_name = lakehouse_table_name(test_space.space + "_" + view)
-        view_tables.append(view_table_name)
-    yield view_tables
-    for view_table in view_tables:
+def instance_table_paths(test_model: DataModel[View], azure_credential: DefaultAzureCredential):
+    instance_table_paths = []
+    for view in test_model.views:
+        instance_table_paths.append(lakehouse_table_name(test_model.space + "_" + view.external_id))
+    yield instance_table_paths
+    for path in instance_table_paths:
         try:
-            delta_table = get_ts_delta_table(azure_credential, view_table)
+            delta_table = get_ts_delta_table(azure_credential, path)
             delta_table.delete()
         except TableNotFoundError:
-            print(f"Table not found {view_table}")
+            print(f"Table not found {path}")

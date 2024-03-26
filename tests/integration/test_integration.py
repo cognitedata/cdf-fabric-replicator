@@ -25,7 +25,7 @@ def test_timeseries_data_integration_service(cognite_client, test_replicator, la
 
 # Test for data model sync service
 # @pytest.mark.skip("Skipping test", allow_module_level=True)
-def test_data_model_sync_service_creation(test_space, test_dml, edge_table_name, view_tables):
+def test_data_model_sync_service_creation(test_model, edge_table_path, instance_table_paths, cognite_client):
     # Create a data model in CDF
     create_data_model_in_cdf()
     # Run data model sync service between CDF and Fabric
@@ -34,7 +34,7 @@ def test_data_model_sync_service_creation(test_space, test_dml, edge_table_name,
     assert_data_model_in_fabric()
 
 # @pytest.mark.skip("Skipping test", allow_module_level=True)
-def test_data_model_sync_service_update(test_model, edge_table_name, view_tables):
+def test_data_model_sync_service_update(test_model, edge_table_path, instance_table_paths, cognite_client):
     # Run data model sync service between CDF and Fabric
     run_data_model_sync()
     # Update a data model in CDF and run data model sync
