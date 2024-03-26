@@ -41,7 +41,7 @@ class CdfFabricExtractor(Extractor[Config]):
             return
 
         while self.stop_event.is_set() is False:
-            token = self.azure_credential.get_token("https://storage.azure.com/.default")
+            token = self.azure_credential.get_token("https://storage.azure.com/.default").token
 
             self.run_extraction_pipeline(status="seen")
 
