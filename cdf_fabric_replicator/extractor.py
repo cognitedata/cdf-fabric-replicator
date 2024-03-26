@@ -16,7 +16,6 @@ import pandas as pd
 
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
-# from cdf_fabric_extractor.config import Config
 
 
 class CdfFabricExtractor(Extractor[Config]):
