@@ -327,13 +327,13 @@ files = [
 
 [[package]]
 name = "cognite-extractor-utils"
-version = "7.1.0"
+version = "7.1.1"
 description = "Utilities for easier development of extractors for CDF"
 optional = false
 python-versions = ">=3.8.0,<4.0.0"
 files = [
-    {file = "cognite_extractor_utils-7.1.0-py3-none-any.whl", hash = "sha256:9c318d12fecad2c6c772a8911106debe381c8d8fad3ebfd12148f06b029ed19f"},
-    {file = "cognite_extractor_utils-7.1.0.tar.gz", hash = "sha256:57998e8860628b8f3047f2d738767f3f974afd42ca40cbf3521c0aee7e18c4ca"},
+    {file = "cognite_extractor_utils-7.1.1-py3-none-any.whl", hash = "sha256:bafac98be68fd414e2c11cd4a2d4fb2cee2cbd0fa614c009eace075c7e3f8f31"},
+    {file = "cognite_extractor_utils-7.1.1.tar.gz", hash = "sha256:0d3578422964bef44f6651bf0736685e44de476a606aa56bcb48c277b8c82e56"},
 ]
 
 [package.dependencies]
@@ -352,13 +352,13 @@ typing-extensions = ">=3.7.4,<5"
 
 [[package]]
 name = "cognite-sdk"
-version = "7.28.2"
+version = "7.29.0"
 description = "Cognite Python SDK"
 optional = false
-python-versions = ">=3.8,<4.0"
+python-versions = "<4.0,>=3.8"
 files = [
-    {file = "cognite_sdk-7.28.2-py3-none-any.whl", hash = "sha256:5bd054f08c6dd68638d8eed80a3766b3a3111ccea7f4cf1fb08bd4fb257d9897"},
-    {file = "cognite_sdk-7.28.2.tar.gz", hash = "sha256:07bbf2b375e7486290d5b9dcd17aba59f20001e5b55af90b0bf46ca44719b4f5"},
+    {file = "cognite_sdk-7.29.0-py3-none-any.whl", hash = "sha256:db882336ad891517cec1faf89175e8efc9afaeba3fb7bbc77afa3645d3997962"},
+    {file = "cognite_sdk-7.29.0.tar.gz", hash = "sha256:09a39c856d67f40106e882a988911a75587a28c0880701dcaae0d7e77739a29b"},
 ]
 
 [package.dependencies]

@@ -4,7 +4,7 @@ from time import sleep
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
-from cognite.client.data_classes import DataPointSubscriptionWrite
+from cognite.client.data_classes import DataPointSubscriptionWrite, DatapointSubscription
 
 def push_data_points_to_cdf(
     external_id: str, data_points: list[Datapoint], cognite_client: CogniteClient
@@ -47,7 +47,7 @@ def push_time_series_to_cdf(time_series_data: list[TimeSeries], cognite_client: 
     cognite_client.time_series.create(time_series_write_list)
     return time_series_data
 
-def push_data_to_cdf(time_series_data: list[TimeSeries], cognite_client: CogniteClient):
+def push_data_to_cdf(time_series_data: list[TimeSeries], cognite_client: CogniteClient) -> dict[str, pd.DataFrame]:
     time_series_data_points_pushed = {}
     for ts in time_series_data:
         time_series_data_points_pushed[ts.external_id] = push_data_points_to_cdf(
@@ -56,7 +56,7 @@ def push_data_to_cdf(time_series_data: list[TimeSeries], cognite_client: Cognite
     sleep(5)
     return time_series_data_points_pushed
 
-def create_subscription_in_cdf(time_series_data: list[TimeSeries], sub_name: str, cognite_client: CogniteClient):
+def create_subscription_in_cdf(time_series_data: list[TimeSeries], sub_name: str, cognite_client: CogniteClient) -> DatapointSubscription:
     ts_external_ids = [ts.external_id for ts in time_series_data]
     sub = DataPointSubscriptionWrite(sub_name, partition_count=1, time_series_ids=ts_external_ids, name="Test subscription")
     return cognite_client.time_series.subscriptions.create(sub)
@@ -110,10 +110,14 @@ def assert_time_series_in_cdf(expected_timeseries: list[TimeSeries], cognite_cli
 
     assert cdf_timeseries_contain_expected_timeseries(expected_timeseries, [ts.external_id for ts in result])
 
-def remove_time_series_data(list_of_time_series: list[TimeSeries], cognite_client: CogniteClient):
+def remove_time_series_data(list_of_time_series: list[TimeSeries], sub_name: str, cognite_client: CogniteClient):
     for time_series in list_of_time_series:
         try:
             cognite_client.time_series.delete(external_id=time_series.external_id)
         except CogniteNotFoundError:
             print(f'time series {time_series.external_id} not found in CDF')
-            continue
+
+    try:
+        cognite_client.time_series.subscriptions.delete(sub_name)
+    except CogniteNotFoundError:
+        print(f'subscription {sub_name} not found in CDF')

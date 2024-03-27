@@ -15,6 +15,7 @@ from cognite.client.data_classes.data_modeling import (
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.metrics import safe_get
+from cognite.extractorutils.base import CancellationToken
 from deltalake.exceptions import TableNotFoundError
 from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
@@ -44,7 +45,10 @@ def test_replicator():
     replicator._load_state_store()
     replicator.logger = Mock()
     yield replicator
-    os.remove("states.json")
+    try:
+        os.remove("states.json")
+    except FileNotFoundError:
+        pass
 
 @pytest.fixture(scope="session")
 def cognite_client():
@@ -70,7 +74,7 @@ def azure_credential():
 
 @pytest.fixture(scope="session")
 def lakehouse_timeseries_path(azure_credential):
-    lakehouse_timeseries_path = lakehouse_table_name(os.environ["DPS_TABLE_NAME"])
+    lakehouse_timeseries_path = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + os.environ["DPS_TABLE_NAME"]
     yield lakehouse_timeseries_path
     delta_table = get_ts_delta_table(azure_credential, lakehouse_timeseries_path)
     delta_table.delete()
@@ -79,12 +83,11 @@ def lakehouse_timeseries_path(azure_credential):
 def time_series(request, cognite_client):
     sub_name = "testSubscription"
     timeseries_set = generate_timeseries_set(request.param)
-    remove_time_series_data(timeseries_set, cognite_client)
+    remove_time_series_data(timeseries_set, sub_name, cognite_client)
     push_time_series_to_cdf(timeseries_set, cognite_client)
     create_subscription_in_cdf(timeseries_set, sub_name, cognite_client)
     yield timeseries_set
-    remove_time_series_data(timeseries_set, cognite_client)
-    cognite_client.time_series.subscriptions.delete(sub_name)
+    remove_time_series_data(timeseries_set, sub_name, cognite_client)
 
 @pytest.fixture(scope="session")
 def test_space(test_config, cognite_client: CogniteClient):

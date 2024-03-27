@@ -6,7 +6,6 @@ from integration_steps.service_steps import run_replicator, run_data_model_sync
 
 
 # Test for Timeseries data integration service
-@pytest.mark.skip("Skipping test", allow_module_level=True)
 @pytest.mark.parametrize(
     "time_series",
     [

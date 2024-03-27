@@ -6,9 +6,12 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment:
+      name: CI
 
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         python-version: ["3.10", "3.11"]
 
@@ -28,5 +31,22 @@ jobs:
         poetry install
 
     - name: Run tests
+      env:
+        COGNITE_BASE_URL: ${{ vars.COGNITE_BASE_URL }}
+        COGNITE_PROJECT: ${{ vars.COGNITE_PROJECT }}
+        COGNITE_TOKEN_URL: ${{ vars.COGNITE_TOKEN_URL }}
+        COGNITE_CLIENT_ID: ${{ vars.COGNITE_CLIENT_ID }}
+        COGNITE_CLIENT_SECRET: ${{ secrets.COGNITE_CLIENT_SECRET }}
+        COGNITE_CLIENT_NAME: ${{ vars.COGNITE_CLIENT_NAME }}
+        COGNITE_EXTRACTION_PIPELINE: ${{ vars.COGNITE_EXTRACTION_PIPELINE }}
+        COGNITE_TOKEN_SCOPES: ${{ vars.COGNITE_TOKEN_SCOPES }}
+        LAKEHOUSE_ABFSS_PREFIX: ${{ vars.LAKEHOUSE_ABFSS_PREFIX }}
+        DPS_TABLE_NAME: ${{ vars.DPS_TABLE_NAME }}
+        TS_TABLE_NAME: ${{ vars.TS_TABLE_NAME }}
+        AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        TEST_CONFIG_PATH: tests/integration/test_config.yaml
+
       run: poetry run pytest
 
