@@ -36,3 +36,14 @@ subscriptions:
 data_modeling:
     - space: cc_plant
       lakehouse_abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
+
+source:
+    abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
+    event_path: ${EXTRACTOR_EVENT_PATH}
+    file_path: ${EXTRACTOR_FILE_PATH}
+    raw_time_series_path: ${EXTRAXTOR_RAW_TS_PATH}
+    data_set_id: ${EXTRACTOR_DATASET_ID}
+
+destination:
+    type: ${EXTRACTOR_DESTINATION_TYPE}
+    time_series_prefix: ""
