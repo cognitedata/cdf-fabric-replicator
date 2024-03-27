@@ -3,7 +3,9 @@ from azure.identity import DefaultAzureCredential
 from deltalake import DeltaTable
 from dateutil import tz
 import pandas as pd
+from pandas import DataFrame
 from pandas.testing import assert_frame_equal
+from deltalake.writer import write_deltalake
 
 TIMESTAMP_COLUMN = "timestamp"
 
@@ -25,6 +27,22 @@ def prepare_lakehouse_dataframe_for_comparison(dataframe: pd.DataFrame, external
     dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_convert('UTC')
     dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round('s') # round to seconds to avoid microsecond differences
     return dataframe
+
+def write_timeseries_data_to_fabric(credential: DefaultAzureCredential, data_frame: DataFrame, table_path: str):
+     print(table_path)
+     token = credential.get_token("https://storage.azure.com/.default").token
+     table_path =table_path
+
+
+     write_deltalake(table_path, data_frame, mode="append", storage_options={"bearer_token": token, "use_fabric_endpoint": "true"})
+     return None
+
+def remove_time_series_data_from_fabric(credential: DefaultAzureCredential, table_path:str):
+    token = credential.get_token("https://storage.azure.com/.default").token
+    DeltaTable(
+        table_uri= table_path,
+        storage_options={"bearer_token": token, "use_fabric_endpoint": "true"}
+    ).delete()
 
 def prepare_test_dataframe_for_comparison(dataframe: pd.DataFrame) -> pd.DataFrame:
     dataframe[TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
