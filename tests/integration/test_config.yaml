@@ -1,4 +1,3 @@
-
 logger:
     console:
         level: INFO
