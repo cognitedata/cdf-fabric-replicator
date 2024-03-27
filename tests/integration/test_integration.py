@@ -5,7 +5,7 @@ from integration_steps.fabric_steps import assert_timeseries_data_in_fabric, ass
 from integration_steps.service_steps import run_replicator, run_data_model_sync
 
 
-# Test for Timeseries data integration service
+# Test for Timeseries data integration service between CDF and Fabric
 @pytest.mark.parametrize(
     "time_series",
     [
