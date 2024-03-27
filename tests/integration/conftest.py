@@ -146,6 +146,10 @@ def example_actor():
     return Node("arnold_schwarzenegger", "Actor", {"Actor": {"wonOscar": False}, "Person": {"name": "Arnold Schwarzenegger", "birthYear": 1947}})
 
 @pytest.fixture(scope="function")
+def updated_actor():
+    return Node("arnold_schwarzenegger", "Actor", {"Actor": {"wonOscar": True}})
+
+@pytest.fixture(scope="function")
 def example_movie():
     return Node("terminator", "Movie", {"Movie": {"title": "Terminator", "releaseYear": 1984}})
 
@@ -161,6 +165,11 @@ def example_edge_movie_to_actor(example_actor, example_movie):
 def node_list(test_model: DataModel[View], example_actor: Node, example_movie: Node, cognite_client: CogniteClient):
     yield [create_node(test_model.space, example_actor, test_model), create_node(test_model.space, example_movie, test_model)]
     cognite_client.data_modeling.instances.delete(nodes=[(test_model.space, example_actor.external_id), (test_model.space, example_movie.external_id)])
+
+@pytest.fixture(scope="function")
+def updated_node_list(test_model: DataModel[View], updated_actor: Node, cognite_client: CogniteClient):
+    yield [create_node(test_model.space, updated_actor, test_model)]
+    cognite_client.data_modeling.instances.delete(nodes=(test_model.space, updated_actor.external_id))
 
 @pytest.fixture(scope="function")
 def edge_list(test_model: DataModel[View], example_edge_actor_to_movie: Edge, example_edge_movie_to_actor: Edge, cognite_client):

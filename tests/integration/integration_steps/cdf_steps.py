@@ -78,15 +78,9 @@ def create_data_model_in_cdf(test_space: Space, test_dml: str, cognite_client: C
     models = cognite_client.data_modeling.data_models.retrieve(created.as_id(), inline_views=True)
     return models.latest_version()
 
-def create_data_model_instances_in_cdf(node_list: list[NodeApply], edge_list: list[EdgeApply], cognite_client: CogniteClient):
+def apply_data_model_instances_in_cdf(node_list: list[NodeApply], edge_list: list[EdgeApply], cognite_client: CogniteClient):
     # Create data model instances in CDF
-    res = cognite_client.data_modeling.instances.apply(nodes=node_list, edges=edge_list)
-    return res
-
-def update_data_model_in_cdf():
-    # Update a data model in CDF
-    pass
-
+    return cognite_client.data_modeling.instances.apply(nodes=node_list, edges=edge_list)
 
 def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
     return timestamp1.replace(microsecond=0) == timestamp2.replace(microsecond=0)
