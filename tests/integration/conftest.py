@@ -1,7 +1,6 @@
 import os
 import pytest
 import yaml
-from typing import cast
 from unittest.mock import Mock
 from azure.identity import DefaultAzureCredential
 from cognite.client import ClientConfig, CogniteClient
@@ -11,10 +10,7 @@ from cognite.client.data_classes.data_modeling import (
     Space, 
     SpaceApply,
     DataModel,
-    View,
-    NodeApply,
-    EdgeApply,
-    SingleHopConnectionDefinition
+    View
 )
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cognite.extractorutils.base import CancellationToken
@@ -27,7 +23,7 @@ from dotenv import load_dotenv
 from tests.integration.integration_steps.cdf_steps import remove_time_series_data, push_time_series_to_cdf, create_subscription_in_cdf
 from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
 from tests.integration.integration_steps.time_series_generation import generate_timeseries_set
-from integration_steps.data_model_generation import create_actor, create_movie, create_edge
+from integration_steps.data_model_generation import Node, Edge, create_node, create_edge
 
 load_dotenv()
 RESOURCES = Path(__file__).parent / "resources"
@@ -147,46 +143,28 @@ def instance_table_paths(test_model: DataModel[View], azure_credential: DefaultA
 
 @pytest.fixture(scope="function")
 def example_actor():
-    return {
-        "external_id": "arnold_schwarzenegger",
-        "Person": {"name": "Arnold Schwarzenegger", "birthYear": 1947}, 
-        "Actor": {"wonOscar": False}
-    }
+    return Node("arnold_schwarzenegger", "Actor", {"Actor": {"wonOscar": False}, "Person": {"name": "Arnold Schwarzenegger", "birthYear": 1947}})
 
 @pytest.fixture(scope="function")
 def example_movie():
-    return {
-        "external_id": "terminator",
-        "Movie": {"title": "Terminator", "releaseYear": 1984}
-    }
+    return Node("terminator", "Movie", {"Movie": {"title": "Terminator", "releaseYear": 1984}})
 
 @pytest.fixture(scope="function")
-def example_edge_1():
-    return {
-        "external_id": "relation:arnold_schwarzenegger:terminator",
-        "start_node": "arnold_schwarzenegger",
-        "end_node": "terminator"
-    }
+def example_edge_actor_to_movie(example_actor, example_movie):
+    return Edge("relation:arnold_schwarzenegger:terminator", "movies", example_actor, example_movie)
 
 @pytest.fixture(scope="function")
-def example_edge_2():
-    return {
-        "external_id": "relation:terminator:arnold_schwarzenegger",
-        "start_node": "terminator",
-        "end_node": "arnold_schwarzenegger"
-    }
+def example_edge_movie_to_actor(example_actor, example_movie):
+    return Edge("relation:terminator:arnold_schwarzenegger", "actors", example_movie, example_actor)
 
 @pytest.fixture(scope="function")
-def node_list(test_model: DataModel[View], example_actor: dict, example_movie: dict) -> list[NodeApply]:
-    actor_view = [view for view in test_model.views if view.external_id == "Actor"][0]
-    person_view = [view for view in test_model.views if view.external_id == "Person"][0]
-    movie_view = [view for view in test_model.views if view.external_id == "Movie"][0]
-    return [create_actor(test_model.space, example_actor, person_view, actor_view), create_movie(test_model.space, example_movie, movie_view)]
+def node_list(test_model: DataModel[View], example_actor: Node, example_movie: Node, cognite_client: CogniteClient):
+    yield [create_node(test_model.space, example_actor, test_model), create_node(test_model.space, example_movie, test_model)]
+    cognite_client.data_modeling.instances.delete(nodes=[(test_model.space, example_actor.external_id), (test_model.space, example_movie.external_id)])
 
 @pytest.fixture(scope="function")
-def edge_list(test_model: DataModel[View], example_edge_1: dict, example_edge_2: dict) -> list[EdgeApply]:
-    actor_view = [view for view in test_model.views if view.external_id == "Actor"][0]
-    actor_type = cast(SingleHopConnectionDefinition, actor_view.properties["movies"]).type.external_id
-    movie_view = [view for view in test_model.views if view.external_id == "Movie"][0]
-    movie_type = cast(SingleHopConnectionDefinition, movie_view.properties["actors"]).type.external_id
-    return [create_edge(test_model.space, actor_type, example_edge_1), create_edge(test_model.space, movie_type, example_edge_2)]
+def edge_list(test_model: DataModel[View], example_edge_actor_to_movie: Edge, example_edge_movie_to_actor: Edge, cognite_client):
+    edge_list = [create_edge(test_model.space, example_edge_actor_to_movie, test_model), create_edge(test_model.space, example_edge_movie_to_actor, test_model)]
+    yield edge_list
+    cognite_client.data_modeling.instances.delete(edges=[(test_model.space, example_edge_actor_to_movie.external_id), (test_model.space, example_edge_movie_to_actor.external_id)])
+    cognite_client.data_modeling.instances.delete(nodes=[(test_model.space, edge.type.external_id) for edge in edge_list])

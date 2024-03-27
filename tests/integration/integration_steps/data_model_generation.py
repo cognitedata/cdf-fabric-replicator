@@ -1,6 +1,37 @@
-from cognite.client import CogniteClient
-from cognite.client.data_classes.data_modeling import EdgeApply, NodeOrEdgeData, NodeApply, ViewId, NodeApplyList, EdgeApplyList, InstancesApplyResult, View, DataModel
+from dataclasses import dataclass
+from typing import cast
 
+from cognite.client.data_classes.data_modeling import (
+    EdgeApply,
+    NodeOrEdgeData,
+    NodeApply,
+    ViewId,
+    View,
+    DataModel,
+    SingleHopConnectionDefinition,
+)
+
+
+@dataclass
+class Node:
+    external_id: str
+    type: str
+    source_dict: dict
+
+@dataclass
+class Edge:
+    external_id: str
+    property: str
+    start_node: Node
+    end_node: Node
+
+def get_view_for_node(type: str, test_model: DataModel[View]) -> View:
+    # Gets the view that matches the node type
+    return [view for view in test_model.views if view.external_id == type][0]
+
+def get_type_for_edge(edge: Edge, test_model: DataModel[View]) -> str:
+    # Gets the type that this edge will populate from the data model, i.e. creating an edge from actor to movie will populate the "movies" field in Role
+    return cast(SingleHopConnectionDefinition, get_view_for_node(edge.start_node.type, test_model).properties[edge.property]).type.external_id
 
 def create_node_or_edge_data(view: View, data: dict):
     return NodeOrEdgeData(
@@ -8,34 +39,23 @@ def create_node_or_edge_data(view: View, data: dict):
         data
     )
 
-def create_actor(space_id: str, actor_info: dict, person_view: View, actor_view: View):
+def create_node(space_id: str, node: Node, test_model: DataModel[View]):
+    views = [get_view_for_node(key, test_model) for key in node.source_dict.keys()]
     return NodeApply(
         space=space_id,
-        external_id=actor_info["external_id"],
+        external_id=node.external_id,
         sources=[
-            create_node_or_edge_data(person_view, actor_info["Person"]),
-            create_node_or_edge_data(actor_view, actor_info["Actor"])
+            create_node_or_edge_data(view, node.source_dict[view.external_id])
+            for view in views
         ]
     )
 
-def create_movie(space_id: str, movie_info: dict, movie_view: View):
-    return NodeApply(
-        space=space_id,
-        external_id=movie_info["external_id"],
-        sources=[
-            create_node_or_edge_data(movie_view, movie_info["Movie"])
-        ]
-    )
-
-def create_edge(space_id: str, type: str, edge: dict) -> EdgeApply:
+def create_edge(space_id: str, edge: Edge, test_model: DataModel[View]) -> EdgeApply:
+    type = get_type_for_edge(edge, test_model)
     return EdgeApply(
         space=space_id,
-        external_id=edge["external_id"],
+        external_id=edge.external_id,
         type=(space_id, type),
-        start_node=(space_id, edge["start_node"]),
-        end_node=(space_id, edge["end_node"])
+        start_node=(space_id, edge.start_node.external_id),
+        end_node=(space_id, edge.end_node.external_id)
     )
-
-def create_data_modeling_instances(node_list: list[NodeApply], edge_list: list[EdgeApply], client: CogniteClient) -> InstancesApplyResult:
-    res = client.data_modeling.instances.apply(nodes=node_list, edges=edge_list)
-    return res

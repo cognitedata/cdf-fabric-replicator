@@ -5,10 +5,8 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.data_classes import DataPointSubscriptionWrite, DatapointSubscription
-from integration_steps.data_model_generation import create_data_modeling_instances
 from cognite.client.data_classes.data_modeling import (
     Space, 
-    SpaceApply,
     DataModel,
     View,
     NodeApply,
@@ -80,10 +78,10 @@ def create_data_model_in_cdf(test_space: Space, test_dml: str, cognite_client: C
     models = cognite_client.data_modeling.data_models.retrieve(created.as_id(), inline_views=True)
     return models.latest_version()
 
-def create_data_model_instances_in_cdf(node_list: list[NodeApply], edge_list: list[EdgeApply], data_model: DataModel[View], cognite_client: CogniteClient):
+def create_data_model_instances_in_cdf(node_list: list[NodeApply], edge_list: list[EdgeApply], cognite_client: CogniteClient):
     # Create data model instances in CDF
-    # edge_list = [create_actor_movie_edge(data_model.space, edge)]
-    create_data_modeling_instances(node_list, edge_list, cognite_client)
+    res = cognite_client.data_modeling.instances.apply(nodes=node_list, edges=edge_list)
+    return res
 
 def update_data_model_in_cdf():
     # Update a data model in CDF
