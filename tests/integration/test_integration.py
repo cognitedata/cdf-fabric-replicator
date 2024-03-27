@@ -31,7 +31,6 @@ def test_data_model_sync_service_creation(test_model, edge_table_path, instance_
     run_data_model_sync()
     # Assert the data model is populated in a Fabric lakehouse
     assert_data_model_in_fabric()
-    # remove_data_model_instances([], cognite_client)
 
 @pytest.mark.skip("Skipping test", allow_module_level=True)
 def test_data_model_sync_service_update(test_model, edge_table_path, instance_table_paths, cognite_client):

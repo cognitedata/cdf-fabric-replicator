@@ -139,10 +139,3 @@ def remove_time_series_data(list_of_time_series: list[TimeSeries], sub_name: str
         cognite_client.time_series.subscriptions.delete(sub_name)
     except CogniteNotFoundError:
         print(f'subscription {sub_name} not found in CDF')
-
-def remove_data_model(data_model: DataModel[View], cognite_client: CogniteClient):
-    cognite_client.data_modeling.data_models.delete((data_model.space, data_model.external_id, data_model.version))
-    views = data_model.views
-    for view in views: # Views and containers need to be deleted so the space can be deleted
-        cognite_client.data_modeling.views.delete((data_model.space, view.external_id, view.version))
-        cognite_client.data_modeling.containers.delete((data_model.space, view.external_id))
