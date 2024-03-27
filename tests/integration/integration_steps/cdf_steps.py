@@ -5,6 +5,16 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.data_classes import DataPointSubscriptionWrite, DatapointSubscription
+from integration_steps.data_model_generation import create_data_modeling_instances
+from cognite.client.data_classes.data_modeling import (
+    Space, 
+    SpaceApply,
+    DataModel,
+    View,
+    NodeApply,
+    EdgeApply
+)
+from cognite.client.data_classes.data_modeling.ids import DataModelId
 
 def push_data_points_to_cdf(
     external_id: str, data_points: list[Datapoint], cognite_client: CogniteClient
@@ -61,9 +71,19 @@ def create_subscription_in_cdf(time_series_data: list[TimeSeries], sub_name: str
     sub = DataPointSubscriptionWrite(sub_name, partition_count=1, time_series_ids=ts_external_ids, name="Test subscription")
     return cognite_client.time_series.subscriptions.create(sub)
 
-def create_data_model_in_cdf():
+def create_data_model_in_cdf(test_space: Space, test_dml: str, cognite_client: CogniteClient):
     # Create a data model in CDF
-    pass
+    movie_id = DataModelId(space=test_space.space, external_id="Movie", version="1")
+    created = cognite_client.data_modeling.graphql.apply_dml(
+        id=movie_id, dml=test_dml, name="Movie Model", description="The Movie Model used in Integration Tests"
+    )
+    models = cognite_client.data_modeling.data_models.retrieve(created.as_id(), inline_views=True)
+    return models.latest_version()
+
+def create_data_model_instances_in_cdf(node_list: list[NodeApply], edge_list: list[EdgeApply], data_model: DataModel[View], cognite_client: CogniteClient):
+    # Create data model instances in CDF
+    # edge_list = [create_actor_movie_edge(data_model.space, edge)]
+    create_data_modeling_instances(node_list, edge_list, cognite_client)
 
 def update_data_model_in_cdf():
     # Update a data model in CDF
@@ -121,3 +141,10 @@ def remove_time_series_data(list_of_time_series: list[TimeSeries], sub_name: str
         cognite_client.time_series.subscriptions.delete(sub_name)
     except CogniteNotFoundError:
         print(f'subscription {sub_name} not found in CDF')
+
+def remove_data_model(data_model: DataModel[View], cognite_client: CogniteClient):
+    cognite_client.data_modeling.data_models.delete((data_model.space, data_model.external_id, data_model.version))
+    views = data_model.views
+    for view in views: # Views and containers need to be deleted so the space can be deleted
+        cognite_client.data_modeling.views.delete((data_model.space, view.external_id, view.version))
+        cognite_client.data_modeling.containers.delete((data_model.space, view.external_id))

@@ -1,6 +1,7 @@
 import os
 import pytest
 import yaml
+from typing import cast
 from unittest.mock import Mock
 from azure.identity import DefaultAzureCredential
 from cognite.client import ClientConfig, CogniteClient
@@ -10,7 +11,10 @@ from cognite.client.data_classes.data_modeling import (
     Space, 
     SpaceApply,
     DataModel,
-    View
+    View,
+    NodeApply,
+    EdgeApply,
+    SingleHopConnectionDefinition
 )
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cognite.extractorutils.base import CancellationToken
@@ -23,6 +27,7 @@ from dotenv import load_dotenv
 from tests.integration.integration_steps.cdf_steps import remove_time_series_data, push_time_series_to_cdf, create_subscription_in_cdf
 from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
 from tests.integration.integration_steps.time_series_generation import generate_timeseries_set
+from integration_steps.data_model_generation import create_actor, create_movie, create_edge
 
 load_dotenv()
 RESOURCES = Path(__file__).parent / "resources"
@@ -139,3 +144,49 @@ def instance_table_paths(test_model: DataModel[View], azure_credential: DefaultA
             delta_table.delete()
         except TableNotFoundError:
             print(f"Table not found {path}")
+
+@pytest.fixture(scope="function")
+def example_actor():
+    return {
+        "external_id": "arnold_schwarzenegger",
+        "Person": {"name": "Arnold Schwarzenegger", "birthYear": 1947}, 
+        "Actor": {"wonOscar": False}
+    }
+
+@pytest.fixture(scope="function")
+def example_movie():
+    return {
+        "external_id": "terminator",
+        "Movie": {"title": "Terminator", "releaseYear": 1984}
+    }
+
+@pytest.fixture(scope="function")
+def example_edge_1():
+    return {
+        "external_id": "relation:arnold_schwarzenegger:terminator",
+        "start_node": "arnold_schwarzenegger",
+        "end_node": "terminator"
+    }
+
+@pytest.fixture(scope="function")
+def example_edge_2():
+    return {
+        "external_id": "relation:terminator:arnold_schwarzenegger",
+        "start_node": "terminator",
+        "end_node": "arnold_schwarzenegger"
+    }
+
+@pytest.fixture(scope="function")
+def node_list(test_model: DataModel[View], example_actor: dict, example_movie: dict) -> list[NodeApply]:
+    actor_view = [view for view in test_model.views if view.external_id == "Actor"][0]
+    person_view = [view for view in test_model.views if view.external_id == "Person"][0]
+    movie_view = [view for view in test_model.views if view.external_id == "Movie"][0]
+    return [create_actor(test_model.space, example_actor, person_view, actor_view), create_movie(test_model.space, example_movie, movie_view)]
+
+@pytest.fixture(scope="function")
+def edge_list(test_model: DataModel[View], example_edge_1: dict, example_edge_2: dict) -> list[EdgeApply]:
+    actor_view = [view for view in test_model.views if view.external_id == "Actor"][0]
+    actor_type = cast(SingleHopConnectionDefinition, actor_view.properties["movies"]).type.external_id
+    movie_view = [view for view in test_model.views if view.external_id == "Movie"][0]
+    movie_type = cast(SingleHopConnectionDefinition, movie_view.properties["actors"]).type.external_id
+    return [create_edge(test_model.space, actor_type, example_edge_1), create_edge(test_model.space, movie_type, example_edge_2)]
