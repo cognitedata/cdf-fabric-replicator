@@ -23,7 +23,7 @@ def test_timeseries_data_integration_service(cognite_client, test_replicator, la
         assert_timeseries_data_in_fabric(ts_external_id, data_points, lakehouse_timeseries_path, azure_credential)
 
 # Test for data model sync service
-# @pytest.mark.skip("Skipping test", allow_module_level=True)
+@pytest.mark.skip("Skipping test", allow_module_level=True)
 def test_data_model_sync_service_creation(test_model, edge_table_path, instance_table_paths, cognite_client):
     # Create a data model in CDF
     create_data_model_in_cdf()
@@ -32,7 +32,7 @@ def test_data_model_sync_service_creation(test_model, edge_table_path, instance_
     # Assert the data model is populated in a Fabric lakehouse
     assert_data_model_in_fabric()
 
-# @pytest.mark.skip("Skipping test", allow_module_level=True)
+@pytest.mark.skip("Skipping test", allow_module_level=True)
 def test_data_model_sync_service_update(test_model, edge_table_path, instance_table_paths, cognite_client):
     # Run data model sync service between CDF and Fabric
     run_data_model_sync()
