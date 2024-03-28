@@ -8,6 +8,7 @@ from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.metrics import safe_get
 from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
+from cdf_fabric_replicator.data_modeling import DataModelingReplicator
 from dotenv import load_dotenv
 from tests.integration.integration_steps.cdf_steps import remove_time_series_data, push_time_series_to_cdf, create_subscription_in_cdf
 from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
@@ -28,6 +29,22 @@ def test_replicator():
         os.remove("states.json")
     except FileNotFoundError:
         pass
+
+
+@pytest.fixture(scope="function")
+def test_data_modeling_replicator():
+    stop_event = CancellationToken()
+    replicator = DataModelingReplicator(metrics=safe_get(Metrics), stop_event=stop_event)
+    replicator._initial_load_config(override_path=os.environ["TEST_CONFIG_PATH"])
+    replicator.cognite_client = replicator.config.cognite.get_cognite_client(replicator.name)
+    replicator._load_state_store()
+    replicator.logger = Mock()
+    yield replicator
+    try:
+        os.remove("states.json")
+    except FileNotFoundError:
+        pass
+
 
 @pytest.fixture(scope="session")
 def cognite_client():
