@@ -12,6 +12,6 @@ def stop_replicator():
     # Stop the replicator service
     pass
 
-def setup_data_model_sync():
-    # Setup data model sync service between CDF and Fabric
+def run_data_model_sync():
+    # Run data model sync service between CDF and Fabric
     pass
