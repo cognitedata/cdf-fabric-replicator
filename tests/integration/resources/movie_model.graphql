@@ -1,15 +1,9 @@
 type Person {
     name: String!
     birthYear: Int
-    roles: [Role]
 }
 
-interface Role{
-    movies: [Movie]
-    person: Person
-}
-
-type Actor implements Role {
+type Actor {
     movies: [Movie]
     wonOscar: Boolean
     person: Person
