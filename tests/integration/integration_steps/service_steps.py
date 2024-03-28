@@ -6,7 +6,7 @@ def run_replicator(test_replicator: TimeSeriesReplicator):
     test_replicator.process_subscriptions()
 
 def run_data_modeling_replicator(test_data_modeling_replicator: DataModelingReplicator):
-    # Processes data point subscription batches
+    # Processes spaces for data-modeling changes
     test_data_modeling_replicator.process_spaces()
 
 def start_replicator():
