@@ -24,7 +24,7 @@ def test_timeseries_data_integration_service(cognite_client, test_replicator, la
     # Assert state store is populated in CDF
     assert_state_store_in_cdf(
         test_replicator.config.subscriptions, 
-        test_replicator.config.extractor.state_store.raw.database, 
-        test_replicator.config.extractor.state_store.raw.table, 
+        remote_state_store.database, 
+        remote_state_store.table, 
         cognite_client)
 
