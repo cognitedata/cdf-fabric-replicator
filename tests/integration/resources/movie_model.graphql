@@ -1,0 +1,18 @@
+type Person {
+    name: String!
+    birthYear: Int
+}
+
+type Actor {
+    movies: [Movie]
+    wonOscar: Boolean
+    person: Person
+}
+
+type Movie{
+    title: String!
+    actors: [Actor]
+    releaseYear: Int
+    runTimeMinutes: Float
+    meta: JSONObject
+}
