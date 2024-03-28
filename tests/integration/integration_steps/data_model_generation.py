@@ -30,7 +30,7 @@ def get_view_for_node(type: str, test_model: DataModel[View]) -> View:
     return [view for view in test_model.views if view.external_id == type][0]
 
 def get_type_for_edge(edge: Edge, test_model: DataModel[View]) -> str:
-    # Gets the type that this edge will populate from the data model, i.e. creating an edge from actor to movie will populate the "movies" field in Role
+    # Gets the type that this edge will populate from the data model, i.e. creating an edge from actor to movie will populate the "movies" field in Actor
     return cast(SingleHopConnectionDefinition, get_view_for_node(edge.start_node.type, test_model).properties[edge.property]).type.external_id
 
 def create_node_or_edge_data(view: View, data: dict):
