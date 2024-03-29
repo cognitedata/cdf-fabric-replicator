@@ -1,6 +1,7 @@
 import os
 import pytest
 import yaml
+import pandas as pd
 from unittest.mock import Mock
 from azure.identity import DefaultAzureCredential
 from cognite.client import ClientConfig, CogniteClient
@@ -22,15 +23,12 @@ from cdf_fabric_replicator.time_series import TimeSeriesReplicator
 from cdf_fabric_replicator.data_modeling import DataModelingReplicator
 from dotenv import load_dotenv
 from tests.integration.integration_steps.cdf_steps import remove_time_series_data, push_time_series_to_cdf, create_subscription_in_cdf
-from tests.integration.integration_steps.fabric_steps import get_ts_delta_table
+from tests.integration.integration_steps.fabric_steps import get_ts_delta_table, lakehouse_table_name
 from tests.integration.integration_steps.time_series_generation import generate_timeseries_set
 from integration_steps.data_model_generation import Node, Edge, create_node, create_edge
 
 load_dotenv()
 RESOURCES = Path(__file__).parent / "resources"
-
-def lakehouse_table_name(table_name:str):
-    return os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + table_name
 
 @pytest.fixture(scope="session")
 def test_config():
@@ -136,20 +134,12 @@ def test_model(cognite_client: CogniteClient, test_space: Space):
         cognite_client.data_modeling.containers.delete((test_space.space, view.external_id))
 
 @pytest.fixture(scope="function")
-def edge_table_path(test_space: Space, azure_credential: DefaultAzureCredential):
-    edge_table_path = lakehouse_table_name(test_space.space + "_edges")
-    yield edge_table_path
-    try:
-        delta_table = get_ts_delta_table(azure_credential, edge_table_path)
-        delta_table.delete()
-    except TableNotFoundError:
-        print(f"Table not found {edge_table_path}")
-
-@pytest.fixture(scope="function")
 def instance_table_paths(test_model: DataModel[View], azure_credential: DefaultAzureCredential):
     instance_table_paths = []
     for view in test_model.views:
         instance_table_paths.append(lakehouse_table_name(test_model.space + "_" + view.external_id))
+    edge_table_path = lakehouse_table_name(test_model.space + "_edges")
+    instance_table_paths.append(edge_table_path)
     yield instance_table_paths
     for path in instance_table_paths:
         try:
@@ -194,3 +184,48 @@ def edge_list(test_model: DataModel[View], example_edge_actor_to_movie: Edge, ex
     yield edge_list
     cognite_client.data_modeling.instances.delete(edges=[(test_model.space, example_edge_actor_to_movie.external_id), (test_model.space, example_edge_movie_to_actor.external_id)])
     cognite_client.data_modeling.instances.delete(nodes=[(test_model.space, edge.type.external_id) for edge in edge_list])
+
+def node_info_dict(node: Node, space: str, type: str, version: int = 1) -> dict:
+    return {
+        "space": space,
+        "instanceType": "node",
+        "externalId": node.external_id,
+        "version": version,
+        **node.source_dict[type]
+    }
+
+def edge_info_dict(edge: Edge, space: str) -> dict:
+    return {
+        "space": space,
+        "instanceType": "edge",
+        "externalId": edge.external_id,
+        "version": 1,
+        "startNode": {"space": space, "externalId": edge.start_node.external_id},
+        "endNode": {"space": space, "externalId": edge.end_node.external_id}
+    }
+
+@pytest.fixture(scope="function")
+def instance_dataframes(example_actor: Node, example_movie: Node, example_edge_actor_to_movie: Edge, example_edge_movie_to_actor: Edge, test_space: Space) -> dict[str, pd.DataFrame]:    
+    actor_dataframe = pd.DataFrame(node_info_dict(example_actor, test_space.space, "Actor"), index=[0])
+    person_dataframe = pd.DataFrame(node_info_dict(example_actor, test_space.space, "Person"), index=[0])
+    movie_dataframe = pd.DataFrame(node_info_dict(example_movie, test_space.space, "Movie"), index=[0])
+    edge_dataframe = pd.DataFrame([edge_info_dict(example_edge_actor_to_movie, test_space.space), edge_info_dict(example_edge_movie_to_actor, test_space.space)], index=pd.RangeIndex(start=0, stop=2, step=1))
+    return {
+        test_space.space + "_Actor": actor_dataframe,
+        test_space.space + "_Person": person_dataframe, 
+        test_space.space + "_Movie": movie_dataframe,
+        test_space.space + "_edges": edge_dataframe
+    }
+
+@pytest.fixture(scope="function")
+def update_dataframe(example_actor: Node, updated_actor: Node, test_space: Space) -> pd.DataFrame:
+    return (
+        test_space.space + "_Actor",
+        pd.DataFrame(
+            [
+                node_info_dict(updated_actor, test_space.space, "Actor", 2),
+                node_info_dict(example_actor, test_space.space, "Actor")
+            ],
+            index=pd.RangeIndex(start=0, stop=2, step=1)
+        )
+    )

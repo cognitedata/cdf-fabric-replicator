@@ -1,4 +1,5 @@
 
+import os
 from azure.identity import DefaultAzureCredential
 from deltalake import DeltaTable
 from dateutil import tz
@@ -6,6 +7,10 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 
 TIMESTAMP_COLUMN = "timestamp"
+DATA_MODEL_TIMESTAMP_COLUMNS = ["lastUpdatedTime", "createdTime"]
+
+def lakehouse_table_name(table_name:str):
+    return os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + table_name
 
 def get_ts_delta_table(credential: DefaultAzureCredential, lakehouse_timeseries_path: str) -> DeltaTable:
     token = credential.get_token("https://storage.azure.com/.default")
@@ -37,10 +42,19 @@ def assert_timeseries_data_in_fabric(external_id: str, data_points: pd.DataFrame
     test_dataframe = prepare_test_dataframe_for_comparison(data_points)
     assert_frame_equal(test_dataframe, lakehouse_dataframe, check_dtype=False)
 
-def assert_data_model_in_fabric():
+def assert_data_model_instances_in_fabric(instance_table_paths: list, instance_dataframes: dict[str, pd.DataFrame], azure_credential: DefaultAzureCredential):
     # Assert the data model is populated in a Fabric lakehouse
-    pass
+    for path in instance_table_paths:
+        delta_table = get_ts_delta_table(azure_credential, path)
+        lakehouse_dataframe = delta_table.to_pandas()
+        lakehouse_dataframe = lakehouse_dataframe.drop(columns=DATA_MODEL_TIMESTAMP_COLUMNS)
+        table_name = path.split("Tables/")[1]
+        assert_frame_equal(instance_dataframes[table_name], lakehouse_dataframe, check_dtype=False)
 
-def assert_data_model_update():
-    # Assert the data model changes including versions and last updated timestamps are propagated to a Fabric lakehouse
-    pass
+def assert_data_model_instances_update(update_dataframe: tuple, azure_credential: DefaultAzureCredential):
+    # Assert the data model changes including versions are propagated to a Fabric lakehouse
+    path = lakehouse_table_name(update_dataframe[0])
+    delta_table = get_ts_delta_table(azure_credential, path)
+    lakehouse_dataframe = delta_table.to_pandas()
+    lakehouse_dataframe = lakehouse_dataframe.drop(columns=DATA_MODEL_TIMESTAMP_COLUMNS)
+    assert_frame_equal( update_dataframe[1],lakehouse_dataframe, check_dtype=False)
