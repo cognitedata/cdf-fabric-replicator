@@ -118,7 +118,7 @@ def time_series(request, cognite_client):
     remove_time_series_data(timeseries_set, cognite_client)
     remove_subscriptions(sub_name, cognite_client)
     push_time_series_to_cdf(timeseries_set, cognite_client)
-    create_subscription_in_cdf(timeseries_set, cognite_client)
+    create_subscription_in_cdf(timeseries_set, sub_name, cognite_client)
     yield timeseries_set
     remove_time_series_data(timeseries_set, cognite_client)
 
