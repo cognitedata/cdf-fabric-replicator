@@ -2,7 +2,7 @@ import pytest
 
 from integration_steps.cdf_steps import push_data_to_cdf, assert_data_points_df_in_cdf, assert_time_series_in_cdf_by_id, create_data_model_in_cdf, update_data_model_in_cdf
 from integration_steps.time_series_generation import TimeSeriesGeneratorArgs
-from integration_steps.fabric_steps import assert_timeseries_data_in_fabric, prepare_test_dataframe_for_comparison, assert_data_model_in_fabric, assert_data_model_updat
+from integration_steps.fabric_steps import assert_timeseries_data_in_fabric, prepare_test_dataframe_for_comparison, assert_data_model_in_fabric, assert_data_model_update
 from integration_steps.service_steps import run_replicator, run_extractor, run_data_model_sync
 
 
