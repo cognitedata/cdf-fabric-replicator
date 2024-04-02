@@ -49,7 +49,11 @@ def push_time_series_to_cdf(time_series_data: list[TimeSeries], cognite_client: 
             description=timeseries.description,
         ))
 
-    cognite_client.time_series.create(time_series_write_list)
+    try:
+        cognite_client.time_series.create(time_series_write_list)
+    except Exception as e:
+        print(f"Error creating time series: {e}")
+
     return time_series_data
 
 def push_data_to_cdf(time_series_data: list[TimeSeries], cognite_client: CogniteClient) -> dict[str, pd.DataFrame]:
@@ -97,9 +101,10 @@ def cdf_timeseries_contain_expected_timeseries_ids(
 
 
 def assert_time_series_in_cdf_by_id(expected_timeseries: list[str], cognite_client: CogniteClient):
-    result = cognite_client.time_series.list(limit=-1)
 
-    assert cdf_timeseries_contain_expected_timeseries_ids(expected_timeseries, [ts.external_id for ts in result])
+    for external_id in expected_timeseries:
+        result = cognite_client.time_series.retrieve(external_id=external_id)
+        assert result is not None
 
 
 def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
