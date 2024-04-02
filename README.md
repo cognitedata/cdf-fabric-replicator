@@ -31,12 +31,11 @@ You can optionally copy the contents of `.env.example` to a `.env` file that wil
 - `TS_TABLE_NAME`: The name of the table where time series metadata should be stored in Fabric.  The replicator will create the table if it does not exist.
 
 ## Fabric Extractor Variables
-- `EXTRACTOR_EVENT_PATH`: Specifies the ABFSS file path for the events table in a Fabric lakehouse.
-- `EXTRACTOR_FILE_PATH`: Specifies the ABFSS file path for the files in a Fabric lakehouse.
-- `EXTRACTOR_RAW_TS_PATH`: Specifies the ABFSS file path for the timeseries table in a Fabric lakehouse.
-- `EXTRACTOR_DATASET_ID`: Specifies the ID of the extractor dataset.
-- `EXTRACTOR_TS_PREFIX`: Specifies the prefix for the extractor timestamp.
-- `EXTRACTOR_DESTINATION_TYPE`: Specifies the type of the extractor destination.
+- `EXTRACTOR_EVENT_PATH`: The ABFSS file path for the events table in a Fabric lakehouse.
+- `EXTRACTOR_FILE_PATH`: The ABFSS file path for the files in a Fabric lakehouse.
+- `EXTRACTOR_RAW_TS_PATH`: The ABFSS file path for the gittimeseries table in a Fabric lakehouse.
+- `EXTRACTOR_DATASET_ID`: Specifies the ID of the extractor dataset when the data lands in CDF.
+- `EXTRACTOR_TS_PREFIX`: Specifies the prefix for the extractor timeseries when the data lands in CDF.
 
 ## Integration Test Variables
 - `TEST_CONFIG_PATH`: Specifies the path to the test configuration file with which test versions of the replicator are configured.
