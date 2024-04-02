@@ -1,4 +1,5 @@
 import pandas as pd
+from pandas import DataFrame
 from datetime import datetime
 from time import sleep
 from typing import List
@@ -7,6 +8,8 @@ from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.data_classes import DataPointSubscriptionWrite, DatapointSubscription
 from cdf_fabric_replicator.config import SubscriptionsConfig
+
+TIMESTAMP_COLUMN = "timestamp"
 
 def push_data_points_to_cdf(
     external_id: str, data_points: list[Datapoint], cognite_client: CogniteClient
@@ -71,13 +74,6 @@ def update_data_model_in_cdf():
     # Update a data model in CDF
     pass
 
-
-def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
-    return timestamp1.replace(microsecond=0) == timestamp2.replace(microsecond=0)
-
-def remove_matching_data_point(data_list: list[Datapoint], timestamp: str, value: str):
-    return [datapoint for datapoint in data_list if compare_timestamps(datapoint.timestamp, timestamp) and datapoint.value != value]
-
 def remove_matching_time_series(time_series_list: list[TimeSeries], external_id: str):
     return [time_series for time_series in time_series_list if time_series.external_id != external_id]
 
@@ -91,34 +87,74 @@ def cdf_timeseries_contain_expected_timeseries(expected_timeseries: list[TimeSer
     )
 
 
-def cdf_datapoints_contain_expected_datapoints(expected_data_list: list[Datapoint], retrieved_data_point_tuple: list[tuple[str, str]]) -> bool:
+def cdf_timeseries_contain_expected_timeseries_ids(
+    expected_timeseries: list[str], retrieved_timeseries_ids: list[str]
+) -> bool:
     return all(
-        any(
-            compare_timestamps(data_point.timestamp, timestamp) and data_point.value == value
-            for timestamp, value in retrieved_data_point_tuple
-        )
-        for data_point in expected_data_list
+        any(ts == retrieved_timeseries_id for retrieved_timeseries_id in retrieved_timeseries_ids)
+        for ts in expected_timeseries
     )
 
 
-def assert_data_points_in_cdf(external_id: str, expected_data_points: list[Datapoint], cognite_client: CogniteClient):
-    result = cognite_client.time_series.data.retrieve_dataframe(external_id=external_id)
-
-    assert cdf_datapoints_contain_expected_datapoints(expected_data_points, [(row[0], row[1][0]) for row in result.iterrows()])
-
-
-def assert_time_series_in_cdf(expected_timeseries: list[TimeSeries], cognite_client: CogniteClient):
+def assert_time_series_in_cdf_by_id(expected_timeseries: list[str], cognite_client: CogniteClient):
     result = cognite_client.time_series.list(limit=-1)
 
-    assert cdf_timeseries_contain_expected_timeseries(expected_timeseries, [ts.external_id for ts in result])
+    assert cdf_timeseries_contain_expected_timeseries_ids(expected_timeseries, [ts.external_id for ts in result])
 
-def remove_time_series_data(list_of_time_series: list[TimeSeries], sub_name: str, cognite_client: CogniteClient):
+
+def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
+    timestamp1_str = timestamp1.strftime("%Y-%m-%d %H:%M:%S")
+    timestamp2_str = timestamp2.strftime("%Y-%m-%d %H:%M:%S")
+    return timestamp1_str == timestamp2_str
+
+
+def cdf_datapoints_contain_expected_datapoints(
+    expected_data_list: list[tuple[str, str]], retrieved_data_point_tuple: list[tuple[str, str]]
+) -> bool:
+    return all(
+        any(
+            compare_timestamps(expected_timestamp, timestamp) and expected_value == value
+            for timestamp, value in retrieved_data_point_tuple
+        )
+        for expected_timestamp, expected_value in expected_data_list
+    )
+
+
+def assert_data_points_in_cdf(
+    external_id: str, expected_data_points: list[tuple[str, str]], cognite_client: CogniteClient
+):
+    result = cognite_client.time_series.data.retrieve_dataframe(external_id=external_id)
+
+    result.reset_index(inplace=True)
+    result.rename(columns={"index": "timestamp", external_id: "value"}, inplace=True)
+    result[TIMESTAMP_COLUMN] = pd.to_datetime(result[TIMESTAMP_COLUMN])
+    result[TIMESTAMP_COLUMN] = result[TIMESTAMP_COLUMN].dt.round("s")
+
+    assert cdf_datapoints_contain_expected_datapoints(
+        expected_data_points, [(row.iloc[0], row.iloc[1]) for _, row in result.iterrows()]
+    )
+
+
+def assert_data_points_df_in_cdf(external_id: str, data_points: DataFrame, cognite_client: CogniteClient):
+    data_points_list = []
+    for _, row in data_points.iterrows():
+        data_point = (row.iloc[1], row.iloc[2])
+
+        data_points_list.append(data_point)
+    assert_data_points_in_cdf(
+        external_id=external_id, expected_data_points=data_points_list, cognite_client=cognite_client
+    )
+
+
+def remove_time_series_data(list_of_time_series: list[TimeSeries], cognite_client: CogniteClient):
     for time_series in list_of_time_series:
         try:
             cognite_client.time_series.delete(external_id=time_series.external_id)
         except CogniteNotFoundError:
             print(f'time series {time_series.external_id} not found in CDF')
 
+
+def remove_subscriptions(sub_name: str, cognite_client: CogniteClient):
     try:
         cognite_client.time_series.subscriptions.delete(sub_name)
     except CogniteNotFoundError:
