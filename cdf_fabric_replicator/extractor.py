@@ -144,7 +144,7 @@ class CdfFabricExtractor(Extractor[Config]):
                 df_to_be_written.index = pd.to_datetime(df_to_be_written.index)
                 self.client.time_series.data.insert_dataframe(df_to_be_written)
 
-                self.set_state(state_id, latest_process_time)
+                self.set_state(state_id, str(latest_process_time))
 
     def write_event_data_to_cdf(self, file_path: str, token: str, state_id: str) -> None:
         df = self.convert_lakehouse_data_to_df(file_path, token)
