@@ -1,4 +1,4 @@
-import pytest
+import pytest, time
 
 from integration_steps.cdf_steps import push_data_to_cdf, assert_data_points_df_in_cdf, assert_time_series_in_cdf_by_id, create_data_model_in_cdf, update_data_model_in_cdf
 from integration_steps.time_series_generation import TimeSeriesGeneratorArgs
@@ -60,6 +60,9 @@ def test_extractor_timeseries_service(cognite_client, raw_time_series, test_extr
 
     # Run replicator to pick up new timeseries data points in Lakehouse
     run_extractor(test_extractor, raw_time_series)
+
+    # Sleep for 30 seconds to allow replicator to process the data
+    time.sleep(30)
 
     # Assert timeseries data is populated CDF
     assert_time_series_in_cdf_by_id(raw_time_series["externalId"].unique(), cognite_client)

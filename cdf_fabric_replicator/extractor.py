@@ -19,9 +19,9 @@ from cdf_fabric_replicator.config import Config
 
 
 class CdfFabricExtractor(Extractor[Config]):
-    def __init__(self, stop_event: CancellationToken) -> None:
+    def __init__(self, stop_event: CancellationToken, name: str="cdf_fabric_extractor") -> None:
         super().__init__(
-            name="cdf_fabric_extractor",
+            name=name,
             description="CDF Fabric Extractor",
             config_class=Config,
             version=__version__,

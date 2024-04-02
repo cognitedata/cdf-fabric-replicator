@@ -69,7 +69,7 @@ def test_replicator():
 @pytest.fixture(scope="session")
 def test_extractor():
     stop_event = CancellationToken()
-    exatractor = CdfFabricExtractor(stop_event=stop_event)
+    exatractor = CdfFabricExtractor(stop_event=stop_event, name="conftest")
     exatractor._initial_load_config(override_path=os.environ["TEST_CONFIG_PATH"])
     exatractor.client = exatractor.config.cognite.get_cognite_client(exatractor.name)
     exatractor.cognite_client = exatractor.config.cognite.get_cognite_client(exatractor.name)
