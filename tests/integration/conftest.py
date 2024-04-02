@@ -184,9 +184,6 @@ def remote_state_store(cognite_client, test_replicator):
         test_replicator.config.extractor.state_store.raw.table, 
         cognite_client)
 
-    remove_time_series_data(timeseries_set, cognite_client)
-    remove_subscriptions(sub_name, cognite_client)
-
 @pytest.fixture(scope="function")
 def raw_time_series(request, azure_credential, cognite_client, test_extractor):
     timeseries_set = generate_raw_timeseries_set(request.param)
