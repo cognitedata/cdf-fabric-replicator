@@ -39,10 +39,13 @@ def write_timeseries_data_to_fabric(credential: DefaultAzureCredential, data_fra
 
 def remove_time_series_data_from_fabric(credential: DefaultAzureCredential, table_path:str):
     token = credential.get_token("https://storage.azure.com/.default").token
-    DeltaTable(
-        table_uri= table_path,
-        storage_options={"bearer_token": token, "use_fabric_endpoint": "true"}
-    ).delete()
+    try:
+        DeltaTable(
+            table_uri= table_path,
+            storage_options={"bearer_token": token, "use_fabric_endpoint": "true"}
+        ).delete()
+    except Exception as e:
+        pass
 
 def prepare_test_dataframe_for_comparison(dataframe: pd.DataFrame) -> pd.DataFrame:
     dataframe[TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
