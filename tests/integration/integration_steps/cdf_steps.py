@@ -2,10 +2,12 @@ import pandas as pd
 from pandas import DataFrame
 from datetime import datetime
 from time import sleep
+from typing import List
 from cognite.client import CogniteClient
 from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.data_classes import DataPointSubscriptionWrite, DatapointSubscription
+from cdf_fabric_replicator.config import SubscriptionsConfig
 
 TIMESTAMP_COLUMN = "timestamp"
 
@@ -157,3 +159,24 @@ def remove_subscriptions(sub_name: str, cognite_client: CogniteClient):
         cognite_client.time_series.subscriptions.delete(sub_name)
     except CogniteNotFoundError:
         print(f'subscription {sub_name} not found in CDF')
+
+def delete_state_store_in_cdf(subscriptions: List[SubscriptionsConfig], database: str, table: str, cognite_client: CogniteClient):
+    for sub in subscriptions:
+        for i in range(len(sub.partitions)):
+            statename = f"{sub.external_id}_{i}"
+            row = cognite_client.raw.rows.retrieve(database, table, statename)
+            if row is not None:
+                cognite_client.raw.rows.delete(database, table, statename)
+
+    all_rows = cognite_client.raw.rows.list(database, table, limit=1)
+    if len(all_rows) == 0:
+        cognite_client.raw.tables.delete(database, table)
+
+def assert_state_store_in_cdf(subscriptions: List[SubscriptionsConfig], database: str, table: str, cognite_client: CogniteClient):
+    for sub in subscriptions:
+        for i in range(len(sub.partitions)):
+            statename = f"{sub.external_id}_{i}"
+            row = cognite_client.raw.rows.retrieve(database, table, statename)
+
+            assert row is not None
+            assert row.columns["high"] is not None

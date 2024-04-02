@@ -13,7 +13,7 @@ from integration_steps.service_steps import run_replicator, run_extractor
     ],
     indirect=True,
 )
-def test_timeseries_data_integration_service(cognite_client, test_replicator, lakehouse_timeseries_path, time_series, azure_credential):
+def test_timeseries_data_integration_service(cognite_client, test_replicator, lakehouse_timeseries_path, time_series, azure_credential, remote_state_store):
     # Push data points to CDF
     pushed_data = push_data_to_cdf(time_series, cognite_client)
     # Run replicator for data point subscription between CDF and Fabric
@@ -21,6 +21,13 @@ def test_timeseries_data_integration_service(cognite_client, test_replicator, la
     # Assert timeseries data is populated in a Fabric lakehouse
     for ts_external_id, data_points in pushed_data.items():
         assert_timeseries_data_in_fabric(ts_external_id, data_points, lakehouse_timeseries_path, azure_credential)
+
+    # Assert state store is populated in CDF
+    assert_state_store_in_cdf(
+        test_replicator.config.subscriptions, 
+        remote_state_store.database, 
+        remote_state_store.table, 
+        cognite_client)
 
 # Test for Timeseries Extractor service between CDF and Fabric
 @pytest.mark.parametrize(
