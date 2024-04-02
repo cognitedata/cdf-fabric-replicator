@@ -62,7 +62,7 @@ cognite:
         scopes:
             - ${COGNITE_BASE_URL}/.default
     extraction-pipeline:
-        external-id: fabric-replicator
+        external-id: ts-sub
 
 #Extractor config
 extractor:
@@ -76,11 +76,11 @@ extractor:
 
 # subscriptions to stream
 subscriptions:
-    - external_id: charts-persisted
+    - external_id: ts-subscription
       partitions:
           - 0
-      lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/CalculatedTimeseries
-      lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/CalculatedTimeseriesMetadata
+      lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${DPS_TABLE_NAME}
+      lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${TS_TABLE_NAME}
 
 # sync data model
 data_modeling:
