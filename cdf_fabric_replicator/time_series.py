@@ -149,7 +149,7 @@ class TimeSeriesReplicator(Extractor):
             for i in range(0, len(update.upserts.timestamp)):
                 rows.append( 
                     (update.upserts.external_id, 
-                    datetime.datetime.fromtimestamp(update.upserts.timestamp[i]/1000), 
+                    pd.to_datetime(update.upserts.timestamp[i], unit='ms', utc=True),
                     update.upserts.value[i]) )
         if len(rows) == 0:
             logging.info ("No data in updates list.")
