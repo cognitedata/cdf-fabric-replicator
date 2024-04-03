@@ -7,6 +7,14 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.data_classes import DataPointSubscriptionWrite, DatapointSubscription
+from cognite.client.data_classes.data_modeling import (
+    Space, 
+    DataModel,
+    View,
+    NodeApply,
+    EdgeApply
+)
+from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cdf_fabric_replicator.config import SubscriptionsConfig
 
 TIMESTAMP_COLUMN = "timestamp"
@@ -49,7 +57,11 @@ def push_time_series_to_cdf(time_series_data: list[TimeSeries], cognite_client: 
             description=timeseries.description,
         ))
 
-    cognite_client.time_series.create(time_series_write_list)
+    try:
+        cognite_client.time_series.create(time_series_write_list)
+    except Exception as e:
+        print(f"Error creating time series: {e}")
+
     return time_series_data
 
 def push_data_to_cdf(time_series_data: list[TimeSeries], cognite_client: CogniteClient) -> dict[str, pd.DataFrame]:
@@ -66,13 +78,24 @@ def create_subscription_in_cdf(time_series_data: list[TimeSeries], sub_name: str
     sub = DataPointSubscriptionWrite(sub_name, partition_count=1, time_series_ids=ts_external_ids, name="Test subscription")
     return cognite_client.time_series.subscriptions.create(sub)
 
-def create_data_model_in_cdf():
+def create_data_model_in_cdf(test_space: Space, test_dml: str, cognite_client: CogniteClient):
     # Create a data model in CDF
-    pass
+    movie_id = DataModelId(space=test_space.space, external_id="Movie", version="1")
+    created = cognite_client.data_modeling.graphql.apply_dml(
+        id=movie_id, dml=test_dml, name="Movie Model", description="The Movie Model used in Integration Tests"
+    )
+    models = cognite_client.data_modeling.data_models.retrieve(created.as_id(), inline_views=True)
+    return models.latest_version()
 
-def update_data_model_in_cdf():
-    # Update a data model in CDF
-    pass
+def apply_data_model_instances_in_cdf(node_list: list[NodeApply], edge_list: list[EdgeApply], cognite_client: CogniteClient):
+    # Create data model instances in CDF
+    return cognite_client.data_modeling.instances.apply(nodes=node_list, edges=edge_list)
+
+def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
+    return timestamp1.replace(microsecond=0) == timestamp2.replace(microsecond=0)
+
+def remove_matching_data_point(data_list: list[Datapoint], timestamp: str, value: str):
+    return [datapoint for datapoint in data_list if compare_timestamps(datapoint.timestamp, timestamp) and datapoint.value != value]
 
 def remove_matching_time_series(time_series_list: list[TimeSeries], external_id: str):
     return [time_series for time_series in time_series_list if time_series.external_id != external_id]
@@ -97,9 +120,10 @@ def cdf_timeseries_contain_expected_timeseries_ids(
 
 
 def assert_time_series_in_cdf_by_id(expected_timeseries: list[str], cognite_client: CogniteClient):
-    result = cognite_client.time_series.list(limit=-1)
 
-    assert cdf_timeseries_contain_expected_timeseries_ids(expected_timeseries, [ts.external_id for ts in result])
+    for external_id in expected_timeseries:
+        result = cognite_client.time_series.retrieve(external_id=external_id)
+        assert result is not None
 
 
 def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
@@ -111,6 +135,13 @@ def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
 def cdf_datapoints_contain_expected_datapoints(
     expected_data_list: list[tuple[str, str]], retrieved_data_point_tuple: list[tuple[str, str]]
 ) -> bool:
+    print(f"Expected data:")
+    for expected_timestamp, expected_value in expected_data_list:
+        print(f"Timestamp: {expected_timestamp}, Value: {expected_value}")
+
+    print(f"Retrieved data:")
+    for timestamp, value in retrieved_data_point_tuple:
+        print(f"Timestamp: {timestamp}, Value: {value}")
     return all(
         any(
             compare_timestamps(expected_timestamp, timestamp) and expected_value == value
@@ -152,6 +183,7 @@ def remove_time_series_data(list_of_time_series: list[TimeSeries], cognite_clien
             cognite_client.time_series.delete(external_id=time_series.external_id)
         except CogniteNotFoundError:
             print(f'time series {time_series.external_id} not found in CDF')
+    sleep(5)
 
 
 def remove_subscriptions(sub_name: str, cognite_client: CogniteClient):
@@ -169,8 +201,8 @@ def delete_state_store_in_cdf(subscriptions: List[SubscriptionsConfig], database
                 cognite_client.raw.rows.delete(database, table, statename)
 
     all_rows = cognite_client.raw.rows.list(database, table, limit=1)
-    if len(all_rows) == 0:
-        cognite_client.raw.tables.delete(database, table)
+    for row in all_rows:
+        cognite_client.raw.rows.delete(database, table, row.key)
 
 def assert_state_store_in_cdf(subscriptions: List[SubscriptionsConfig], database: str, table: str, cognite_client: CogniteClient):
     for sub in subscriptions:
