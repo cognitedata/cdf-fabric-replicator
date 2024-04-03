@@ -60,7 +60,7 @@ def push_time_series_to_cdf(time_series_data: list[TimeSeries], cognite_client: 
     try:
         cognite_client.time_series.create(time_series_write_list)
     except Exception as e:
-        pass #print(f"Error creating time series: {e}")
+        print(f"Error creating time series: {e}")
 
     return time_series_data
 
@@ -201,8 +201,8 @@ def delete_state_store_in_cdf(subscriptions: List[SubscriptionsConfig], database
                 cognite_client.raw.rows.delete(database, table, statename)
 
     all_rows = cognite_client.raw.rows.list(database, table, limit=1)
-    if len(all_rows) == 0:
-        cognite_client.raw.tables.delete(database, table)
+    for row in all_rows:
+        cognite_client.raw.rows.delete(database, table, row.key)
 
 def assert_state_store_in_cdf(subscriptions: List[SubscriptionsConfig], database: str, table: str, cognite_client: CogniteClient):
     for sub in subscriptions:
