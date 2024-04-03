@@ -76,7 +76,7 @@ def test_replicator():
 @pytest.fixture(scope="session")
 def test_extractor():
     stop_event = CancellationToken()
-    exatractor = CdfFabricExtractor(stop_event=stop_event)
+    exatractor = CdfFabricExtractor(stop_event=stop_event, name="conftest")
     exatractor._initial_load_config(override_path=os.environ["TEST_CONFIG_PATH"])
     exatractor.client = exatractor.config.cognite.get_cognite_client(exatractor.name)
     exatractor.cognite_client = exatractor.config.cognite.get_cognite_client(exatractor.name)
@@ -127,8 +127,8 @@ def time_series(request, cognite_client):
     push_time_series_to_cdf(timeseries_set, cognite_client)
     create_subscription_in_cdf(timeseries_set, sub_name, cognite_client)
     yield timeseries_set
-    remove_time_series_data(timeseries_set, sub_name, cognite_client)
-    remove_subscriptions(sub_name, cognite_client)
+#    remove_time_series_data(timeseries_set, sub_name, cognite_client)
+#    remove_subscriptions(sub_name, cognite_client)
 
 @pytest.fixture(scope="session")
 def test_space(test_config, cognite_client: CogniteClient):
@@ -228,7 +228,6 @@ def remote_state_store(cognite_client, test_replicator):
         test_replicator.config.extractor.state_store.raw.database, 
         test_replicator.config.extractor.state_store.raw.table, 
         cognite_client)
-
 
 @pytest.fixture(scope="function")
 def raw_time_series(request, azure_credential, cognite_client, test_extractor):
