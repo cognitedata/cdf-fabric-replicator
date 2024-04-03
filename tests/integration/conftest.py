@@ -2,6 +2,7 @@ import os
 import pytest
 import yaml
 from unittest.mock import Mock
+from time import sleep
 from azure.identity import DefaultAzureCredential
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
@@ -126,6 +127,7 @@ def time_series(request, cognite_client):
     remove_subscriptions(sub_name, cognite_client)
     push_time_series_to_cdf(timeseries_set, cognite_client)
     create_subscription_in_cdf(timeseries_set, sub_name, cognite_client)
+    sleep(5)
     yield timeseries_set
     remove_time_series_data(timeseries_set, cognite_client)
     remove_subscriptions(sub_name, cognite_client)
