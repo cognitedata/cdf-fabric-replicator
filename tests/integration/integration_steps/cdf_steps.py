@@ -7,6 +7,14 @@ from cognite.client import CogniteClient
 from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.data_classes import DataPointSubscriptionWrite, DatapointSubscription
+from cognite.client.data_classes.data_modeling import (
+    Space, 
+    DataModel,
+    View,
+    NodeApply,
+    EdgeApply
+)
+from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cdf_fabric_replicator.config import SubscriptionsConfig
 
 TIMESTAMP_COLUMN = "timestamp"
@@ -70,13 +78,24 @@ def create_subscription_in_cdf(time_series_data: list[TimeSeries], sub_name: str
     sub = DataPointSubscriptionWrite(sub_name, partition_count=1, time_series_ids=ts_external_ids, name="Test subscription")
     return cognite_client.time_series.subscriptions.create(sub)
 
-def create_data_model_in_cdf():
+def create_data_model_in_cdf(test_space: Space, test_dml: str, cognite_client: CogniteClient):
     # Create a data model in CDF
-    pass
+    movie_id = DataModelId(space=test_space.space, external_id="Movie", version="1")
+    created = cognite_client.data_modeling.graphql.apply_dml(
+        id=movie_id, dml=test_dml, name="Movie Model", description="The Movie Model used in Integration Tests"
+    )
+    models = cognite_client.data_modeling.data_models.retrieve(created.as_id(), inline_views=True)
+    return models.latest_version()
 
-def update_data_model_in_cdf():
-    # Update a data model in CDF
-    pass
+def apply_data_model_instances_in_cdf(node_list: list[NodeApply], edge_list: list[EdgeApply], cognite_client: CogniteClient):
+    # Create data model instances in CDF
+    return cognite_client.data_modeling.instances.apply(nodes=node_list, edges=edge_list)
+
+def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
+    return timestamp1.replace(microsecond=0) == timestamp2.replace(microsecond=0)
+
+def remove_matching_data_point(data_list: list[Datapoint], timestamp: str, value: str):
+    return [datapoint for datapoint in data_list if compare_timestamps(datapoint.timestamp, timestamp) and datapoint.value != value]
 
 def remove_matching_time_series(time_series_list: list[TimeSeries], external_id: str):
     return [time_series for time_series in time_series_list if time_series.external_id != external_id]
