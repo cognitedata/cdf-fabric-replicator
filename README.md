@@ -9,6 +9,7 @@ The replicator consists of three services:
 - **Time series replicator** - Copies time series data from CDF to Fabric
 - **Data model replicator** - Copies data model nodes and edges from CDF to Fabric
 - **Fabric data extractor** - Copies time series, events, and files from Fabric to CDF
+
 All three services will run concurrently during the run of the CDF Fabric Replicator program.  The services use a state store in CDF's raw storage to maintain checkpoints of when the latest data was read, so the services can be started and stopped and will be able to pick back up where they left off.
 
 # Environment Variables
@@ -109,7 +110,11 @@ First, make sure you have Poetry installed on your system. If not, you can insta
 Once Poetry is installed, navigate to the root directory of your project in your terminal.
 
 Next, run the following command to install the project dependencies:
+```
 poetry install
+```
 
 Finally, run the replicator:
+```
 poetry run cdf_fabric_replicator config.yaml
+```
