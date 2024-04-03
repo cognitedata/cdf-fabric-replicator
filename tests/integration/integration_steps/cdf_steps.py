@@ -52,7 +52,7 @@ def push_time_series_to_cdf(time_series_data: list[TimeSeries], cognite_client: 
     try:
         cognite_client.time_series.create(time_series_write_list)
     except Exception as e:
-        print(f"Error creating time series: {e}")
+        pass #print(f"Error creating time series: {e}")
 
     return time_series_data
 
@@ -116,6 +116,8 @@ def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
 def cdf_datapoints_contain_expected_datapoints(
     expected_data_list: list[tuple[str, str]], retrieved_data_point_tuple: list[tuple[str, str]]
 ) -> bool:
+    print(f"Expected data: {expected_data_list}")
+    print(f"Retrieved data: {retrieved_data_point_tuple}")
     return all(
         any(
             compare_timestamps(expected_timestamp, timestamp) and expected_value == value
@@ -157,6 +159,7 @@ def remove_time_series_data(list_of_time_series: list[TimeSeries], cognite_clien
             cognite_client.time_series.delete(external_id=time_series.external_id)
         except CogniteNotFoundError:
             print(f'time series {time_series.external_id} not found in CDF')
+    sleep(5)
 
 
 def remove_subscriptions(sub_name: str, cognite_client: CogniteClient):
