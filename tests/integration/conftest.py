@@ -260,3 +260,9 @@ def raw_time_series(request, azure_credential, cognite_client, test_extractor):
         azure_credential,
         test_extractor.config.source.abfss_prefix + "/" + test_extractor.config.source.raw_time_series_path
     )
+
+    delete_state_store_in_cdf(
+        test_extractor.config.subscriptions, 
+        test_extractor.config.extractor.state_store.raw.database, 
+        test_extractor.config.extractor.state_store.raw.table, 
+        cognite_client)
