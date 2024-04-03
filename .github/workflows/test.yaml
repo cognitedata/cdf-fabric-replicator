@@ -49,5 +49,4 @@ jobs:
         EXTRACTOR_RAW_TS_PATH: ${{ vars.EXTRACTOR_RAW_TS_PATH }}
         TEST_CONFIG_PATH: tests/integration/test_config.yaml
 
-      run: poetry run pytest
-
+      run: poetry run pytest tests --verbose
