@@ -135,8 +135,14 @@ def compare_timestamps(timestamp1: datetime, timestamp2: datetime) -> bool:
 def cdf_datapoints_contain_expected_datapoints(
     expected_data_list: list[tuple[str, str]], retrieved_data_point_tuple: list[tuple[str, str]]
 ) -> bool:
-    print(f"Expected data: {expected_data_list}")
-    print(f"Retrieved data: {retrieved_data_point_tuple}")
+    print(f"Expected data:")
+    for expected_timestamp, expected_value in expected_data_list:
+        print(f"Timestamp: {expected_timestamp}, Value: {expected_value}")
+
+    print(f"Retrieved data:")
+    for timestamp, value in retrieved_data_point_tuple:
+        print(f"Timestamp: {timestamp}, Value: {value}")
+    
     return all(
         any(
             compare_timestamps(expected_timestamp, timestamp) and expected_value == value
