@@ -2,6 +2,7 @@ import os
 import pytest
 import yaml
 from unittest.mock import Mock
+from time import sleep
 from azure.identity import DefaultAzureCredential
 from cognite.client import ClientConfig, CogniteClient
 from cognite.client.credentials import OAuthClientCredentials
@@ -39,6 +40,13 @@ from tests.integration.integration_steps.time_series_generation import (
     generate_raw_timeseries_set,
     generate_timeseries,
 )
+from integration_steps.data_model_generation import (
+    Node,
+    Edge,
+    create_node,
+    create_edge
+)
+
 import pandas as pd
 
 load_dotenv()
@@ -70,7 +78,7 @@ def test_replicator():
 @pytest.fixture(scope="session")
 def test_extractor():
     stop_event = CancellationToken()
-    exatractor = CdfFabricExtractor(stop_event=stop_event)
+    exatractor = CdfFabricExtractor(stop_event=stop_event, name="conftest")
     exatractor._initial_load_config(override_path=os.environ["TEST_CONFIG_PATH"])
     exatractor.client = exatractor.config.cognite.get_cognite_client(exatractor.name)
     exatractor.cognite_client = exatractor.config.cognite.get_cognite_client(exatractor.name)
@@ -136,8 +144,10 @@ def time_series(request, cognite_client):
     remove_subscriptions(sub_name, cognite_client)
     push_time_series_to_cdf(timeseries_set, cognite_client)
     create_subscription_in_cdf(timeseries_set, sub_name, cognite_client)
+    sleep(5)
     yield timeseries_set
-    remove_time_series_data(timeseries_set, sub_name, cognite_client)
+    remove_time_series_data(timeseries_set, cognite_client)
+    remove_subscriptions(sub_name, cognite_client)
 
 @pytest.fixture(scope="session")
 def test_space(test_config, cognite_client: CogniteClient):
@@ -189,6 +199,43 @@ def instance_table_paths(test_model: DataModel[View], azure_credential: DefaultA
             delta_table.delete()
         except TableNotFoundError:
             print(f"Table not found {path}")
+
+@pytest.fixture(scope="function")
+def example_actor():
+    return Node("arnold_schwarzenegger", "Actor", {"Actor": {"wonOscar": False}, "Person": {"name": "Arnold Schwarzenegger", "birthYear": 1947}})
+
+@pytest.fixture(scope="function")
+def updated_actor():
+    return Node("arnold_schwarzenegger", "Actor", {"Actor": {"wonOscar": True}})
+
+@pytest.fixture(scope="function")
+def example_movie():
+    return Node("terminator", "Movie", {"Movie": {"title": "Terminator", "releaseYear": 1984}})
+
+@pytest.fixture(scope="function")
+def example_edge_actor_to_movie(example_actor, example_movie):
+    return Edge("relation:arnold_schwarzenegger:terminator", "movies", example_actor, example_movie)
+
+@pytest.fixture(scope="function")
+def example_edge_movie_to_actor(example_actor, example_movie):
+    return Edge("relation:terminator:arnold_schwarzenegger", "actors", example_movie, example_actor)
+
+@pytest.fixture(scope="function")
+def node_list(test_model: DataModel[View], example_actor: Node, example_movie: Node, cognite_client: CogniteClient):
+    yield [create_node(test_model.space, example_actor, test_model), create_node(test_model.space, example_movie, test_model)]
+    cognite_client.data_modeling.instances.delete(nodes=[(test_model.space, example_actor.external_id), (test_model.space, example_movie.external_id)])
+
+@pytest.fixture(scope="function")
+def updated_node_list(test_model: DataModel[View], updated_actor: Node, cognite_client: CogniteClient):
+    yield [create_node(test_model.space, updated_actor, test_model)]
+    cognite_client.data_modeling.instances.delete(nodes=(test_model.space, updated_actor.external_id))
+
+@pytest.fixture(scope="function")
+def edge_list(test_model: DataModel[View], example_edge_actor_to_movie: Edge, example_edge_movie_to_actor: Edge, cognite_client):
+    edge_list = [create_edge(test_model.space, example_edge_actor_to_movie, test_model), create_edge(test_model.space, example_edge_movie_to_actor, test_model)]
+    yield edge_list
+    cognite_client.data_modeling.instances.delete(edges=[(test_model.space, example_edge_actor_to_movie.external_id), (test_model.space, example_edge_movie_to_actor.external_id)])
+    cognite_client.data_modeling.instances.delete(nodes=[(test_model.space, edge.type.external_id) for edge in edge_list])
             
 @pytest.fixture()
 def remote_state_store(cognite_client, test_replicator):
@@ -200,9 +247,6 @@ def remote_state_store(cognite_client, test_replicator):
         test_replicator.config.extractor.state_store.raw.database, 
         test_replicator.config.extractor.state_store.raw.table, 
         cognite_client)
-
-    remove_time_series_data(timeseries_set, cognite_client)
-    remove_subscriptions(sub_name, cognite_client)
 
 @pytest.fixture(scope="function")
 def raw_time_series(request, azure_credential, cognite_client, test_extractor):
@@ -233,3 +277,9 @@ def raw_time_series(request, azure_credential, cognite_client, test_extractor):
         azure_credential,
         test_extractor.config.source.abfss_prefix + "/" + test_extractor.config.source.raw_time_series_path
     )
+
+    delete_state_store_in_cdf(
+        test_extractor.config.subscriptions, 
+        test_extractor.config.extractor.state_store.raw.database, 
+        test_extractor.config.extractor.state_store.raw.table, 
+        cognite_client)

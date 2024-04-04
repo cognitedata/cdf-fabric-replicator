@@ -24,7 +24,7 @@ from cdf_fabric_replicator.metrics import Metrics
 class DataModelingReplicator(Extractor):
     def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
         super().__init__(
-            name="cdf_fabric_replicator",
+            name="cdf_fabric_replicator_data_modeling",
             description="CDF Fabric Replicator",
             config_class=Config,
             metrics=metrics,
