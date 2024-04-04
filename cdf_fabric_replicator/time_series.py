@@ -27,7 +27,7 @@ from cdf_fabric_replicator.metrics import Metrics
 class TimeSeriesReplicator(Extractor):
     def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
         super().__init__(
-            name="cdf_fabric_replicator",
+            name="cdf_fabric_replicator_ts",
             description="CDF Fabric Replicator",
             config_class=Config,
             metrics=metrics,
@@ -149,7 +149,7 @@ class TimeSeriesReplicator(Extractor):
             for i in range(0, len(update.upserts.timestamp)):
                 rows.append( 
                     (update.upserts.external_id, 
-                    datetime.datetime.fromtimestamp(update.upserts.timestamp[i]/1000), 
+                    pd.to_datetime(update.upserts.timestamp[i], unit='ms', utc=True),
                     update.upserts.value[i]) )
         if len(rows) == 0:
             logging.info ("No data in updates list.")

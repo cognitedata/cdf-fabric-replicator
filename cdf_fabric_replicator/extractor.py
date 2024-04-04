@@ -7,7 +7,9 @@ from azure.identity import DefaultAzureCredential
 from azure.storage.filedatalake import (
     DataLakeServiceClient,
 )
-from cognite.client.data_classes import EventWrite, ExtractionPipelineRunWrite, FileMetadata
+from cognite.client.data_classes import EventWrite, ExtractionPipelineRunWrite, FileMetadata, TimeSeriesWrite
+from cognite.client.exceptions import CogniteNotFoundError
+
 from cognite.extractorutils import Extractor
 from cognite.extractorutils.base import CancellationToken
 from deltalake import DeltaTable
@@ -19,9 +21,9 @@ from cdf_fabric_replicator.config import Config
 
 
 class CdfFabricExtractor(Extractor[Config]):
-    def __init__(self, stop_event: CancellationToken) -> None:
+    def __init__(self, stop_event: CancellationToken, name: str="cdf_fabric_extractor") -> None:
         super().__init__(
-            name="cdf_fabric_extractor",
+            name=name,
             description="CDF Fabric Extractor",
             config_class=Config,
             version=__version__,
@@ -142,7 +144,21 @@ class CdfFabricExtractor(Extractor[Config]):
                 )
                 df_to_be_written = df_to_be_written.pivot(index="timestamp", columns="externalId", values="value")
                 df_to_be_written.index = pd.to_datetime(df_to_be_written.index)
-                self.client.time_series.data.insert_dataframe(df_to_be_written)
+                try:
+                    self.client.time_series.data.insert_dataframe(df_to_be_written)
+                except CogniteNotFoundError as notFound:
+                    missing_xids = notFound.not_found
+                    for new_timeserie in missing_xids:
+                        # Create the missing time series
+                        self.client.time_series.create(
+                            TimeSeriesWrite(
+                                name=new_timeserie["externalId"],
+                                external_id=new_timeserie["externalId"],
+                                is_string=True,
+                                data_set_id=self.data_set_id,
+                            )
+                        )
+
 
                 self.set_state(state_id, str(latest_process_time))
 

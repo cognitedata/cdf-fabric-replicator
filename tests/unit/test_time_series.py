@@ -34,8 +34,8 @@ class TestTimeSeriesReplicator():
 
     def test_convert_updates_to_pandasdf_when_not_null(self, input_data_not_null):
         pd_df = pd.DataFrame(data=[
-            ["id1", datetime.datetime.fromtimestamp(1631234567), 1.23],
-            ["id1", datetime.datetime.fromtimestamp(1631234568), 4.56]],
+            ["id1", pd.to_datetime(1631234567, unit='s', utc=True), 1.23],
+            ["id1", pd.to_datetime(1631234568, unit='s', utc=True), 4.56]],
             columns=["externalId", "timestamp", "value"])
 
         df = self.replicator.convert_updates_to_pandasdf(input_data_not_null)
