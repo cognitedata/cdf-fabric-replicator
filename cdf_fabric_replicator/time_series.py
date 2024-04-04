@@ -1,16 +1,15 @@
 import logging
 import threading
 import time
-import datetime
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal
 
 from azure.identity import DefaultAzureCredential
 from deltalake.writer import write_deltalake
 import pandas as pd
 import numpy as np
 
-from cognite.client.data_classes import ExtractionPipelineRunWrite
+from cognite.client.data_classes import ExtractionPipelineRunWrite, TimeSeries
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionBatch,
     DatapointsUpdate,
@@ -42,14 +41,14 @@ class TimeSeriesReplicator(Extractor):
         self.update_queue: List[DatapointsUpdate] = []
         # logged in credentials, either local user or managed identity
         self.azure_credential = DefaultAzureCredential()
-        self.ts_cache = {}
+        self.ts_cache: Dict[str, int] = {}
 
     def run(self) -> None:
         # init/connect to destination
         if not self.config.subscriptions:
             logging.info("No time series subscriptions found in config")
             return
-    
+
         self.state_store.initialize()
 
         for subscription in self.config.subscriptions:
@@ -61,10 +60,17 @@ class TimeSeriesReplicator(Extractor):
             start_time = time.time()  # Get the current time in seconds
 
             self.process_subscriptions()
-            self.cognite_client.extraction_pipelines.runs.create(ExtractionPipelineRunWrite(status="success", extpipe_external_id=self.config.cognite.extraction_pipeline.external_id))            
+            self.cognite_client.extraction_pipelines.runs.create(
+                ExtractionPipelineRunWrite(
+                    status="success",
+                    extpipe_external_id=self.config.cognite.extraction_pipeline.external_id,
+                )
+            )
             end_time = time.time()  # Get the time after function execution
             elapsed_time = end_time - start_time
-            sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)  # 900s = 15min
+            sleep_time = max(
+                self.config.extractor.poll_time - elapsed_time, 0
+            )  # 900s = 15min
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
@@ -72,13 +78,19 @@ class TimeSeriesReplicator(Extractor):
         for subscription in self.config.subscriptions:
             for partition in subscription.partitions:
                 with ThreadPoolExecutor() as executor:
-                    future = executor.submit(self.process_partition, subscription, partition)
+                    future = executor.submit(
+                        self.process_partition, subscription, partition
+                    )
                     logging.debug(future.result())
 
-    def process_partition(self, subscription: SubscriptionsConfig, partition: int) -> str:
+    def process_partition(
+        self, subscription: SubscriptionsConfig, partition: int
+    ) -> str:
         state_id = f"{subscription.external_id}_{partition}"
-        cursor = self.state_store.get_state(external_id=state_id)[1]
-        logging.debug(f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}")
+        cursor = str(self.state_store.get_state(external_id=state_id)[1])
+        logging.debug(
+            f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}"
+        )
 
         for update_batch in self.cognite_client.time_series.subscriptions.iterate_data(
             external_id=subscription.external_id,
@@ -87,9 +99,19 @@ class TimeSeriesReplicator(Extractor):
             limit=self.config.extractor.subscription_batch_size,
         ):
             if update_batch.has_next:
-                self.send_to_lakehouse(subscription=subscription, update_batch=update_batch, state_id=state_id, send_now=False)
+                self.send_to_lakehouse(
+                    subscription=subscription,
+                    update_batch=update_batch,
+                    state_id=state_id,
+                    send_now=False,
+                )
             else:
-                self.send_to_lakehouse(subscription=subscription, update_batch=update_batch, state_id=state_id, send_now=True)
+                self.send_to_lakehouse(
+                    subscription=subscription,
+                    update_batch=update_batch,
+                    state_id=state_id,
+                    send_now=True,
+                )
 
             if not update_batch.has_next:
                 return f"{state_id} no more data at {update_batch.cursor}"
@@ -107,63 +129,127 @@ class TimeSeriesReplicator(Extractor):
         logging.debug(f"update_queue length: {len(self.update_queue)}")
 
         if len(self.update_queue) > self.config.extractor.ingest_batch_size or send_now:
-            self.send_data_point_to_lakehouse_table(subscription=subscription, updates=self.update_queue)
+            self.send_data_point_to_lakehouse_table(
+                subscription=subscription, updates=self.update_queue
+            )
 
             self.state_store.set_state(external_id=state_id, high=update_batch.cursor)
             self.state_store.synchronize()
             self.update_queue = []
 
-
-    def send_data_point_to_lakehouse_table(self, subscription: SubscriptionsConfig, updates: List[DatapointsUpdate]) -> None:
+    def send_data_point_to_lakehouse_table(
+        self, subscription: SubscriptionsConfig, updates: List[DatapointsUpdate]
+    ) -> None:
         for update in updates:
             if update.upserts.external_id not in self.ts_cache:
                 self.send_time_series_to_lakehouse_table(subscription, update)
-        
+
         df = self.convert_updates_to_pandasdf(updates)
         if df is not None:
-            
-            logging.info (f"writing {df.shape[0]} rows to '{subscription.lakehouse_abfss_path_dps}' table...")
-           
+            logging.info(
+                f"writing {df.shape[0]} rows to '{subscription.lakehouse_abfss_path_dps}' table..."
+            )
+
             self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_dps, df)
-            logging.info ("done.")
-            
-    def send_time_series_to_lakehouse_table(self, subscription: SubscriptionsConfig, update: DatapointsUpdate) -> None:
-        ts=self.cognite_client.time_series.retrieve(external_id=update.upserts.external_id)
-        print("timeseries: ", ts)
-        asset = self.cognite_client.assets.retrieve(id=ts.asset_id) if ts.asset_id is not None else None
-        print("asset_id: ", asset)
-        asset_xid = asset.external_id if asset is not None else ""
-        metadata = ts.metadata if len(ts.metadata) > 0 else {"source": "cdf_fabric_replicator"}
-        df = pd.DataFrame(np.array([[ts.external_id, ts.name, ts.description if ts.description else "" , ts.is_string, ts.is_step, ts.unit, metadata, asset_xid]]), columns=["externalId", "name", "description", "isString", "isStep", "unit", "metadata", "assetExternalId"])
-        df = df.dropna()
-        self.logger.info (f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table...")
-        if not df.empty:
-            self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_ts, df)
-        self.ts_cache[update.upserts.external_id] = 1
+            logging.info("done.")
 
+    def send_time_series_to_lakehouse_table(
+        self, subscription: SubscriptionsConfig, update: DatapointsUpdate
+    ) -> None:
+        ts = self.cognite_client.time_series.retrieve(
+            external_id=update.upserts.external_id
+        )
+        if isinstance(ts, TimeSeries):
+            asset = (
+                self.cognite_client.assets.retrieve(id=ts.asset_id)
+                if ts.asset_id is not None
+                else None
+            )
+            asset_xid = asset.external_id if asset is not None else ""
 
-    def convert_updates_to_pandasdf(self, updates: List[DatapointsUpdate]) -> pd.DataFrame:
+            metadata = (
+                ts.metadata
+                if len(ts.metadata.keys()) > 0
+                else {"source": "cdf_fabric_replicator"}
+            )
+            df = pd.DataFrame(
+                np.array(
+                    [
+                        [
+                            ts.external_id,
+                            ts.name,
+                            ts.description if ts.description else "",
+                            ts.is_string,
+                            ts.is_step,
+                            ts.unit,
+                            metadata,
+                            asset_xid,
+                        ]
+                    ]
+                ),
+                columns=[
+                    "externalId",
+                    "name",
+                    "description",
+                    "isString",
+                    "isStep",
+                    "unit",
+                    "metadata",
+                    "assetExternalId",
+                ],
+            )
+            df = df.dropna()
+            self.logger.info(
+                f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table..."
+            )
+            if not df.empty:
+                self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_ts, df)
+            self.ts_cache[str(update.upserts.external_id)] = 1
+        else:
+            logging.error(
+                f"Could not retrieve time series {update.upserts.external_id}"
+            )
+
+    def convert_updates_to_pandasdf(
+        self, updates: List[DatapointsUpdate]
+    ) -> pd.DataFrame:
         rows = []
 
         for update in updates:
             for i in range(0, len(update.upserts.timestamp)):
-                rows.append( 
-                    (update.upserts.external_id, 
-                    pd.to_datetime(update.upserts.timestamp[i], unit='ms', utc=True),
-                    update.upserts.value[i]) )
+                rows.append(
+                    (
+                        update.upserts.external_id,
+                        pd.to_datetime(
+                            update.upserts.timestamp[i], unit="ms", utc=True
+                        ),
+                        update.upserts.value[i],  # type: ignore
+                    )
+                )
         if len(rows) == 0:
-            logging.info ("No data in updates list.")
+            logging.info("No data in updates list.")
             return None
         return pd.DataFrame(data=rows, columns=["externalId", "timestamp", "value"])
 
-
-    def write_pd_to_deltalake(self, table: str, df: pd.DataFrame, mode="append") -> None:
+    def write_pd_to_deltalake(
+        self,
+        table: str,
+        df: pd.DataFrame,
+        mode: Literal["error", "append", "overwrite", "ignore"] = "append",
+    ) -> None:
         token = self.get_token()
 
-        write_deltalake(table, df, mode=mode,engine="rust", schema_mode="merge", storage_options={"bearer_token": token, "use_fabric_endpoint": "true"})
+        write_deltalake(
+            table_or_uri=table,
+            data=df,
+            mode=mode,
+            engine="rust",
+            schema_mode="merge",
+            storage_options={"bearer_token": token, "use_fabric_endpoint": "true"},
+        )
         return None
-    
+
     def get_token(self) -> str:
-        return self.azure_credential.get_token("https://storage.azure.com/.default").token
-
-
+        return self.azure_credential.get_token(
+            "https://storage.azure.com/.default"
+        ).token

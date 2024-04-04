@@ -1,5 +1,4 @@
 import pytest
-import datetime
 import pandas as pd
 
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
@@ -13,30 +12,38 @@ from cognite.extractorutils.base import CancellationToken
 
 @pytest.fixture
 def input_data_not_null():
-    yield [DatapointsUpdate(
+    yield [
+        DatapointsUpdate(
             time_series="test_ts",
             upserts=Datapoints(
                 external_id="id1",
                 timestamp=[1631234567000, 1631234568000],
-                value=[1.23, 4.56]
+                value=[1.23, 4.56],
             ),
-            deletes=[]
-        )]
+            deletes=[],
+        )
+    ]
+
 
 @pytest.fixture
 def input_data_null():
     yield []
 
 
-class TestTimeSeriesReplicator():
-    metrics = BaseMetrics(extractor_name = "test_ts_duplicator", extractor_version = "1.0.0")
+class TestTimeSeriesReplicator:
+    metrics = BaseMetrics(
+        extractor_name="test_ts_duplicator", extractor_version="1.0.0"
+    )
     replicator = TimeSeriesReplicator(metrics=metrics, stop_event=CancellationToken())
 
     def test_convert_updates_to_pandasdf_when_not_null(self, input_data_not_null):
-        pd_df = pd.DataFrame(data=[
-            ["id1", pd.to_datetime(1631234567, unit='s', utc=True), 1.23],
-            ["id1", pd.to_datetime(1631234568, unit='s', utc=True), 4.56]],
-            columns=["externalId", "timestamp", "value"])
+        pd_df = pd.DataFrame(
+            data=[
+                ["id1", pd.to_datetime(1631234567, unit="s", utc=True), 1.23],
+                ["id1", pd.to_datetime(1631234568, unit="s", utc=True), 4.56],
+            ],
+            columns=["externalId", "timestamp", "value"],
+        )
 
         df = self.replicator.convert_updates_to_pandasdf(input_data_not_null)
 
