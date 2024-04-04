@@ -17,7 +17,6 @@ from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.metrics import safe_get
 from cognite.extractorutils.base import CancellationToken
-from deltalake.exceptions import TableNotFoundError
 from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
@@ -32,6 +31,7 @@ from tests.integration.integration_steps.cdf_steps import (
 )
 from tests.integration.integration_steps.fabric_steps import (
     get_ts_delta_table,
+    delete_delta_table_data,
     write_timeseries_data_to_fabric,
     remove_time_series_data_from_fabric,
 )
@@ -132,9 +132,9 @@ def azure_credential():
 @pytest.fixture(scope="session")
 def lakehouse_timeseries_path(azure_credential):
     lakehouse_timeseries_path = os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + os.environ["DPS_TABLE_NAME"]
+    delete_delta_table_data(azure_credential, lakehouse_timeseries_path)
     yield lakehouse_timeseries_path
-    delta_table = get_ts_delta_table(azure_credential, lakehouse_timeseries_path)
-    delta_table.delete()
+    delete_delta_table_data(azure_credential, lakehouse_timeseries_path)
 
 @pytest.fixture()
 def time_series(request, cognite_client):
@@ -180,25 +180,19 @@ def test_model(cognite_client: CogniteClient, test_space: Space):
 @pytest.fixture(scope="function")
 def edge_table_path(test_space: Space, azure_credential: DefaultAzureCredential):
     edge_table_path = lakehouse_table_name(test_space.space + "_edges")
+    delete_delta_table_data(azure_credential, edge_table_path)
     yield edge_table_path
-    try:
-        delta_table = get_ts_delta_table(azure_credential, edge_table_path)
-        delta_table.delete()
-    except TableNotFoundError:
-        print(f"Table not found {edge_table_path}")
+    delete_delta_table_data(azure_credential, edge_table_path)
 
 @pytest.fixture(scope="function")
 def instance_table_paths(test_model: DataModel[View], azure_credential: DefaultAzureCredential):
     instance_table_paths = []
     for view in test_model.views:
         instance_table_paths.append(lakehouse_table_name(test_model.space + "_" + view.external_id))
+        delete_delta_table_data(azure_credential, instance_table_paths[-1])
     yield instance_table_paths
     for path in instance_table_paths:
-        try:
-            delta_table = get_ts_delta_table(azure_credential, path)
-            delta_table.delete()
-        except TableNotFoundError:
-            print(f"Table not found {path}")
+        delete_delta_table_data(azure_credential, path)
 
 @pytest.fixture(scope="function")
 def example_actor():

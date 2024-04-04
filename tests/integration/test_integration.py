@@ -13,7 +13,7 @@ from integration_steps.service_steps import run_replicator, run_extractor, run_d
     ],
     indirect=True,
 )
-@pytest.mark.skip("Skipping flaky test", allow_module_level=True)
+# @pytest.mark.skip("Skipping flaky test", allow_module_level=True)
 def test_timeseries_data_integration_service(cognite_client, test_replicator, lakehouse_timeseries_path, time_series, azure_credential, remote_state_store):
     # Push data points to CDF
     pushed_data = push_data_to_cdf(time_series, cognite_client)
@@ -53,7 +53,7 @@ def test_data_model_sync_service_update(updated_node_list, edge_table_path, inst
 # Test for Timeseries Extractor service between CDF and Fabric
 @pytest.mark.parametrize(
     "raw_time_series",
-    [TimeSeriesGeneratorArgs(["int_test_fabcd_hist:mtu:39tic1091.pv"], 10)],
+    [TimeSeriesGeneratorArgs(["int_test_fabcd_hist:mtu:39tic1092.pv"], 10)],
     indirect=True,
 )
 def test_extractor_timeseries_service(cognite_client, raw_time_series, test_extractor):
