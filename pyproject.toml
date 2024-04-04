@@ -34,6 +34,7 @@ macholib = {version = "^1.14", platform = "darwin"}             # Used by pyinst
 pywin32-ctypes = {version = "^0.2.0", platform = "win32"}       # Used by pyinstaller on Windows
 pefile = "^2023.0.0"                                           # Used by pyinstaller on Windows
 mypy = "*"
+pre-commit = "*"
 
 [tool.poetry.scripts]
 cdf_fabric_replicator = "cdf_fabric_replicator.__main__:main"
