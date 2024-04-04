@@ -39,17 +39,16 @@ class CdfFabricExtractor(Extractor[Config]):
         self.azure_credential = DefaultAzureCredential()
         self.stop_event = stop_event
 
-        self.data_set_id = (
-            int(self.config.source.data_set_id)
-            if self.config.source.data_set_id
-            else None
-        )
-
     def run(self) -> None:
         self.config = self.get_current_config()
         self.client = self.config.cognite.get_cognite_client("cdf-fabric-extractor")
         self.state_store = self.get_current_statestore()
         self.state_store.initialize()
+        self.data_set_id = (
+            int(self.config.source.data_set_id)
+            if self.config.source.data_set_id
+            else None
+        )
 
         if not self.config.source:
             self.logger.error("No source path or directory provided")
