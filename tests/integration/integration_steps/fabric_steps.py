@@ -26,6 +26,7 @@ def delete_delta_table_data(credential: DefaultAzureCredential, path: str):
     except TableNotFoundError:
         print(f"Table not found {path}")
 
+
 def read_deltalake_timeseries(timeseries_path: str, credential: DefaultAzureCredential):
     delta_table = get_ts_delta_table(credential, timeseries_path)
     df = delta_table.to_pandas()

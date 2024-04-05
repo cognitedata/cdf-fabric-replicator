@@ -11,8 +11,6 @@ from cognite.client.data_classes.data_modeling import Space, SpaceApply, DataMod
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.metrics import safe_get
-from cognite.extractorutils.base import CancellationToken
-from deltalake.exceptions import TableNotFoundError
 from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
@@ -26,7 +24,6 @@ from tests.integration.integration_steps.cdf_steps import (
     remove_subscriptions,
 )
 from tests.integration.integration_steps.fabric_steps import (
-    get_ts_delta_table,
     delete_delta_table_data,
     write_timeseries_data_to_fabric,
     remove_time_series_data_from_fabric,

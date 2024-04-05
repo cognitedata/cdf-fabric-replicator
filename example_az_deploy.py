@@ -39,7 +39,8 @@ with open(".env") as stream:
 
 os.system(f"az account set --subscription {config.get('top', 'AZ_SUBSCRIPTION_ID')}")
 
-os.system(f"az \
+os.system(
+    f"az \
   container create \
   --resource-group {config.get('top', 'AZ_RESOURCE_GROUP')} \
   --name {config.get('top', 'AZ_CONTAINER_NAME')} \
@@ -61,9 +62,12 @@ os.system(f"az \
   COGNITE_STATE_TABLE={config.get('top', 'COGNITE_STATE_TABLE')} \
   --secure-environment-variables \
   COGNITE_CLIENT_SECRET={config.get('top', 'COGNITE_CLIENT_SECRET')} \
-  --assign-identity /subscriptions/{config.get('top', 'AZ_SUBSCRIPTION_ID')}/resourceGroups/{config.get('top', 'AZ_RESOURCE_GROUP')}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{config.get('top', 'AZ_MANAGED_ID_NAME')}")
+  --assign-identity /subscriptions/{config.get('top', 'AZ_SUBSCRIPTION_ID')}/resourceGroups/{config.get('top', 'AZ_RESOURCE_GROUP')}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{config.get('top', 'AZ_MANAGED_ID_NAME')}"
+)
 
-os.system(f"az container logs \
+os.system(
+    f"az container logs \
   --resource-group {config.get('top', 'AZ_RESOURCE_GROUP')} \
   --name {config.get('top', 'AZ_CONTAINER_NAME')} \
-  --follow")
+  --follow"
+)
