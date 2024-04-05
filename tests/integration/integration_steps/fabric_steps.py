@@ -1,10 +1,10 @@
 from azure.identity import DefaultAzureCredential
 from deltalake import DeltaTable
-from dateutil import tz
 import pandas as pd
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
 from deltalake.writer import write_deltalake
+from deltalake.exceptions import TableNotFoundError
 
 TIMESTAMP_COLUMN = "timestamp"
 
@@ -19,6 +19,14 @@ def get_ts_delta_table(
     )
 
 
+def delete_delta_table_data(credential: DefaultAzureCredential, path: str):
+    try:
+        delta_table = get_ts_delta_table(credential, path)
+        delta_table.delete()
+    except TableNotFoundError:
+        print(f"Table not found {path}")
+
+
 def read_deltalake_timeseries(timeseries_path: str, credential: DefaultAzureCredential):
     delta_table = get_ts_delta_table(credential, timeseries_path)
     df = delta_table.to_pandas()
@@ -30,12 +38,6 @@ def prepare_lakehouse_dataframe_for_comparison(
 ) -> pd.DataFrame:
     dataframe = dataframe.loc[dataframe["externalId"] == external_id]
     dataframe[TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
-    if dataframe[TIMESTAMP_COLUMN].dt.tz is None:
-        local_tz = tz.tzlocal()
-        dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_localize(
-            local_tz
-        )
-    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.tz_convert("UTC")
     dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round(
         "s"
     )  # round to seconds to avoid microsecond differences

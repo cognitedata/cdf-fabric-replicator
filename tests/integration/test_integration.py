@@ -28,6 +28,7 @@ from integration_steps.service_steps import (
     [TimeSeriesGeneratorArgs(["int_test_fabcd_hist:mtu:39tic1091.pv"], 10)],
     indirect=True,
 )
+# @pytest.mark.skip("Skipping flaky test", allow_module_level=True)
 @pytest.mark.skip("Skipping flaky test", allow_module_level=True)
 def test_timeseries_data_integration_service(
     cognite_client,
@@ -90,7 +91,7 @@ def test_data_model_sync_service_update(
 # Test for Timeseries Extractor service between CDF and Fabric
 @pytest.mark.parametrize(
     "raw_time_series",
-    [TimeSeriesGeneratorArgs(["int_test_fabcd_hist:mtu:39tic1091.pv"], 10)],
+    [TimeSeriesGeneratorArgs(["int_test_fabcd_hist:mtu:39tic1092.pv"], 10)],
     indirect=True,
 )
 def test_extractor_timeseries_service(cognite_client, raw_time_series, test_extractor):
