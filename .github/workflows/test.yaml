@@ -30,6 +30,9 @@ jobs:
         poetry lock
         poetry install
 
+    - name: Check codestyle
+      run: poetry run pre-commit run --all
+
     - name: Run tests
       env:
         COGNITE_BASE_URL: ${{ vars.COGNITE_BASE_URL }}

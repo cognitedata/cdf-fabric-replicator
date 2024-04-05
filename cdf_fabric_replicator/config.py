@@ -3,6 +3,7 @@ from typing import List, Optional
 
 from cognite.extractorutils.configtools import BaseConfig, StateStoreConfig
 
+
 @dataclass
 class ExtractorConfig:
     state_store: StateStoreConfig
@@ -18,10 +19,12 @@ class SubscriptionsConfig:
     lakehouse_abfss_path_dps: str
     lakehouse_abfss_path_ts: str
 
+
 @dataclass
 class DataModelingConfig:
     space: str
     lakehouse_abfss_prefix: str
+
 
 @dataclass
 class SourceConfig:
@@ -31,10 +34,12 @@ class SourceConfig:
     raw_time_series_path: Optional[str] = None
     file_path: Optional[str] = None
 
+
 @dataclass
 class DestinationConfig:
     type: str
     time_series_prefix: Optional[str] = None
+
 
 @dataclass
 class Config(BaseConfig):

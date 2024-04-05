@@ -2,7 +2,7 @@
 import os
 from configparser import ConfigParser
 
-# This script will deploy the cdf-fabric-replicator container to Azure Container Instances. 
+# This script will deploy the cdf-fabric-replicator container to Azure Container Instances.
 
 # To configure the script, create a .env file with the following and define the values with the appropriate values for your environment:
 
@@ -35,7 +35,7 @@ from configparser import ConfigParser
 
 config = ConfigParser()
 with open(".env") as stream:
-    config.read_string("[top]\n" + stream.read()) 
+    config.read_string("[top]\n" + stream.read())
 
 os.system(f"az account set --subscription {config.get('top', 'AZ_SUBSCRIPTION_ID')}")
 

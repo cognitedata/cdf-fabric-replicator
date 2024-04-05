@@ -1,19 +1,25 @@
 import time
-import logging
 
 from urllib.parse import urlparse
 
 from azure.identity import DefaultAzureCredential
 from azure.storage.filedatalake import (
+    DataLakeFileClient,
     DataLakeServiceClient,
 )
-from cognite.client.data_classes import EventWrite, ExtractionPipelineRunWrite, FileMetadata, TimeSeriesWrite
+from cognite.client.data_classes import (
+    EventWrite,
+    ExtractionPipelineRunWrite,
+    FileMetadata,
+    TimeSeriesWrite,
+)
 from cognite.client.exceptions import CogniteNotFoundError
 
 from cognite.extractorutils import Extractor
 from cognite.extractorutils.base import CancellationToken
 from deltalake import DeltaTable
 from pandas import DataFrame
+from typing import Any, Literal
 import pandas as pd
 
 from cdf_fabric_replicator import __version__
@@ -21,7 +27,9 @@ from cdf_fabric_replicator.config import Config
 
 
 class CdfFabricExtractor(Extractor[Config]):
-    def __init__(self, stop_event: CancellationToken, name: str="cdf_fabric_extractor") -> None:
+    def __init__(
+        self, stop_event: CancellationToken, name: str = "cdf_fabric_extractor"
+    ) -> None:
         super().__init__(
             name=name,
             description="CDF Fabric Extractor",
@@ -36,32 +44,49 @@ class CdfFabricExtractor(Extractor[Config]):
         self.client = self.config.cognite.get_cognite_client("cdf-fabric-extractor")
         self.state_store = self.get_current_statestore()
         self.state_store.initialize()
+        self.data_set_id = (
+            int(self.config.source.data_set_id)
+            if self.config.source.data_set_id
+            else None
+        )
 
         if not self.config.source:
             self.logger.error("No source path or directory provided")
             return
 
         while self.stop_event.is_set() is False:
-            token = self.azure_credential.get_token("https://storage.azure.com/.default").token
+            token = self.azure_credential.get_token(
+                "https://storage.azure.com/.default"
+            ).token
 
             self.run_extraction_pipeline(status="seen")
 
-            if self.config.source.raw_time_series_path and self.config.destination.time_series_prefix:
+            if (
+                self.config.source.raw_time_series_path
+                and self.config.destination.time_series_prefix
+            ):
                 time_series_data = self.convert_lakehouse_data_to_df(
-                    self.config.source.abfss_prefix + "/" + self.config.source.raw_time_series_path, token=token
+                    self.config.source.abfss_prefix
+                    + "/"
+                    + self.config.source.raw_time_series_path,
+                    token=token,
                 )
                 self.write_time_series_to_cdf(time_series_data)
 
             if self.config.source.event_path:
                 state_id = f"{self.config.source.event_path}-state"
                 self.write_event_data_to_cdf(
-                    self.config.source.abfss_prefix + "/" + self.config.source.event_path,
+                    self.config.source.abfss_prefix
+                    + "/"
+                    + self.config.source.event_path,
                     token=token,
                     state_id=state_id,
                 )
 
             if self.config.source.file_path:
-                self.upload_files_from_abfss(self.config.source.abfss_prefix + "/" + self.config.source.file_path)
+                self.upload_files_from_abfss(
+                    self.config.source.abfss_prefix + "/" + self.config.source.file_path
+                )
 
             time.sleep(5)
 
@@ -83,7 +108,9 @@ class CdfFabricExtractor(Extractor[Config]):
 
         return container_id, account_name, file_path
 
-    def get_service_client_token_credential(self, account_name: str) -> DataLakeServiceClient:
+    def get_service_client_token_credential(
+        self, account_name: str
+    ) -> DataLakeServiceClient:
         account_url = f"https://{account_name}.dfs.fabric.microsoft.com"
         token_credential = DefaultAzureCredential()
         service_client = DataLakeServiceClient(account_url, credential=token_credential)
@@ -104,27 +131,34 @@ class CdfFabricExtractor(Extractor[Config]):
                 state = self.state_store.get_state(file.name)
                 if state and state[0] != file.last_modified.timestamp():
                     res = self.upload_files_to_cdf(file_client, file)
-                    self.logger.info(f"Uploaded file {file.name} to CDF with id {res.id}")
-                    self.run_extraction_pipeline(status = "success")
-                    self.state_store.set_state(file.name, file.last_modified.timestamp())
+                    self.logger.info(
+                        f"Uploaded file {file.name} to CDF with id {res.id}"
+                    )
+                    self.run_extraction_pipeline(status="success")
+                    self.state_store.set_state(
+                        file.name, file.last_modified.timestamp()
+                    )
                     self.state_store.synchronize()
 
-    def upload_files_to_cdf(self, file_client:  DataLakeServiceClient, file) -> FileMetadata:
+    def upload_files_to_cdf(
+        self, file_client: DataLakeFileClient, file: Any
+    ) -> FileMetadata:
         content = file_client.download_file().readall()
         file_name = file.name.split("/")[-1]
-        data_set_id = int(self.config.source.data_set_id) if self.config.source.data_set_id else None
+
         created_time = int(file.creation_time.timestamp() * 1000)
         modified_time = int(file.last_modified.timestamp() * 1000)
         return self.cognite_client.files.upload_bytes(
-                        content=content, 
-                        name=file_name, 
-                        external_id=file.name, 
-                        data_set_id=data_set_id, 
-                        source_created_time=created_time, 
-                        source_modified_time=modified_time, 
-                        overwrite=True)
+            content=content,
+            name=file_name,
+            external_id=file.name,
+            data_set_id=self.data_set_id,
+            source_created_time=created_time,
+            source_modified_time=modified_time,
+            overwrite=True,
+        )
 
-    def write_time_series_to_cdf(self, data_frame:DataFrame ) -> None:
+    def write_time_series_to_cdf(self, data_frame: DataFrame) -> None:
         external_ids = data_frame["externalId"].unique()
         for external_id in external_ids:
             df = data_frame[data_frame["externalId"] == external_id]
@@ -136,13 +170,17 @@ class CdfFabricExtractor(Extractor[Config]):
                 latest_written_time = self.state_store.get_state(state_id)[0]
                 df_to_be_written = df[df["timestamp"] > latest_written_time]
 
-            if len(df_to_be_written) > 0:                
-                latest_process_time = df_to_be_written['timestamp'].max()
+            if len(df_to_be_written) > 0:
+                latest_process_time = df_to_be_written["timestamp"].max()
 
                 df_to_be_written.loc[:, "externalId"] = df_to_be_written.apply(
-                    lambda row: self.config.destination.time_series_prefix + row["externalId"], axis=1
+                    lambda row: self.config.destination.time_series_prefix
+                    + row["externalId"],
+                    axis=1,
                 )
-                df_to_be_written = df_to_be_written.pivot(index="timestamp", columns="externalId", values="value")
+                df_to_be_written = df_to_be_written.pivot(
+                    index="timestamp", columns="externalId", values="value"
+                )
                 df_to_be_written.index = pd.to_datetime(df_to_be_written.index)
                 try:
                     self.client.time_series.data.insert_dataframe(df_to_be_written)
@@ -159,10 +197,11 @@ class CdfFabricExtractor(Extractor[Config]):
                             )
                         )
 
-
                 self.set_state(state_id, str(latest_process_time))
 
-    def write_event_data_to_cdf(self, file_path: str, token: str, state_id: str) -> None:
+    def write_event_data_to_cdf(
+        self, file_path: str, token: str, state_id: str
+    ) -> None:
         df = self.convert_lakehouse_data_to_df(file_path, token)
 
         if str(self.state_store.get_state(state_id)[0]) != str(len(df)):
@@ -173,7 +212,7 @@ class CdfFabricExtractor(Extractor[Config]):
 
             self.set_state(state_id, str(len(df)))
 
-    def set_state(self, state_id: str, value) -> None:
+    def set_state(self, state_id: str, value: str) -> None:
         self.state_store.set_state(state_id, value)
         self.state_store.synchronize()
 
@@ -189,7 +228,7 @@ class CdfFabricExtractor(Extractor[Config]):
                 metadata=row[1]["metadata"],
                 description=row[1]["description"],
                 asset_ids=self.get_asset_ids(row[1]["assetExternalIds"]),
-                data_set_id=self.config.source.data_set_id if self.config.source.data_set_id else None,
+                data_set_id=self.data_set_id,
             )
 
             events.append(new_event)
@@ -197,16 +236,20 @@ class CdfFabricExtractor(Extractor[Config]):
 
     def convert_lakehouse_data_to_df(self, file_path: str, token: str) -> DataFrame:
         dt = DeltaTable(
-                    file_path,
-                    storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
-                )
+            file_path,
+            storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
+        )
         return dt.to_pandas()
 
-    def run_extraction_pipeline(self, status: str) -> None:
+    def run_extraction_pipeline(
+        self, status: Literal["success", "failure", "seen"]
+    ) -> None:
         if self.config.cognite.extraction_pipeline:
             self.cognite_client.extraction_pipelines.runs.create(
                 ExtractionPipelineRunWrite(
-                    status=status, 
-                    extpipe_external_id=str(self.config.cognite.extraction_pipeline.external_id)
+                    status=status,
+                    extpipe_external_id=str(
+                        self.config.cognite.extraction_pipeline.external_id
+                    ),
                 )
             )
