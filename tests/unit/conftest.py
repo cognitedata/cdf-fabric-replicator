@@ -2,6 +2,7 @@ import pytest
 from cognite.extractorutils.configtools import load_yaml
 from cdf_fabric_replicator.config import Config
 
+
 @pytest.fixture(scope="session")
 def config_raw():
     yield """
