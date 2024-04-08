@@ -49,3 +49,9 @@ source:
 destination:
     type: ${EXTRACTOR_DESTINATION_TYPE}
     time_series_prefix: ${EXTRACTOR_TS_PREFIX}
+
+# sync events
+event:
+    lakehouse_abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
+    batch_size: 5
+
