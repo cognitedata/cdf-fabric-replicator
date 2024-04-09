@@ -105,3 +105,7 @@ def assert_data_model_in_fabric():
 def assert_data_model_update():
     # Assert the data model changes including versions and last updated timestamps are propagated to a Fabric lakehouse
     pass
+
+def assert_events_data_in_fabric(events_path: str, events_dataframe: pd.DataFrame, azure_credential: DefaultAzureCredential):
+    # Assert events data is populated in a Fabric lakehouse
+    pass

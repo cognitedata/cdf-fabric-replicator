@@ -4,7 +4,7 @@ from datetime import datetime
 from time import sleep
 from typing import List
 from cognite.client import CogniteClient
-from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite
+from cognite.client.data_classes import Datapoint, TimeSeries, TimeSeriesWrite, EventWrite
 from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.data_classes import (
     DataPointSubscriptionWrite,
@@ -284,3 +284,6 @@ def assert_state_store_in_cdf(
 
             assert row is not None
             assert row.columns["high"] is not None
+
+def push_events_to_cdf(cognite_client: CogniteClient, events: List[EventWrite]):
+    pass
