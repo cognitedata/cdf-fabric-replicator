@@ -286,4 +286,8 @@ def assert_state_store_in_cdf(
             assert row.columns["high"] is not None
 
 def push_events_to_cdf(cognite_client: CogniteClient, events: List[EventWrite]):
-    pass
+    return cognite_client.events.create(events)
+
+def remove_events_from_cdf(cognite_client: CogniteClient, events:List[EventWrite]):
+    event_external_ids = [event.external_id for event in events]
+    return cognite_client.events.delete(external_id=event_external_ids)

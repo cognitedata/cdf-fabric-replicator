@@ -4,25 +4,37 @@ from typing import List
 from datetime import datetime
 import pytest
 from azure.identity import DefaultAzureCredential
-from integration_steps.cdf_steps import push_events_to_cdf
+from integration_steps.cdf_steps import push_events_to_cdf, remove_events_from_cdf
 from integration_steps.fabric_steps import assert_events_data_in_fabric, delete_delta_table_data
 from integration_steps.service_steps import run_events_replicator
 from cognite.client.data_classes import EventWrite
 
+EVENT_DURATION = 60000 # 1 minute
+
 @pytest.fixture()
-def event_write_list(request) -> List[EventWrite]:
-    return [
+def event_write_list(request, cognite_client):
+    # Remove existing events from test environment
+    environment_events = cognite_client.events.list(limit=None)
+    remove_events_from_cdf(cognite_client, environment_events.data)
+
+    # Create new events
+    current_timestamp = int(datetime.now().timestamp() * 1000) # Current timestamp in milliseconds
+    events = [
         EventWrite(
-            external_id=f"Notification_{datetime.now().timestamp()}",
-            data_set_id="test_data",
+            external_id=f"Notification_{current_timestamp + i}",
             description=f"Event {i}",
-            start_time=datetime.now().timestamp(),
-            end_time=datetime.now().timestamp() + 60000,
+            start_time=current_timestamp + i,
+            end_time=current_timestamp + i + EVENT_DURATION,
             type="Notification",
             subtype="Test",
         )
         for i in range(request.param)
     ]
+
+    yield events
+
+    # Clean up after the test
+    remove_events_from_cdf(cognite_client, events)
 
 @pytest.fixture()
 def events_dataframe(event_write_list: List[EventWrite]) -> pd.DataFrame:

@@ -27,8 +27,12 @@ def delete_delta_table_data(credential: DefaultAzureCredential, path: str):
         print(f"Table not found {path}")
 
 
+# TODO: Rename function to be generic and not specific to time series
 def read_deltalake_timeseries(timeseries_path: str, credential: DefaultAzureCredential):
-    delta_table = get_ts_delta_table(credential, timeseries_path)
+    try:
+        delta_table = get_ts_delta_table(credential, timeseries_path)
+    except TableNotFoundError:
+        return pd.DataFrame()
     df = delta_table.to_pandas()
     return df
 
@@ -108,4 +112,5 @@ def assert_data_model_update():
 
 def assert_events_data_in_fabric(events_path: str, events_dataframe: pd.DataFrame, azure_credential: DefaultAzureCredential):
     # Assert events data is populated in a Fabric lakehouse
-    pass
+    events_from_lakehouse = read_deltalake_timeseries(events_path, azure_credential)
+    assert_frame_equal(events_dataframe, events_from_lakehouse, check_dtype=False)
