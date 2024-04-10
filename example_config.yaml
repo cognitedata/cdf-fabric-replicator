@@ -52,6 +52,6 @@ destination:
 
 # sync events
 event:
-    lakehouse_abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
+    lakehouse_abfss_path_events: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${EVENT_TABLE_NAME}
     batch_size: 5
 

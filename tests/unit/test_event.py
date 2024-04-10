@@ -15,7 +15,7 @@ def event_replicator(config):
         event_replicator.config.extractor.state_store.local.path
     )
 
-    yield event_replicator
+    return event_replicator
 
 @pytest.fixture
 def early_created_time():
@@ -121,7 +121,7 @@ def test_write_late_events_to_fabric(event_replicator, early_created_time, event
         event_data_camel_case[-1]["createdTime"]
     )
 
-def test_write_no_events_to_fabric(event_replicator, late_created_time, event_data, mock_get_no_events, mock_set_event_state, mock_write_events_to_lakehouse_tables, mocker):
+def test_write_no_events_to_fabric(event_replicator, late_created_time, mock_get_no_events, mock_set_event_state, mock_write_events_to_lakehouse_tables, mocker):
     mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_event_state", return_value=late_created_time)
     event_replicator.process_events()
     mock_get_no_events.assert_called_with(event_replicator.config.event.batch_size, late_created_time)
