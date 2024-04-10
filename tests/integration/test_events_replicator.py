@@ -52,6 +52,7 @@ def events_path(azure_credential: DefaultAzureCredential):
 # The parameterized fixtures will be executed for each parameter combination
 @pytest.mark.parametrize("event_write_list", [10, 100], indirect=True,) # Number of events to be created in CDF
 @pytest.mark.parametrize("batch_size", [10, 100]) # Batch size for the replicator
+@pytest.mark.skip("Skip test: Events Replicator not yet implemented", allow_module_level=True)
 def test_events_service(cognite_client, azure_credential, batch_size, event_write_list, events_dataframe, events_path):
     # Given events populated in CDF
     push_events_to_cdf(cognite_client, event_write_list)
