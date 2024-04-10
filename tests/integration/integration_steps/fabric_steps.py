@@ -32,6 +32,7 @@ def read_deltalake_timeseries(timeseries_path: str, credential: DefaultAzureCred
     try:
         delta_table = get_ts_delta_table(credential, timeseries_path)
     except TableNotFoundError:
+        print(f"Table not found {timeseries_path}, returning empty dataframe")
         return pd.DataFrame()
     df = delta_table.to_pandas()
     return df
