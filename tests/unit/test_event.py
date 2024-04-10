@@ -100,7 +100,7 @@ def test_write_all_events_to_fabric(event_replicator, event_data_camel_case, moc
     mock_write_events_to_lakehouse_tables.assert_called_once()
     mock_write_events_to_lakehouse_tables.assert_called_with(
         event_data_camel_case, 
-        event_replicator.config.event.lakehouse_abfss_prefix
+        event_replicator.config.event.lakehouse_abfss_path_events
     )
     mock_set_event_state.assert_called_with(
         event_replicator.event_state_key, 
@@ -114,7 +114,7 @@ def test_write_late_events_to_fabric(event_replicator, early_created_time, event
     mock_write_events_to_lakehouse_tables.assert_called_once()
     mock_write_events_to_lakehouse_tables.assert_called_with(
         [event_data_camel_case[-1]], 
-        event_replicator.config.event.lakehouse_abfss_prefix
+        event_replicator.config.event.lakehouse_abfss_path_events
     )
     mock_set_event_state.assert_called_with(
         event_replicator.event_state_key, 
