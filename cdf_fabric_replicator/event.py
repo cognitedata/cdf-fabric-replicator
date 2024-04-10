@@ -48,7 +48,7 @@ class EventsReplicator(Extractor):
             elapsed_time = end_time - start_time
             sleep_time = max(
                 self.config.extractor.poll_time - elapsed_time, 0
-            )  # 900s = 15min
+            ) 
 
             if sleep_time > 0:
                 logging.debug(f"Sleep for {sleep_time} seconds")
