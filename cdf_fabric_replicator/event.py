@@ -1,7 +1,7 @@
 import logging
 import time
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Iterator
 from cognite.extractorutils.base import CancellationToken
 
 from cognite.extractorutils.base import Extractor
@@ -13,7 +13,7 @@ import pyarrow as pa
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
-
+from cognite.client.data_classes import EventList
 
 class EventsReplicator(Extractor):
     def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
@@ -44,36 +44,34 @@ class EventsReplicator(Extractor):
         while True:  # not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
-            event_list_size = self.process_events()
-            if event_list_size < self.config.event.batch_size:
-                end_time = time.time()  # Get the time after function execution
-                elapsed_time = end_time - start_time
-                sleep_time = max(
-                    self.config.extractor.poll_time - elapsed_time, 0
-                )  # 900s = 15min
-            else: # Go get the next batch immediately if we got the full batch
-                sleep_time = 0
+            self.process_events()
+            end_time = time.time()  # Get the time after function execution
+            elapsed_time = end_time - start_time
+            sleep_time = max(
+                self.config.extractor.poll_time - elapsed_time, 0
+            )  # 900s = 15min
 
             if sleep_time > 0:
                 logging.debug(f"Sleep for {sleep_time} seconds")
                 time.sleep(sleep_time)
 
-    def process_events(self) -> int:
+    def process_events(self) -> None:
         limit = self.config.event.batch_size
         last_created_time = self.get_event_state(self.event_state_key)
         if last_created_time is None:
             last_created_time = 0
-        event_list = self.cognite_client.events.list(limit=limit, created_time={"min": last_created_time+1}, sort=("createdTime", "asc")).dump()
 
-        if len(event_list) > 0:
+        for event_list in self.get_events(limit, last_created_time):
+            event_list = event_list.dump()
+            
+            if len(event_list) == 0:
+                break
             self.write_events_to_lakehouse_tables(event_list, self.config.event.lakehouse_abfss_prefix)
             last_event = event_list[-1]
             self.set_event_state(self.event_state_key, last_event["createdTime"])
 
-        else:
-            logging.info("No new events found")
-
-        return len(event_list)
+    def get_events(self, limit: int, last_created_time: int) -> Iterator[EventList]:
+        return self.cognite_client.events(chunk_size=limit, created_time={"min": last_created_time+1}, sort=("createdTime", "asc"))
 
     def get_event_state(self, event_state_key: str) -> int:
         return self.state_store.get_state(external_id=event_state_key)[1]
@@ -94,6 +92,8 @@ class EventsReplicator(Extractor):
             abfss_path,
             data,
             mode="append",
+            engine="rust",
+            schema_mode="merge",
             storage_options={
                 "bearer_token": token.token,
                 "use_fabric_endpoint": "true",
