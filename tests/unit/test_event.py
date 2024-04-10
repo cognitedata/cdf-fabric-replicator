@@ -1,9 +1,12 @@
 import pytest
+from typing import List, Any
 from cdf_fabric_replicator.event import EventsReplicator
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.statestore import LocalStateStore
 from cognite.client.data_classes import EventList, Event
 
+EARLY_CREATED_TIME = 1710503304020
+LATE_CREATED_TIME = 1710506651232
 
 @pytest.fixture(scope="session")
 def event_replicator(config):
@@ -17,16 +20,9 @@ def event_replicator(config):
 
     return event_replicator
 
-@pytest.fixture
-def early_created_time():
-    return 1710503304020
 
 @pytest.fixture
-def late_created_time():
-    return 1710506651232
-
-@pytest.fixture
-def event_data(early_created_time, late_created_time):
+def event_data():
     return [
         {
             'external_id': 'Test_Early_Notification_1710502959241', 
@@ -40,7 +36,7 @@ def event_data(early_created_time, late_created_time):
             'asset_ids': [5534771458240925], 
             'id': 3631277804748961, 
             'last_updated_time': 1710505316426, 
-            'created_time': early_created_time
+            'created_time': EARLY_CREATED_TIME
         },
         {
             'external_id': 'Test_Late_Notification_1710506390376', 
@@ -54,7 +50,7 @@ def event_data(early_created_time, late_created_time):
             'asset_ids': [5534771458240925], 
             'id': 5875589750425323, 
             'last_updated_time': 1710506651232, 
-            'created_time': late_created_time
+            'created_time': LATE_CREATED_TIME
         }
     ]
 
@@ -93,7 +89,13 @@ def convert_dict_keys_to_camel_case(snake_case_dict):
 def event_data_camel_case(event_data):
     return [convert_dict_keys_to_camel_case(data) for data in event_data]
 
-def test_write_all_events_to_fabric(event_replicator, event_data_camel_case, mock_get_events, mock_set_event_state, mock_write_events_to_lakehouse_tables, mocker):
+def test_write_all_events_to_fabric(
+        event_replicator: EventsReplicator, 
+        event_data_camel_case: List[dict], 
+        mock_get_events: Any, 
+        mock_set_event_state: Any, 
+        mock_write_events_to_lakehouse_tables: Any, 
+        mocker):
     mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_event_state", return_value=None)
     event_replicator.process_events()
     mock_get_events.assert_called_with(event_replicator.config.event.batch_size, 0)
@@ -107,10 +109,16 @@ def test_write_all_events_to_fabric(event_replicator, event_data_camel_case, moc
         event_data_camel_case[-1]["createdTime"]
     )
 
-def test_write_late_events_to_fabric(event_replicator, early_created_time, event_data_camel_case, mock_get_late_events, mock_set_event_state, mock_write_events_to_lakehouse_tables, mocker):
-    mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_event_state", return_value=early_created_time)
+def test_write_late_events_to_fabric(
+        event_replicator: EventsReplicator, 
+        event_data_camel_case: List[dict], 
+        mock_get_late_events: Any, 
+        mock_set_event_state: Any, 
+        mock_write_events_to_lakehouse_tables: Any, 
+        mocker):
+    mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_event_state", return_value=EARLY_CREATED_TIME)
     event_replicator.process_events()
-    mock_get_late_events.assert_called_with(event_replicator.config.event.batch_size, early_created_time)
+    mock_get_late_events.assert_called_with(event_replicator.config.event.batch_size, EARLY_CREATED_TIME)
     mock_write_events_to_lakehouse_tables.assert_called_once()
     mock_write_events_to_lakehouse_tables.assert_called_with(
         [event_data_camel_case[-1]], 
@@ -121,10 +129,15 @@ def test_write_late_events_to_fabric(event_replicator, early_created_time, event
         event_data_camel_case[-1]["createdTime"]
     )
 
-def test_write_no_events_to_fabric(event_replicator, late_created_time, mock_get_no_events, mock_set_event_state, mock_write_events_to_lakehouse_tables, mocker):
-    mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_event_state", return_value=late_created_time)
+def test_write_no_events_to_fabric(
+        event_replicator: EventsReplicator, 
+        mock_get_no_events: Any, 
+        mock_set_event_state: Any, 
+        mock_write_events_to_lakehouse_tables: Any, 
+        mocker):
+    mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_event_state", return_value=LATE_CREATED_TIME)
     event_replicator.process_events()
-    mock_get_no_events.assert_called_with(event_replicator.config.event.batch_size, late_created_time)
+    mock_get_no_events.assert_called_with(event_replicator.config.event.batch_size, LATE_CREATED_TIME)
     mock_write_events_to_lakehouse_tables.assert_not_called()
     mock_set_event_state.assert_not_called()
 

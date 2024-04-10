@@ -18,7 +18,7 @@ from cognite.client.data_classes import EventList
 class EventsReplicator(Extractor):
     def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
         super().__init__(
-            name="cdf_fabric_replicator_data_modeling",
+            name="cdf_fabric_replicator_events",
             description="CDF Fabric Replicator",
             config_class=Config,
             metrics=metrics,
@@ -27,7 +27,6 @@ class EventsReplicator(Extractor):
             cancellation_token=stop_event,
         )
         self.metrics: Metrics
-        # self.stop_event = stop_event
         self.endpoint_source_map: Dict[str, Any] = {}
         self.errors: List[str] = []
         self.azure_credential = DefaultAzureCredential()
