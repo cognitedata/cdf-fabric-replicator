@@ -1,5 +1,5 @@
 import pytest
-from typing import List, Any
+from typing import Dict, List, Any
 from cdf_fabric_replicator.event import EventsReplicator
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.statestore import LocalStateStore
@@ -56,7 +56,8 @@ def event_data():
 
 @pytest.fixture
 def mock_get_events(mocker, event_data):
-    return_value = iter([EventList([Event(**data) for data in event_data])])
+    event_collection = [Event(**data) for data in event_data]
+    return_value = iter([EventList(event_collection)])
     return mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_events", return_value=return_value)
 
 
@@ -78,11 +79,11 @@ def mock_set_event_state(mocker):
 def mock_write_events_to_lakehouse_tables(mocker):
     return mocker.patch("cdf_fabric_replicator.event.EventsReplicator.write_events_to_lakehouse_tables", return_value=None)
 
-def snake_to_camel(snake_str):
+def snake_to_camel(snake_str: str) -> str:
     components = snake_str.split('_')
     return components[0] + ''.join(x.title() for x in components[1:])
 
-def convert_dict_keys_to_camel_case(snake_case_dict):
+def convert_dict_keys_to_camel_case(snake_case_dict: Dict[str, Any]) -> Dict[str, Any]:
     return {snake_to_camel(k): v for k, v in snake_case_dict.items()}
 
 @pytest.fixture
