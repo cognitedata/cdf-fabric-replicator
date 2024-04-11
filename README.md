@@ -78,7 +78,7 @@ You can optionally copy the contents of `.env.example` to a `.env` file that wil
 ## Fabric Extractor Variables
 - `EXTRACTOR_EVENT_PATH`: The table path for the events table in a Fabric lakehouse.  It's the relative path after the ABFSS prefix (e.g. "Tables/RawEvents")
 - `EXTRACTOR_FILE_PATH`: The file path for the files in a Fabric lakehouse. It's the relative path after the ABFSS prefix (e.g. "Files/Tanks.png")
-- `EXTRACTOR_RAW_TS_PATH`: The file path for the gittimeseries table in a Fabric lakehouse. It's the relative path after the ABFSS prefix (e.g. "Tables/RawTS")
+- `EXTRACTOR_RAW_TS_PATH`: The file path for the raw timeseries table in a Fabric lakehouse. It's the relative path after the ABFSS prefix (e.g. "Tables/RawTS")
 - `EXTRACTOR_DATASET_ID`: Specifies the ID of the extractor dataset when the data lands in CDF.
 - `EXTRACTOR_TS_PREFIX`: Specifies the prefix for the extractor timeseries when the data lands in CDF.
 
