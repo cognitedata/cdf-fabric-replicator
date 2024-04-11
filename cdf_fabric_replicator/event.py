@@ -26,9 +26,6 @@ class EventsReplicator(Extractor):
             version=__version__,
             cancellation_token=stop_event,
         )
-        self.metrics: Metrics
-        self.endpoint_source_map: Dict[str, Any] = {}
-        self.errors: List[str] = []
         self.azure_credential = DefaultAzureCredential()
         self.event_state_key = "event_state"
 

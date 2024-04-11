@@ -89,15 +89,20 @@ def convert_dict_keys_to_camel_case(snake_case_dict):
 def event_data_camel_case(event_data):
     return [convert_dict_keys_to_camel_case(data) for data in event_data]
 
-def test_write_all_events_to_fabric(
+def test_process_events_all_events(
         event_replicator: EventsReplicator, 
         event_data_camel_case: List[dict], 
         mock_get_events: Any, 
         mock_set_event_state: Any, 
         mock_write_events_to_lakehouse_tables: Any, 
         mocker):
+    # Arrange
     mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_event_state", return_value=None)
+    
+    # Act
     event_replicator.process_events()
+
+    # Assert
     mock_get_events.assert_called_with(event_replicator.config.event.batch_size, 0)
     mock_write_events_to_lakehouse_tables.assert_called_once()
     mock_write_events_to_lakehouse_tables.assert_called_with(
@@ -109,15 +114,20 @@ def test_write_all_events_to_fabric(
         event_data_camel_case[-1]["createdTime"]
     )
 
-def test_write_late_events_to_fabric(
+def test_process_events_late_event(
         event_replicator: EventsReplicator, 
         event_data_camel_case: List[dict], 
         mock_get_late_events: Any, 
         mock_set_event_state: Any, 
         mock_write_events_to_lakehouse_tables: Any, 
         mocker):
+    # Arrange
     mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_event_state", return_value=EARLY_CREATED_TIME)
+    
+    # Act
     event_replicator.process_events()
+    
+    # Assert
     mock_get_late_events.assert_called_with(event_replicator.config.event.batch_size, EARLY_CREATED_TIME)
     mock_write_events_to_lakehouse_tables.assert_called_once()
     mock_write_events_to_lakehouse_tables.assert_called_with(
@@ -129,14 +139,19 @@ def test_write_late_events_to_fabric(
         event_data_camel_case[-1]["createdTime"]
     )
 
-def test_write_no_events_to_fabric(
+def test_process_events_no_event(
         event_replicator: EventsReplicator, 
         mock_get_no_events: Any, 
         mock_set_event_state: Any, 
         mock_write_events_to_lakehouse_tables: Any, 
         mocker):
+    # Arrange
     mocker.patch("cdf_fabric_replicator.event.EventsReplicator.get_event_state", return_value=LATE_CREATED_TIME)
+    
+    # Act
     event_replicator.process_events()
+    
+    # Assert
     mock_get_no_events.assert_called_with(event_replicator.config.event.batch_size, LATE_CREATED_TIME)
     mock_write_events_to_lakehouse_tables.assert_not_called()
     mock_set_event_state.assert_not_called()
