@@ -3,12 +3,13 @@
 Application which utilizes the CDF APIs to replicate data to and from Microsoft Fabric
 
 # Replicator Services
-The replicator consists of three services:
+The replicator consists of four services:
 - **Time series replicator** - Copies time series data from CDF to Fabric
 - **Data model replicator** - Copies data model nodes and edges from CDF to Fabric
+- **Event replicator** - Copies event data from CDF to Fabric
 - **Fabric data extractor** - Copies time series, events, and files from Fabric to CDF
 
-All three services will run concurrently during the run of the CDF Fabric Replicator program.  The services use a state store in CDF's raw storage to maintain checkpoints of when the latest data was read, so the services can be started and stopped and will be able to pick back up where they left off.
+All four services will run concurrently during the run of the CDF Fabric Replicator program.  The services use one state store in CDF's raw storage to maintain checkpoints of when the latest data was copied, so the services can be started and stopped and will be able to pick back up where they left off.
 
 # Setting up Data Point Subscriptions
 
@@ -72,11 +73,12 @@ You can optionally copy the contents of `.env.example` to a `.env` file that wil
 - `LAKEHOUSE_ABFSS_PREFIX`: The prefix for the Azure Blob File System Storage (ABFSS) path.  Should match pattern `abfss://<workspace_id>@msit-onelake.dfs.fabric.microsoft.com/<lakehouse_id>`.  Get this value by selecting "Properties" on your Lakehouse Tables location and copying "ABFS path".
 - `DPS_TABLE_NAME`: The name of the table where data point values and timestamps should be stored in Fabric.  The replicator will create the table if it does not exist.
 - `TS_TABLE_NAME`: The name of the table where time series metadata should be stored in Fabric.  The replicator will create the table if it does not exist.
+- `EVENT_TABLE_NAME`: The name of the table where event data should be stored in Fabric. The replicator will create the table if it does not exist.
 
 ## Fabric Extractor Variables
-- `EXTRACTOR_EVENT_PATH`: The ABFSS file path for the events table in a Fabric lakehouse.
-- `EXTRACTOR_FILE_PATH`: The ABFSS file path for the files in a Fabric lakehouse.
-- `EXTRACTOR_RAW_TS_PATH`: The ABFSS file path for the gittimeseries table in a Fabric lakehouse.
+- `EXTRACTOR_EVENT_PATH`: The table path for the events table in a Fabric lakehouse.  It's the relative path after the ABFSS prefix (e.g. "Tables/RawEvents")
+- `EXTRACTOR_FILE_PATH`: The file path for the files in a Fabric lakehouse. It's the relative path after the ABFSS prefix (e.g. "Files/Tanks.png")
+- `EXTRACTOR_RAW_TS_PATH`: The file path for the gittimeseries table in a Fabric lakehouse. It's the relative path after the ABFSS prefix (e.g. "Tables/RawTS")
 - `EXTRACTOR_DATASET_ID`: Specifies the ID of the extractor dataset when the data lands in CDF.
 - `EXTRACTOR_TS_PREFIX`: Specifies the prefix for the extractor timeseries when the data lands in CDF.
 
@@ -141,6 +143,10 @@ destination:
     type: ${EXTRACTOR_DESTINATION_TYPE}
     time_series_prefix: ${EXTRACTOR_TS_PREFIX}
 
+# sync events
+event:
+    lakehouse_abfss_path_events: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${EVENT_TABLE_NAME}
+    batch_size: 5
 ```
 
 # Poetry
