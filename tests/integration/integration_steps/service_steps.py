@@ -33,6 +33,7 @@ def run_data_model_sync():
     # Run data model sync service between CDF and Fabric
     pass
 
+
 def run_events_replicator(batch_size: int):
     # Run events replicator service between CDF and Fabric
     pass

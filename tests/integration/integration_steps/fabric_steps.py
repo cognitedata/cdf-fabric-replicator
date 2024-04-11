@@ -111,7 +111,12 @@ def assert_data_model_update():
     # Assert the data model changes including versions and last updated timestamps are propagated to a Fabric lakehouse
     pass
 
-def assert_events_data_in_fabric(events_path: str, events_dataframe: pd.DataFrame, azure_credential: DefaultAzureCredential):
+
+def assert_events_data_in_fabric(
+    events_path: str,
+    events_dataframe: pd.DataFrame,
+    azure_credential: DefaultAzureCredential,
+):
     # Assert events data is populated in a Fabric lakehouse
     events_from_lakehouse = read_deltalake_timeseries(events_path, azure_credential)
     assert_frame_equal(events_dataframe, events_from_lakehouse, check_dtype=False)
