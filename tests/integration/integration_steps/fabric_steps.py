@@ -7,6 +7,7 @@ from deltalake.writer import write_deltalake
 from deltalake.exceptions import TableNotFoundError
 
 TIMESTAMP_COLUMN = "timestamp"
+EVENT_CDF_COLUMNS = ["id", "createdTime", "lastUpdatedTime"]
 
 
 def get_ts_delta_table(
@@ -119,4 +120,18 @@ def assert_events_data_in_fabric(
 ):
     # Assert events data is populated in a Fabric lakehouse
     events_from_lakehouse = read_deltalake_timeseries(events_path, azure_credential)
+
+    # Prepare the lakehouse data for comparison
+    events_from_lakehouse = (
+        events_from_lakehouse.drop(columns=EVENT_CDF_COLUMNS)
+        .sort_values(by=["startTime"])
+        .reset_index(drop=True)
+    )
+
+    # Prepare the input DataFrame for comparison
+    events_dataframe = events_dataframe.sort_values(by=["startTime"]).reset_index(
+        drop=True
+    )
+
+    # Assert that the two DataFrames are equal
     assert_frame_equal(events_dataframe, events_from_lakehouse, check_dtype=False)

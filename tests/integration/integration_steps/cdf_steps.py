@@ -291,6 +291,14 @@ def assert_state_store_in_cdf(
             assert row.columns["high"] is not None
 
 
+def delete_event_state_store_in_cdf(
+    database: str, table: str, event_state_key: str, cognite_client: CogniteClient
+):
+    row = cognite_client.raw.rows.retrieve(database, table, event_state_key)
+    if row is not None:
+        cognite_client.raw.rows.delete(database, table, event_state_key)
+
+
 def push_events_to_cdf(cognite_client: CogniteClient, events: List[EventWrite]):
     return cognite_client.events.create(events)
 

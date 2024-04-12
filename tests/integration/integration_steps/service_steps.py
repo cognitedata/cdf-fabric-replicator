@@ -2,6 +2,7 @@ from cdf_fabric_replicator.time_series import TimeSeriesReplicator
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
 from pandas import DataFrame
 from cdf_fabric_replicator.data_modeling import DataModelingReplicator
+from cdf_fabric_replicator.event import EventsReplicator
 
 
 def run_replicator(test_replicator: TimeSeriesReplicator):
@@ -34,6 +35,6 @@ def run_data_model_sync():
     pass
 
 
-def run_events_replicator(batch_size: int):
+def run_events_replicator(test_event_replicator: EventsReplicator):
     # Run events replicator service between CDF and Fabric
-    pass
+    test_event_replicator.process_events()
