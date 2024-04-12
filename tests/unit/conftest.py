@@ -44,6 +44,11 @@ def config_raw():
     destination:
         type: test_events
         time_series_prefix: test_ts_
+
+    #Event Replicator config
+    event:
+        batch-size: 1000
+        lakehouse_abfss_path_events: abfss://test_container@test_accout.dfs.core.windows.net/Tables/Events
     """
 
 
