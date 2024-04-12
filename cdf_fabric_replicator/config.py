@@ -27,6 +27,11 @@ class DataModelingConfig:
 
 
 @dataclass
+class EventConfig:
+    lakehouse_abfss_path_events: str
+    batch_size: int = 1000
+
+@dataclass
 class SourceConfig:
     abfss_prefix: str
     data_set_id: str
@@ -48,3 +53,4 @@ class Config(BaseConfig):
     destination: Optional[DestinationConfig]
     subscriptions: Optional[List[SubscriptionsConfig]]
     data_modeling: Optional[List[DataModelingConfig]]
+    event: Optional[EventConfig]

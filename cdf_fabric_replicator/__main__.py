@@ -5,6 +5,7 @@ from cognite.extractorutils.metrics import safe_get
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
 from cdf_fabric_replicator.data_modeling import DataModelingReplicator
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
+from cdf_fabric_replicator.event import EventsReplicator
 
 from cdf_fabric_replicator.metrics import Metrics
 import threading
@@ -12,6 +13,12 @@ import threading
 
 def main() -> None:
     stop_event = CancellationToken()
+
+    with EventsReplicator(
+        metrics=safe_get(Metrics), stop_event=stop_event
+    ) as event_replicator:
+        event_worker = threading.Thread(target=event_replicator.run)
+        event_worker.start()
 
     with TimeSeriesReplicator(
         metrics=safe_get(Metrics), stop_event=stop_event
