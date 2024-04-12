@@ -8,6 +8,7 @@ from deltalake.exceptions import TableNotFoundError
 
 TIMESTAMP_COLUMN = "timestamp"
 EVENT_CDF_COLUMNS = ["id", "createdTime", "lastUpdatedTime"]
+EVENT_SORT_COLUMNS = "startTime"
 
 
 def get_ts_delta_table(
@@ -124,12 +125,12 @@ def assert_events_data_in_fabric(
     # Prepare the lakehouse data for comparison
     events_from_lakehouse = (
         events_from_lakehouse.drop(columns=EVENT_CDF_COLUMNS)
-        .sort_values(by=["startTime"])
+        .sort_values(by=EVENT_SORT_COLUMNS)
         .reset_index(drop=True)
     )
 
     # Prepare the input DataFrame for comparison
-    events_dataframe = events_dataframe.sort_values(by=["startTime"]).reset_index(
+    events_dataframe = events_dataframe.sort_values(by=EVENT_SORT_COLUMNS).reset_index(
         drop=True
     )
 

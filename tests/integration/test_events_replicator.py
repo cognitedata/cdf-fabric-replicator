@@ -116,7 +116,7 @@ def test_events_service(
 ):
     # Given events populated in CDF
     push_events_to_cdf(cognite_client, event_write_list)
-    sleep(1)  # 1 second sleep to allow events to be populated in CDF
+    sleep(5)  # 5 second sleep to allow events to be populated in CDF
 
     # When the events replicator runs
     run_events_replicator(test_event_replicator)
