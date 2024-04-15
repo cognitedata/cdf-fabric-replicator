@@ -89,7 +89,6 @@ def events_path(azure_credential: DefaultAzureCredential):
     )
     delete_delta_table_data(azure_credential, path)
     yield path
-    delete_delta_table_data(azure_credential, path)
 
 
 # The parameterized fixtures will be executed for each parameter combination
