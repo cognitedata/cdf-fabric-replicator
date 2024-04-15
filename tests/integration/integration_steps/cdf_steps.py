@@ -300,7 +300,23 @@ def delete_event_state_store_in_cdf(
 
 
 def push_events_to_cdf(cognite_client: CogniteClient, events: List[EventWrite]):
-    return cognite_client.events.create(events)
+    res = cognite_client.events.create(events)
+    assert confirm_events_in_cdf(cognite_client, events) # Ensure all events are in CDF list operation before continuing test
+    return res
+
+
+def confirm_events_in_cdf(
+    cognite_client: CogniteClient, events: List[EventWrite], retries: int = 5
+):
+    event_external_ids = [event.external_id for event in events]
+    for _ in range(retries):
+        event_list = cognite_client.events.list(limit=None)
+        if set(event.external_id for event in event_list) == set(
+            event_external_ids
+        ):  # check if all events are in CDF - exact match
+            return True
+        sleep(1)  # wait for 1 second before the next retry
+    return False
 
 
 def remove_events_from_cdf(cognite_client: CogniteClient, events: List[EventWrite]):

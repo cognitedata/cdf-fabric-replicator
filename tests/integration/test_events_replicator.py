@@ -2,7 +2,6 @@ import os
 import pandas as pd
 from typing import List
 from datetime import datetime
-from time import sleep
 import pytest
 from unittest.mock import Mock
 from cognite.client import CogniteClient
@@ -116,7 +115,6 @@ def test_events_service(
 ):
     # Given events populated in CDF
     push_events_to_cdf(cognite_client, event_write_list)
-    sleep(5)  # 5 second sleep to allow events to be populated in CDF
 
     # When the events replicator runs
     run_events_replicator(test_event_replicator)
