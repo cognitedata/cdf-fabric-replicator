@@ -18,30 +18,23 @@ def main() -> None:
     with EventsReplicator(
         metrics=safe_get(Metrics), stop_event=stop_event
     ) as event_replicator:
-        event_worker = threading.Thread(target=event_replicator.run)
-        event_worker.start()
-        worker_list.append(event_worker)
-        
+        worker_list.append(threading.Thread(target=event_replicator.run))
+
     with TimeSeriesReplicator(
         metrics=safe_get(Metrics), stop_event=stop_event
     ) as ts_replicator:
-        ts_worker = threading.Thread(target=ts_replicator.run)
-        ts_worker.start()
-        worker_list.append(ts_worker)
-        
+        worker_list.append(threading.Thread(target=ts_replicator.run))
+
     with CdfFabricExtractor(stop_event=stop_event) as extractor:
-        extractor_worker = threading.Thread(target=extractor.run)
-        extractor_worker.start()
-        worker_list.append(extractor_worker)
+        worker_list.append(threading.Thread(target=extractor.run))
 
     with DataModelingReplicator(
         metrics=safe_get(Metrics), stop_event=stop_event
     ) as dm_replicator:
-        dm_worker = threading.Thread(target=dm_replicator.run)
-        dm_worker.start()
-        worker_list.append(dm_worker)
+        worker_list.append(threading.Thread(target=dm_replicator.run))
 
     for worker in worker_list:
+        worker.start()
         worker.join()
 
 if __name__ == "__main__":
