@@ -28,8 +28,6 @@ from integration_steps.service_steps import (
     [TimeSeriesGeneratorArgs(["int_test_fabcd_hist:mtu:39tic1091.pv"], 10)],
     indirect=True,
 )
-# @pytest.mark.skip("Skipping flaky test", allow_module_level=True)
-@pytest.mark.skip("Skipping flaky test", allow_module_level=True)
 def test_timeseries_data_integration_service(
     cognite_client,
     test_replicator,
