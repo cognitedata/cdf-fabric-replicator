@@ -35,6 +35,8 @@ def main() -> None:
 
     for worker in worker_list:
         worker.start()
+
+    for worker in worker_list:
         worker.join()
 
 if __name__ == "__main__":
