@@ -29,7 +29,6 @@ def delete_delta_table_data(credential: DefaultAzureCredential, path: str):
         print(f"Table not found {path}")
 
 
-# TODO: Rename function to be generic and not specific to time series
 def read_deltalake_timeseries(timeseries_path: str, credential: DefaultAzureCredential):
     try:
         delta_table = get_ts_delta_table(credential, timeseries_path)

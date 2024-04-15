@@ -33,8 +33,3 @@ def stop_replicator():
 def run_data_model_sync():
     # Run data model sync service between CDF and Fabric
     pass
-
-
-def run_events_replicator(test_event_replicator: EventsReplicator):
-    # Run events replicator service between CDF and Fabric
-    test_event_replicator.process_events()

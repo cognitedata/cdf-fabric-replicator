@@ -4,7 +4,6 @@ from typing import List
 from datetime import datetime
 import pytest
 from unittest.mock import Mock
-from cognite.client import CogniteClient
 from azure.identity import DefaultAzureCredential
 from cognite.client.data_classes import EventWrite
 from cognite.extractorutils.base import CancellationToken
@@ -18,7 +17,6 @@ from integration_steps.fabric_steps import (
     assert_events_data_in_fabric,
     delete_delta_table_data,
 )
-from integration_steps.service_steps import run_events_replicator
 from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.event import EventsReplicator
 
@@ -99,7 +97,7 @@ def events_path(azure_credential: DefaultAzureCredential):
     "event_write_list",
     [10, 25, 100],
     indirect=True,
-)  # Number of events to be created in CDF
+)
 @pytest.mark.parametrize(
     "test_event_replicator",
     [10, 100],
@@ -117,7 +115,7 @@ def test_events_service(
     push_events_to_cdf(cognite_client, event_write_list)
 
     # When the events replicator runs
-    run_events_replicator(test_event_replicator)
+    test_event_replicator.process_events()
 
     # Then events will be available in fabric
     assert_events_data_in_fabric(events_path, events_dataframe, azure_credential)

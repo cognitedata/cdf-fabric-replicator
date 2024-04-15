@@ -301,7 +301,9 @@ def delete_event_state_store_in_cdf(
 
 def push_events_to_cdf(cognite_client: CogniteClient, events: List[EventWrite]):
     res = cognite_client.events.create(events)
-    assert confirm_events_in_cdf(cognite_client, events) # Ensure all events are in CDF list operation before continuing test
+    assert confirm_events_in_cdf(
+        cognite_client, events
+    )  # Ensure all events are in CDF list operation before continuing test
     return res
 
 
