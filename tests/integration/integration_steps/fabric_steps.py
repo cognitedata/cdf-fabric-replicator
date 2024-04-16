@@ -1,3 +1,4 @@
+import os
 from azure.identity import DefaultAzureCredential
 from deltalake import DeltaTable
 import pandas as pd
@@ -7,6 +8,10 @@ from deltalake.writer import write_deltalake
 from deltalake.exceptions import TableNotFoundError
 
 TIMESTAMP_COLUMN = "timestamp"
+
+
+def lakehouse_table_name(table_name: str):
+    return os.environ["LAKEHOUSE_ABFSS_PREFIX"] + "/Tables/" + table_name
 
 
 def get_ts_delta_table(
