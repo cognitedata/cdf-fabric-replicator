@@ -317,7 +317,7 @@ def confirm_events_in_cdf(
             event_external_ids
         ):  # check if all events are in CDF - exact match
             return True
-        sleep(1)  # wait for 1 second before the next retry
+        sleep(2**_)   # wait before the next retry using exponential backoff
     return False
 
 
