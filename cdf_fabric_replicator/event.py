@@ -15,6 +15,7 @@ from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import EventList
 
+
 class EventsReplicator(Extractor):
     def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
         super().__init__(
@@ -43,9 +44,7 @@ class EventsReplicator(Extractor):
             self.process_events()
             end_time = time.time()  # Get the time after function execution
             elapsed_time = end_time - start_time
-            sleep_time = max(
-                self.config.extractor.poll_time - elapsed_time, 0
-            ) 
+            sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)
 
             if sleep_time > 0:
                 logging.debug(f"Sleep for {sleep_time} seconds")
@@ -59,28 +58,34 @@ class EventsReplicator(Extractor):
 
         for event_list in self.get_events(limit, last_created_time):
             event_list = event_list.dump()
-            
+
             if len(event_list) > 0:
-                self.write_events_to_lakehouse_tables(event_list, self.config.event.lakehouse_abfss_path_events)
+                self.write_events_to_lakehouse_tables(
+                    event_list, self.config.event.lakehouse_abfss_path_events
+                )
                 last_event = event_list[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
 
     def get_events(self, limit: int, last_created_time: int) -> Iterator[EventList]:
         # only pull events that created after last_created_time (hence the +1); assuming no other events are created at the same time
-        return self.cognite_client.events(chunk_size=limit, created_time={"min": last_created_time+1}, sort=("createdTime", "asc"))
+        return self.cognite_client.events(
+            chunk_size=limit,
+            created_time={"min": last_created_time + 1},
+            sort=("createdTime", "asc"),
+        )
 
     def get_event_state(self, event_state_key: str) -> int:
         return self.state_store.get_state(external_id=event_state_key)[1]
-    
+
     def set_event_state(self, event_state_key: str, created_time: int) -> None:
-        self.state_store.set_state(external_id=event_state_key, high = created_time)
+        self.state_store.set_state(external_id=event_state_key, high=created_time)
         self.state_store.synchronize()
 
     def write_events_to_lakehouse_tables(
         self, events: List[Dict[str, Any]], abfss_path: str
     ) -> None:
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
-        
+
         logging.info(f"Writing {len(events)} to '{abfss_path}' table...")
         data = pa.Table.from_pylist(events)
         write_deltalake(

@@ -39,5 +39,6 @@ def main() -> None:
     for worker in worker_list:
         worker.join()
 
+
 if __name__ == "__main__":
     main()
