@@ -21,6 +21,7 @@ from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.event import EventsReplicator
 
 EVENT_DURATION = 60000  # 1 minute
+CDF_RETRIES = 5
 
 
 @pytest.fixture(scope="function")
@@ -111,7 +112,7 @@ def test_events_service(
     events_path,
 ):
     # Given events populated in CDF
-    push_events_to_cdf(cognite_client, event_write_list)
+    push_events_to_cdf(cognite_client, event_write_list, CDF_RETRIES)
 
     # When the events replicator runs
     test_event_replicator.process_events()
