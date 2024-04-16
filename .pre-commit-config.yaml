@@ -5,7 +5,6 @@ repos:
     -   id: ruff
         args: [--fix, --exit-non-zero-on-fix, --verbose]
     -   id: ruff-format
-        args: [--preview]
     rev: v0.3.2
 -   repo: local
     hooks:
