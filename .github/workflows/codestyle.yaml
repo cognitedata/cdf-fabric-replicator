@@ -1,4 +1,4 @@
-name: test
+name: ruff and mypy
 
 on:
   pull_request:
