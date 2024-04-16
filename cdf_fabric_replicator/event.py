@@ -1,7 +1,7 @@
 import logging
 import time
 
-from typing import Iterator
+from typing import Iterator, List, Dict, Any
 from cognite.extractorutils.base import CancellationToken
 
 from cognite.extractorutils.base import Extractor
@@ -56,17 +56,16 @@ class EventsReplicator(Extractor):
         if last_created_time is None:
             last_created_time = 0
 
-        events_iterator = self.get_events(limit, last_created_time)
-        if type(events_iterator) == Iterator[EventList]:
-            for event_list in events_iterator:
-                if len(event_list) > 0:
-                    self.write_events_to_lakehouse_tables(
-                        event_list, self.config.event.lakehouse_abfss_path_events
-                    )
-                    last_event = event_list[-1]
-                    self.set_event_state(self.event_state_key, last_event.created_time)
-        else:
-            raise Exception("events_iterator is not an EventList")
+        for event_list in self.get_events(limit, last_created_time):
+            events_dict = event_list.dump()
+            if len(events_dict) > 0:
+                if isinstance(events_dict, dict):
+                    events_dict = [events_dict]
+                self.write_events_to_lakehouse_tables(
+                    events_dict, self.config.event.lakehouse_abfss_path_events
+                )
+                last_event = events_dict[-1]
+                self.set_event_state(self.event_state_key, last_event["createdTime"])
 
     def get_events(
         self, limit: int, last_created_time: int
@@ -86,7 +85,7 @@ class EventsReplicator(Extractor):
         self.state_store.synchronize()
 
     def write_events_to_lakehouse_tables(
-        self, events: EventList, abfss_path: str
+        self, events: List[Dict[str, Any]], abfss_path: str
     ) -> None:
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
 
