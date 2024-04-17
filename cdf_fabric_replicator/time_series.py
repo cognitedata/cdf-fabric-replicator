@@ -87,7 +87,9 @@ class TimeSeriesReplicator(Extractor):
         self, subscription: SubscriptionsConfig, partition: int
     ) -> str:
         state_id = f"{subscription.external_id}_{partition}"
-        cursor = str(self.state_store.get_state(external_id=state_id)[1])
+        raw_cursor = self.state_store.get_state(external_id=state_id)[1]
+        cursor = str(raw_cursor) if raw_cursor is not None else None
+
         logging.debug(
             f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}"
         )
