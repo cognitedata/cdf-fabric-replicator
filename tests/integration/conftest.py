@@ -193,10 +193,17 @@ def test_model(cognite_client: CogniteClient, test_space: Space):
         view
     ) in views:  # Views and containers need to be deleted so the space can be deleted
         cognite_client.data_modeling.views.delete(
-            (test_space.space, view.external_id, view.version)
+            (
+                test_space.space,
+                view.external_id,
+                view.version,
+            )
         )
         cognite_client.data_modeling.containers.delete(
-            (test_space.space, view.external_id)
+            (
+                test_space.space,
+                view.external_id,
+            )
         )
 
 

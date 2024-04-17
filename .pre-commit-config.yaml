@@ -3,9 +3,9 @@ repos:
 -   repo: https://github.com/charliermarsh/ruff-pre-commit
     hooks:
     -   id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        args: [--fix, --exit-non-zero-on-fix, --verbose]
     -   id: ruff-format
-    rev: v0.3.2
+    rev: v0.1.15
 -   repo: local
     hooks:
       - id: mypy
