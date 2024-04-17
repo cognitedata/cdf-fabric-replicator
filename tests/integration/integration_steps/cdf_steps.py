@@ -299,9 +299,15 @@ def delete_event_state_store_in_cdf(
         cognite_client.raw.rows.delete(database, table, event_state_key)
 
 
-def push_events_to_cdf(cognite_client: CogniteClient, events: List[EventWrite], cdf_retries: int):
+def push_events_to_cdf(
+    cognite_client: CogniteClient, events: List[EventWrite], cdf_retries: int
+):
     res = cognite_client.events.create(events)
-    assert confirm_events_in_cdf(cognite_client, events, cdf_retries), f"Events not populated in CDF after {cdf_retries} checks"  # Ensure all events are in CDF list operation before continuing test
+    assert confirm_events_in_cdf(
+        cognite_client, events, cdf_retries
+    ), (
+        f"Events not populated in CDF after {cdf_retries} checks"
+    )  # Ensure all events are in CDF list operation before continuing test
     return res
 
 
@@ -317,7 +323,7 @@ def confirm_events_in_cdf(
             print("Events found in CDF")
             return True
         print(f"Events not found in CDF, retrying...(attempt {_+1}/{retries})")
-        sleep(2**_)   # wait before the next retry using exponential backoff
+        sleep(2**_)  # wait before the next retry using exponential backoff
     return False
 
 
