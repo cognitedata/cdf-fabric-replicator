@@ -25,6 +25,7 @@ from tests.integration.integration_steps.fabric_steps import (
 
 SUBSCRIPTION_ID = "cdf_fabric_replicator_sub"
 
+
 @pytest.fixture(scope="function")
 def test_replicator():
     stop_event = CancellationToken()
@@ -39,7 +40,9 @@ def test_replicator():
         os.remove("states.json")
     except FileNotFoundError:
         pass
-    replicator.cognite_client.time_series.subscriptions.delete(SUBSCRIPTION_ID, ignore_unknown_ids=True)
+    replicator.cognite_client.time_series.subscriptions.delete(
+        SUBSCRIPTION_ID, ignore_unknown_ids=True
+    )
 
 
 @pytest.fixture()

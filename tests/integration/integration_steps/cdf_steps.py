@@ -11,10 +11,6 @@ from cognite.client.data_classes import (
     EventWrite,
 )
 from cognite.client.exceptions import CogniteNotFoundError
-from cognite.client.data_classes import (
-    DataPointSubscriptionWrite,
-    DatapointSubscription,
-)
 from cognite.client.data_classes.data_modeling import Space, NodeApply, EdgeApply
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cdf_fabric_replicator.config import SubscriptionsConfig
@@ -245,7 +241,6 @@ def delete_state_store_in_cdf(
     table: str,
     cognite_client: CogniteClient,
 ):
-    
     for i in range(subscription.num_partitions):
         statename = f"{SUBSCRIPTION_ID}_{i}"
         row = cognite_client.raw.rows.retrieve(database, table, statename)

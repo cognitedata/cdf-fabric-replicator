@@ -9,7 +9,12 @@ from deltalake.writer import write_deltalake
 import pandas as pd
 import numpy as np
 
-from cognite.client.data_classes import ExtractionPipelineRunWrite, TimeSeries, DataPointSubscriptionWrite, DataPointSubscriptionUpdate
+from cognite.client.data_classes import (
+    ExtractionPipelineRunWrite,
+    TimeSeries,
+    DataPointSubscriptionWrite,
+    DataPointSubscriptionUpdate,
+)
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionBatch,
@@ -26,6 +31,7 @@ from cdf_fabric_replicator.metrics import Metrics
 SUBSCRIPTION_TS_LIMIT = 10000
 SUBSCRIPTION_ID = "cdf_fabric_replicator_sub"
 SUBSCRIPTION_NAME = "Cdf Fabric Replicator Subscription"
+
 
 class TimeSeriesReplicator(Extractor):
     def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
@@ -77,47 +83,54 @@ class TimeSeriesReplicator(Extractor):
         ## REMOVE THIS BEFORE COMMIT !!!!!!
         # self.cognite_client.time_series.subscriptions.delete(SUBSCRIPTION_ID, ignore_unknown_ids=True)
 
-        if self.cognite_client.time_series.subscriptions.retrieve(external_id=SUBSCRIPTION_ID) is None:
+        if (
+            self.cognite_client.time_series.subscriptions.retrieve(
+                external_id=SUBSCRIPTION_ID
+            )
+            is None
+        ):
             try:
                 self.create_subscription(self.config.subscription.num_partitions)
             except CogniteAPIError as e:
                 logging.error(f"Error creating subscription: {e}")
                 raise e
-            
-        for partition in range (0, self.config.subscription.num_partitions):
+
+        for partition in range(0, self.config.subscription.num_partitions):
             with ThreadPoolExecutor() as executor:
                 future = executor.submit(
                     self.process_partition, self.config.subscription, partition
                 )
                 logging.debug(future.result())
 
-    def get_timeseries(self) -> None:
-        timeseries = self.cognite_client.time_series.list(
-            limit=SUBSCRIPTION_TS_LIMIT)
-            # advanced_filter=Exists(my_view.as_property_ref("external_id")))
-            # advanced_filter = Not(Equals(TimeSeriesProperty.external_id, None)))
+    def get_timeseries(self) -> List[str]:
+        timeseries = self.cognite_client.time_series.list(limit=SUBSCRIPTION_TS_LIMIT)
         return [ts.external_id for ts in timeseries if ts.external_id is not None]
 
-
     def create_subscription(self, num_partitions: int) -> None:
-        logging.debug(f"Subscription {SUBSCRIPTION_ID} not found. Creating subscription...")
+        logging.debug(
+            f"Subscription {SUBSCRIPTION_ID} not found. Creating subscription..."
+        )
 
         timeseries_ids = self.get_timeseries()
         max_size = 100
-        timeseries_arrays = [timeseries_ids[i:i+max_size] for i in range(0, len(timeseries_ids), max_size)]
+        timeseries_arrays = [
+            timeseries_ids[i : i + max_size]
+            for i in range(0, len(timeseries_ids), max_size)
+        ]
 
         sub = DataPointSubscriptionWrite(
             external_id=SUBSCRIPTION_ID,
             name=SUBSCRIPTION_NAME,
             partition_count=num_partitions,
-            time_series_ids=timeseries_arrays[0])
+            time_series_ids=timeseries_arrays[0],
+        )
         self.cognite_client.time_series.subscriptions.create(sub)
 
         for i in range(1, len(timeseries_arrays)):
-            update = DataPointSubscriptionUpdate(SUBSCRIPTION_ID).time_series_ids.add(timeseries_arrays[i])
+            update = DataPointSubscriptionUpdate(SUBSCRIPTION_ID).time_series_ids.add(
+                timeseries_arrays[i]
+            )
             self.cognite_client.time_series.subscriptions.update(update)
-
-
 
     def process_partition(
         self, subscription: SubscriptionsConfig, partition: int
