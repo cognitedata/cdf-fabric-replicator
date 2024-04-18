@@ -77,8 +77,11 @@ class EventsReplicator(Extractor):
             sort=("createdTime", "asc"),
         )
 
-    def get_event_state(self, event_state_key: str) -> int:
-        return int(self.state_store.get_state(external_id=event_state_key).high)
+    def get_event_state(self, event_state_key: str) -> int | None:
+        state = self.state_store.get_state(external_id=event_state_key)
+        if isinstance(state, list):
+            state = state[0]
+        return int(state[1]) if state is not None and state[1] is not None else None
 
     def set_event_state(self, event_state_key: str, created_time: int) -> None:
         self.state_store.set_state(external_id=event_state_key, high=created_time)

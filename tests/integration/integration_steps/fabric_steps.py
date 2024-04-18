@@ -8,6 +8,8 @@ from deltalake.writer import write_deltalake
 from deltalake.exceptions import TableNotFoundError
 
 TIMESTAMP_COLUMN = "timestamp"
+EVENT_CDF_COLUMNS = ["id", "createdTime", "lastUpdatedTime"]
+EVENT_SORT_COLUMNS = "startTime"
 
 
 def lakehouse_table_name(table_name: str):
@@ -33,7 +35,11 @@ def delete_delta_table_data(credential: DefaultAzureCredential, path: str):
 
 
 def read_deltalake_timeseries(timeseries_path: str, credential: DefaultAzureCredential):
-    delta_table = get_ts_delta_table(credential, timeseries_path)
+    try:
+        delta_table = get_ts_delta_table(credential, timeseries_path)
+    except TableNotFoundError:
+        print(f"Table not found {timeseries_path}, returning empty dataframe")
+        return pd.DataFrame()
     df = delta_table.to_pandas()
     return df
 
@@ -110,3 +116,27 @@ def assert_data_model_in_fabric():
 def assert_data_model_update():
     # Assert the data model changes including versions and last updated timestamps are propagated to a Fabric lakehouse
     pass
+
+
+def assert_events_data_in_fabric(
+    events_path: str,
+    events_dataframe: pd.DataFrame,
+    azure_credential: DefaultAzureCredential,
+):
+    # Assert events data is populated in a Fabric lakehouse
+    events_from_lakehouse = read_deltalake_timeseries(events_path, azure_credential)
+
+    # Prepare the lakehouse data for comparison
+    events_from_lakehouse = (
+        events_from_lakehouse.drop(columns=EVENT_CDF_COLUMNS)
+        .sort_values(by=EVENT_SORT_COLUMNS)
+        .reset_index(drop=True)
+    )
+
+    # Prepare the input DataFrame for comparison
+    events_dataframe = events_dataframe.sort_values(by=EVENT_SORT_COLUMNS).reset_index(
+        drop=True
+    )
+
+    # Assert that the two DataFrames are equal
+    assert_frame_equal(events_dataframe, events_from_lakehouse, check_dtype=False)
