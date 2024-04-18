@@ -207,7 +207,7 @@ def replicator_config(lakehouse_abfss_prefix):
         version="0.1.0",
         logger=None,
         extractor=None,
-        subscriptions=None,
+        subscription=None,
         event=None,
         data_modeling=DataModelingConfig(
             space="test_space", lakehouse_abfss_prefix=lakehouse_abfss_prefix
