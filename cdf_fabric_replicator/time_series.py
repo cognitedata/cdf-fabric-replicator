@@ -9,7 +9,8 @@ from deltalake.writer import write_deltalake
 import pandas as pd
 import numpy as np
 
-from cognite.client.data_classes import ExtractionPipelineRunWrite, TimeSeries
+from cognite.client.data_classes import ExtractionPipelineRunWrite, TimeSeries, DataPointSubscriptionWrite, DataPointSubscriptionUpdate
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionBatch,
     DatapointsUpdate,
@@ -22,6 +23,9 @@ from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config, SubscriptionsConfig
 from cdf_fabric_replicator.metrics import Metrics
 
+SUBSCRIPTION_TS_LIMIT = 10000
+SUBSCRIPTION_ID = "cdf_fabric_replicator_sub"
+SUBSCRIPTION_NAME = "Cdf Fabric Replicator Subscription"
 
 class TimeSeriesReplicator(Extractor):
     def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
@@ -45,16 +49,11 @@ class TimeSeriesReplicator(Extractor):
 
     def run(self) -> None:
         # init/connect to destination
-        if not self.config.subscriptions:
-            logging.info("No time series subscriptions found in config")
+        if not self.config.subscription:
+            logging.info("No time series subscription info found in config")
             return
 
         self.state_store.initialize()
-
-        for subscription in self.config.subscriptions:
-            logging.info(
-                f"{self.cognite_client.time_series.subscriptions.retrieve(external_id=subscription.external_id)}"
-            )
 
         while not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
@@ -75,18 +74,55 @@ class TimeSeriesReplicator(Extractor):
                 time.sleep(sleep_time)
 
     def process_subscriptions(self) -> None:
-        for subscription in self.config.subscriptions:
-            for partition in subscription.partitions:
-                with ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        self.process_partition, subscription, partition
-                    )
-                    logging.debug(future.result())
+        ## REMOVE THIS BEFORE COMMIT !!!!!!
+        # self.cognite_client.time_series.subscriptions.delete(SUBSCRIPTION_ID, ignore_unknown_ids=True)
+
+        if self.cognite_client.time_series.subscriptions.retrieve(external_id=SUBSCRIPTION_ID) is None:
+            try:
+                self.create_subscription(self.config.subscription.num_partitions)
+            except CogniteAPIError as e:
+                logging.error(f"Error creating subscription: {e}")
+                raise e
+            
+        for partition in range (0, self.config.subscription.num_partitions):
+            with ThreadPoolExecutor() as executor:
+                future = executor.submit(
+                    self.process_partition, self.config.subscription, partition
+                )
+                logging.debug(future.result())
+
+    def get_timeseries(self) -> None:
+        timeseries = self.cognite_client.time_series.list(
+            limit=SUBSCRIPTION_TS_LIMIT)
+            # advanced_filter=Exists(my_view.as_property_ref("external_id")))
+            # advanced_filter = Not(Equals(TimeSeriesProperty.external_id, None)))
+        return [ts.external_id for ts in timeseries if ts.external_id is not None]
+
+
+    def create_subscription(self, num_partitions: int) -> None:
+        logging.debug(f"Subscription {SUBSCRIPTION_ID} not found. Creating subscription...")
+
+        timeseries_ids = self.get_timeseries()
+        max_size = 100
+        timeseries_arrays = [timeseries_ids[i:i+max_size] for i in range(0, len(timeseries_ids), max_size)]
+
+        sub = DataPointSubscriptionWrite(
+            external_id=SUBSCRIPTION_ID,
+            name=SUBSCRIPTION_NAME,
+            partition_count=num_partitions,
+            time_series_ids=timeseries_arrays[0])
+        self.cognite_client.time_series.subscriptions.create(sub)
+
+        for i in range(1, len(timeseries_arrays)):
+            update = DataPointSubscriptionUpdate(SUBSCRIPTION_ID).time_series_ids.add(timeseries_arrays[i])
+            self.cognite_client.time_series.subscriptions.update(update)
+
+
 
     def process_partition(
         self, subscription: SubscriptionsConfig, partition: int
     ) -> str:
-        state_id = f"{subscription.external_id}_{partition}"
+        state_id = f"{SUBSCRIPTION_ID}_{partition}"
         raw_cursor = self.state_store.get_state(external_id=state_id)[1]
         cursor = str(raw_cursor) if raw_cursor is not None else None
 
@@ -95,7 +131,7 @@ class TimeSeriesReplicator(Extractor):
         )
 
         for update_batch in self.cognite_client.time_series.subscriptions.iterate_data(
-            external_id=subscription.external_id,
+            external_id=SUBSCRIPTION_ID,
             partition=partition,
             cursor=cursor,
             limit=self.config.extractor.subscription_batch_size,
