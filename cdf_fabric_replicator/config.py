@@ -14,6 +14,8 @@ class ExtractorConfig:
 
 @dataclass
 class SubscriptionsConfig:
+    external_id: str
+    name: str
     num_partitions: int
     lakehouse_abfss_path_dps: str
     lakehouse_abfss_path_ts: str

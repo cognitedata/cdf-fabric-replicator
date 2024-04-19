@@ -28,6 +28,8 @@ extractor:
 
 # subscriptions to stream
 subscription:
+    external_id: cdf_fabric_replicator_sub
+    name: Cdf Fabric Replicator Subscription
     num_partitions: 2
     lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/CalculatedTimeseries
     lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/CalculatedTimeseriesMetadata

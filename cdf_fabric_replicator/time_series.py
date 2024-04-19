@@ -29,8 +29,6 @@ from cdf_fabric_replicator.config import Config, SubscriptionsConfig
 from cdf_fabric_replicator.metrics import Metrics
 
 SUBSCRIPTION_TS_LIMIT = 10000
-SUBSCRIPTION_ID = "cdf_fabric_replicator_sub"
-SUBSCRIPTION_NAME = "Cdf Fabric Replicator Subscription"
 
 
 class TimeSeriesReplicator(Extractor):
@@ -80,14 +78,9 @@ class TimeSeriesReplicator(Extractor):
                 time.sleep(sleep_time)
 
     def process_subscriptions(self) -> None:
-        ## REMOVE THIS BEFORE COMMIT !!!!!!
-        # self.cognite_client.time_series.subscriptions.delete(
-        #     SUBSCRIPTION_ID, ignore_unknown_ids=True
-        # )
-
         if (
             self.cognite_client.time_series.subscriptions.retrieve(
-                external_id=SUBSCRIPTION_ID
+                external_id=self.config.subscription.external_id
             )
             is None
         ):
@@ -104,23 +97,11 @@ class TimeSeriesReplicator(Extractor):
                 )
                 logging.debug(future.result())
 
-    def create_subscription(self, num_partitions: int) -> None:
-        logging.debug(
-            f"Subscription {SUBSCRIPTION_ID} not found. Creating subscription..."
-        )
-
-        sub = DataPointSubscriptionWrite(
-            external_id=SUBSCRIPTION_ID,
-            name=SUBSCRIPTION_NAME,
-            partition_count=num_partitions,
-            filter=flt.Exists(TimeSeriesProperty.external_id),
-        )
-        self.cognite_client.time_series.subscriptions.create(sub)
 
     def process_partition(
         self, subscription: SubscriptionsConfig, partition: int
     ) -> str:
-        state_id = f"{SUBSCRIPTION_ID}_{partition}"
+        state_id = f"{self.config.subscription.external_id}_{partition}"
         raw_cursor = self.state_store.get_state(external_id=state_id)[1]
         cursor = str(raw_cursor) if raw_cursor is not None else None
 
@@ -129,7 +110,7 @@ class TimeSeriesReplicator(Extractor):
         )
 
         for update_batch in self.cognite_client.time_series.subscriptions.iterate_data(
-            external_id=SUBSCRIPTION_ID,
+            external_id=self.config.subscription.external_id,
             partition=partition,
             cursor=cursor,
             limit=self.config.extractor.subscription_batch_size,
@@ -289,3 +270,16 @@ class TimeSeriesReplicator(Extractor):
         return self.azure_credential.get_token(
             "https://storage.azure.com/.default"
         ).token
+
+    def create_subscription(self, num_partitions: int) -> None:
+        logging.debug(
+            f"Subscription {self.config.subscription.external_id} not found. Creating subscription..."
+        )
+
+        sub = DataPointSubscriptionWrite(
+            external_id=self.config.subscription.external_id,
+            name=self.config.subscription.name,
+            partition_count=num_partitions,
+            filter=flt.Exists(TimeSeriesProperty.external_id),
+        )
+        self.cognite_client.time_series.subscriptions.create(sub)

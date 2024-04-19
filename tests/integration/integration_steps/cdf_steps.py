@@ -14,7 +14,6 @@ from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.data_classes.data_modeling import Space, NodeApply, EdgeApply
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cdf_fabric_replicator.config import SubscriptionsConfig
-from cdf_fabric_replicator.time_series import SUBSCRIPTION_ID
 
 TIMESTAMP_COLUMN = "timestamp"
 
@@ -242,7 +241,7 @@ def delete_state_store_in_cdf(
     cognite_client: CogniteClient,
 ):
     for i in range(subscription.num_partitions):
-        statename = f"{SUBSCRIPTION_ID}_{i}"
+        statename = f"{subscription.external_id}_{i}"
         row = cognite_client.raw.rows.retrieve(database, table, statename)
         if row is not None:
             cognite_client.raw.rows.delete(database, table, statename)
@@ -259,7 +258,7 @@ def assert_state_store_in_cdf(
     cognite_client: CogniteClient,
 ):
     for i in range(subscription.num_partitions):
-        statename = f"{SUBSCRIPTION_ID}_{i}"
+        statename = f"{subscription.external_id}_{i}"
         row = cognite_client.raw.rows.retrieve(database, table, statename)
 
         assert row is not None

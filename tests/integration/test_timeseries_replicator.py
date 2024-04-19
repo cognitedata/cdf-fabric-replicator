@@ -22,7 +22,6 @@ from tests.integration.integration_steps.fabric_steps import (
     delete_delta_table_data,
     assert_timeseries_data_in_fabric,
 )
-from cdf_fabric_replicator.time_series import SUBSCRIPTION_ID
 
 
 @pytest.fixture(scope="function")
@@ -40,7 +39,7 @@ def test_replicator():
     except FileNotFoundError:
         pass
     replicator.cognite_client.time_series.subscriptions.delete(
-        SUBSCRIPTION_ID, ignore_unknown_ids=True
+        replicator.config.subscription.external_id, ignore_unknown_ids=True
     )
 
 

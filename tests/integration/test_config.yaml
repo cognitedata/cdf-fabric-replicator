@@ -27,6 +27,8 @@ extractor:
     poll-time: 5
 
 subscription:
+    external_id: cdf_fabric_inttest_sub
+    name: Cdf Fabric Integration Test Subscription
     num_partitions: 2
     lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${DPS_TABLE_NAME}
     lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${TS_TABLE_NAME}
