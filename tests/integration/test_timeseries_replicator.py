@@ -15,6 +15,7 @@ from tests.integration.integration_steps.cdf_steps import (
     remove_time_series_data,
     push_time_series_to_cdf,
     push_data_to_cdf,
+    remove_subscriptions,
     assert_state_store_in_cdf,
 )
 from tests.integration.integration_steps.service_steps import run_replicator
@@ -38,9 +39,6 @@ def test_replicator():
         os.remove("states.json")
     except FileNotFoundError:
         pass
-    replicator.cognite_client.time_series.subscriptions.delete(
-        replicator.config.subscription.external_id, ignore_unknown_ids=True
-    )
 
 
 @pytest.fixture()
@@ -58,12 +56,15 @@ def remote_state_store(cognite_client, test_replicator):
 
 @pytest.fixture()
 def time_series(request, cognite_client):
+    sub_name = "testSubscription"
     timeseries_set = generate_timeseries_set(request.param)
     remove_time_series_data(timeseries_set, cognite_client)
+    remove_subscriptions(sub_name, cognite_client)
     push_time_series_to_cdf(timeseries_set, cognite_client)
     sleep(5)
     yield timeseries_set
     remove_time_series_data(timeseries_set, cognite_client)
+    remove_subscriptions(sub_name, cognite_client)
 
 
 @pytest.fixture(scope="session")

@@ -234,6 +234,13 @@ def remove_time_series_data(
     sleep(5)
 
 
+def remove_subscriptions(sub_name: str, cognite_client: CogniteClient):
+    try:
+        cognite_client.time_series.subscriptions.delete(sub_name)
+    except CogniteNotFoundError:
+        print(f"subscription {sub_name} not found in CDF")
+
+
 def delete_state_store_in_cdf(
     subscription: SubscriptionsConfig,
     database: str,
