@@ -13,7 +13,6 @@ from cognite.client.data_classes import (
     ExtractionPipelineRunWrite,
     TimeSeries,
     DataPointSubscriptionWrite,
-    DataPointSubscriptionUpdate,
 )
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.data_classes.datapoints_subscriptions import (
@@ -22,7 +21,8 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 )
 from cognite.extractorutils.base import Extractor
 from cognite.extractorutils.base import CancellationToken
-
+from cognite.client.data_classes import filters as flt
+from cognite.client.data_classes.time_series import TimeSeriesProperty
 
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config, SubscriptionsConfig
@@ -81,7 +81,9 @@ class TimeSeriesReplicator(Extractor):
 
     def process_subscriptions(self) -> None:
         ## REMOVE THIS BEFORE COMMIT !!!!!!
-        # self.cognite_client.time_series.subscriptions.delete(SUBSCRIPTION_ID, ignore_unknown_ids=True)
+        # self.cognite_client.time_series.subscriptions.delete(
+        #     SUBSCRIPTION_ID, ignore_unknown_ids=True
+        # )
 
         if (
             self.cognite_client.time_series.subscriptions.retrieve(
@@ -102,35 +104,18 @@ class TimeSeriesReplicator(Extractor):
                 )
                 logging.debug(future.result())
 
-    def get_timeseries(self) -> List[str]:
-        timeseries = self.cognite_client.time_series.list(limit=SUBSCRIPTION_TS_LIMIT)
-        return [ts.external_id for ts in timeseries if ts.external_id is not None]
-
     def create_subscription(self, num_partitions: int) -> None:
         logging.debug(
             f"Subscription {SUBSCRIPTION_ID} not found. Creating subscription..."
         )
 
-        timeseries_ids = self.get_timeseries()
-        max_size = 100
-        timeseries_arrays = [
-            timeseries_ids[i : i + max_size]
-            for i in range(0, len(timeseries_ids), max_size)
-        ]
-
         sub = DataPointSubscriptionWrite(
             external_id=SUBSCRIPTION_ID,
             name=SUBSCRIPTION_NAME,
             partition_count=num_partitions,
-            time_series_ids=timeseries_arrays[0],
+            filter=flt.Exists(TimeSeriesProperty.external_id),
         )
         self.cognite_client.time_series.subscriptions.create(sub)
-
-        for i in range(1, len(timeseries_arrays)):
-            update = DataPointSubscriptionUpdate(SUBSCRIPTION_ID).time_series_ids.add(
-                timeseries_arrays[i]
-            )
-            self.cognite_client.time_series.subscriptions.update(update)
 
     def process_partition(
         self, subscription: SubscriptionsConfig, partition: int

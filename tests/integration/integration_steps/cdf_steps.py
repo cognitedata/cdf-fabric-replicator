@@ -14,9 +14,9 @@ from cognite.client.exceptions import CogniteNotFoundError
 from cognite.client.data_classes.data_modeling import Space, NodeApply, EdgeApply
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cdf_fabric_replicator.config import SubscriptionsConfig
+from cdf_fabric_replicator.time_series import SUBSCRIPTION_ID
 
 TIMESTAMP_COLUMN = "timestamp"
-SUBSCRIPTION_ID = "cdf_fabric_replicator_sub"
 
 
 def push_data_points_to_cdf(
