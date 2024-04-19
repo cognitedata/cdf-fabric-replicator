@@ -28,8 +28,6 @@ from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config, SubscriptionsConfig
 from cdf_fabric_replicator.metrics import Metrics
 
-SUBSCRIPTION_TS_LIMIT = 10000
-
 
 class TimeSeriesReplicator(Extractor):
     def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
