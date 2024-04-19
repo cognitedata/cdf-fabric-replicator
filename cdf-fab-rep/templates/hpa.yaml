@@ -2,14 +2,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "cdfFabricReplicator.fullname" . }}
+  name: {{ include "cdf-fab-rep.fullname" . }}
   labels:
-    {{- include "cdfFabricReplicator.labels" . | nindent 4 }}
+    {{- include "cdf-fab-rep.labels" . | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "cdfFabricReplicator.fullname" . }}
+    name: {{ include "cdf-fab-rep.fullname" . }}
   minReplicas: {{ .Values.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.autoscaling.maxReplicas }}
   metrics:
