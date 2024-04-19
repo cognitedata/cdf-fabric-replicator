@@ -97,7 +97,6 @@ class TimeSeriesReplicator(Extractor):
                 )
                 logging.debug(future.result())
 
-
     def process_partition(
         self, subscription: SubscriptionsConfig, partition: int
     ) -> str:
