@@ -5,6 +5,9 @@ version = "1.0.0"
 description = "Stream data from CDF to Fabric/Onelake"
 authors = ["Murad Saeter <murad.sater@cognite.com>"]
 
+[tool.poetry.group.dev.dependencies]
+coverage = {extras = ["toml"], version = "^7.4.4"}
+
 [tool.black]
 line-length = 120
 target_version = ['py38']
@@ -45,3 +48,8 @@ build-backend = "poetry.masonry.api"
 
 [tool.cogex.docker]
 tags = ["cognite/cdf-fabric-replicator:{version}"]
+
+[tool.coverage.run]
+omit = [".*", "*/site-packages/*"]
+[tool.coverage.report]
+fail_under = 90
