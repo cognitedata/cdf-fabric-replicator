@@ -100,7 +100,7 @@ class TimeSeriesReplicator(Extractor):
     def process_partition(
         self, subscription: SubscriptionsConfig, partition: int
     ) -> str:
-        state_id = f"{self.config.subscription.external_id}_{partition}"
+        state_id = f"{subscription.external_id}_{partition}"
         raw_cursor = self.state_store.get_state(external_id=state_id)[1]
         cursor = str(raw_cursor) if raw_cursor is not None else None
 
@@ -109,7 +109,7 @@ class TimeSeriesReplicator(Extractor):
         )
 
         for update_batch in self.cognite_client.time_series.subscriptions.iterate_data(
-            external_id=self.config.subscription.external_id,
+            external_id=subscription.external_id,
             partition=partition,
             cursor=cursor,
             limit=self.config.extractor.subscription_batch_size,
