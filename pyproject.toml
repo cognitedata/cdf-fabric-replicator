@@ -50,6 +50,6 @@ build-backend = "poetry.masonry.api"
 tags = ["cognite/cdf-fabric-replicator:{version}"]
 
 [tool.coverage.run]
-omit = [".*", "*/site-packages/*"]
+omit = [".*", "*/tests/*"]
 [tool.coverage.report]
 fail_under = 90
