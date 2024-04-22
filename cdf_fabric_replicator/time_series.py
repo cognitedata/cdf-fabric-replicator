@@ -284,3 +284,4 @@ class TimeSeriesReplicator(Extractor):
             filter=flt.Exists(TimeSeriesProperty.external_id),
         )
         self.cognite_client.time_series.subscriptions.create(sub)
+        logging.debug(f"Subscription successfully {external_id} created.")
