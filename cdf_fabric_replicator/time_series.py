@@ -83,7 +83,11 @@ class TimeSeriesReplicator(Extractor):
             is None
         ):
             try:
-                self.create_subscription(self.config.subscription.num_partitions)
+                self.create_subscription(
+                    self.config.subscription.external_id,
+                    self.config.subscription.name,
+                    self.config.subscription.num_partitions,
+                )
             except CogniteAPIError as e:
                 logging.error(f"Error creating subscription: {e}")
                 raise e
@@ -268,14 +272,14 @@ class TimeSeriesReplicator(Extractor):
             "https://storage.azure.com/.default"
         ).token
 
-    def create_subscription(self, num_partitions: int) -> None:
-        logging.debug(
-            f"Subscription {self.config.subscription.external_id} not found. Creating subscription..."
-        )
+    def create_subscription(
+        self, external_id: str, name: str, num_partitions: int
+    ) -> None:
+        logging.debug(f"Subscription {external_id} not found. Creating subscription...")
 
         sub = DataPointSubscriptionWrite(
-            external_id=self.config.subscription.external_id,
-            name=self.config.subscription.name,
+            external_id=external_id,
+            name=name,
             partition_count=num_partitions,
             filter=flt.Exists(TimeSeriesProperty.external_id),
         )
