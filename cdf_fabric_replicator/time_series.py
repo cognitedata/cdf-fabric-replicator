@@ -1,7 +1,6 @@
 import logging
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Literal
 
 from azure.identity import DefaultAzureCredential
@@ -93,11 +92,7 @@ class TimeSeriesReplicator(Extractor):
                 raise e
 
         for partition in range(0, self.config.subscription.num_partitions):
-            with ThreadPoolExecutor() as executor:
-                future = executor.submit(
-                    self.process_partition, self.config.subscription, partition
-                )
-                logging.debug(future.result())
+            logging.debug(self.process_partition(self.config.subscription, partition))
 
     def process_partition(
         self, subscription: SubscriptionsConfig, partition: int
@@ -110,29 +105,35 @@ class TimeSeriesReplicator(Extractor):
             f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}"
         )
 
-        for update_batch in self.cognite_client.time_series.subscriptions.iterate_data(
-            external_id=subscription.external_id,
-            partition=partition,
-            cursor=cursor,
-            limit=self.config.extractor.subscription_batch_size,
-        ):
-            if update_batch.has_next:
-                self.send_to_lakehouse(
-                    subscription=subscription,
-                    update_batch=update_batch,
-                    state_id=state_id,
-                    send_now=False,
-                )
-            else:
-                self.send_to_lakehouse(
-                    subscription=subscription,
-                    update_batch=update_batch,
-                    state_id=state_id,
-                    send_now=True,
-                )
+        try:
+            for (
+                update_batch
+            ) in self.cognite_client.time_series.subscriptions.iterate_data(
+                external_id=subscription.external_id,
+                partition=partition,
+                cursor=cursor,
+                limit=self.config.extractor.subscription_batch_size,
+            ):
+                if update_batch.has_next:
+                    self.send_to_lakehouse(
+                        subscription=subscription,
+                        update_batch=update_batch,
+                        state_id=state_id,
+                        send_now=False,
+                    )
+                else:
+                    self.send_to_lakehouse(
+                        subscription=subscription,
+                        update_batch=update_batch,
+                        state_id=state_id,
+                        send_now=True,
+                    )
 
-            if not update_batch.has_next:
-                return f"{state_id} no more data at {update_batch.cursor}"
+                if not update_batch.has_next:
+                    return f"{state_id} no more data at {update_batch.cursor}"
+        except CogniteAPIError as e:
+            logging.error(f"Error iterating over subscription: {e}")
+            raise e
 
         return "No new data"
 
@@ -257,15 +258,18 @@ class TimeSeriesReplicator(Extractor):
     ) -> None:
         token = self.get_token()
 
-        write_deltalake(
-            table_or_uri=table,
-            data=df,
-            mode=mode,
-            engine="rust",
-            schema_mode="merge",
-            storage_options={"bearer_token": token, "use_fabric_endpoint": "true"},
-        )
-        return None
+        try:
+            write_deltalake(
+                table_or_uri=table,
+                data=df,
+                mode=mode,
+                engine="rust",
+                schema_mode="merge",
+                storage_options={"bearer_token": token, "use_fabric_endpoint": "true"},
+            )
+        except Exception as e:
+            logging.error(f"Error writing to Delta Lake: {e}")
+            raise e
 
     def get_token(self) -> str:
         return self.azure_credential.get_token(
