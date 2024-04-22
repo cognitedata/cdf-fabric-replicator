@@ -17,6 +17,7 @@ from tests.integration.integration_steps.cdf_steps import (
     push_data_to_cdf,
     remove_subscriptions,
     assert_state_store_in_cdf,
+    assert_subscription_created_in_cdf,
 )
 from tests.integration.integration_steps.service_steps import run_replicator
 from tests.integration.integration_steps.fabric_steps import (
@@ -93,6 +94,11 @@ def test_timeseries_data_integration_service(
 ):
     # Run replicator before pushing data points in order to setup subscription
     run_replicator(test_replicator)
+    # Assert subscription created in CDF
+    assert_subscription_created_in_cdf(
+        test_replicator.config.subscription,
+        cognite_client,
+    )
     # Push data points to CDF
     pushed_data = push_data_to_cdf(time_series, cognite_client)
     # Run replicator for data point subscription between CDF and Fabric

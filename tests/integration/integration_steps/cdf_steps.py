@@ -280,6 +280,27 @@ def delete_event_state_store_in_cdf(
         cognite_client.raw.rows.delete(database, table, event_state_key)
 
 
+def assert_subscription_created_in_cdf(
+    subscription_config: SubscriptionsConfig, cognite_client: CogniteClient
+):
+    subscription = cognite_client.time_series.subscriptions.retrieve(
+        subscription_config.external_id
+    )
+
+    assert (
+        subscription is not None
+    ), f"Subscription {subscription_config.external_id} not found in CDF"
+    assert (
+        subscription.external_id == subscription_config.external_id
+    ), f"Subscription external_id {subscription.external_id} does not match expected {subscription_config.external_id}"
+    assert (
+        subscription.name == subscription_config.name
+    ), f"Subscription name {subscription.name} does not match expected {subscription_config.name}"
+    assert (
+        subscription.partition_count == subscription_config.num_partitions
+    ), f"Subscription partition count {subscription.partition_count} does not match expected {subscription_config.num_partitions}"
+
+
 def push_events_to_cdf(
     cognite_client: CogniteClient, events: List[EventWrite], cdf_retries: int
 ):
