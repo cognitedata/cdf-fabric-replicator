@@ -1,5 +1,4 @@
 import logging
-import threading
 import time
 from typing import Any, Dict, List, Literal
 
@@ -100,10 +99,6 @@ class TimeSeriesReplicator(Extractor):
         state_id = f"{subscription.external_id}_{partition}"
         raw_cursor = self.state_store.get_state(external_id=state_id)[1]
         cursor = str(raw_cursor) if raw_cursor is not None else None
-
-        logging.debug(
-            f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}"
-        )
 
         try:
             for (
