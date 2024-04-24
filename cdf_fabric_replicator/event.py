@@ -1,19 +1,16 @@
 import logging
 import time
-
 from typing import Iterator, List, Dict, Any
 from cognite.extractorutils.base import CancellationToken
-
 from cognite.extractorutils.base import Extractor
-
 from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake
 import pyarrow as pa
-
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import EventList, Event
+from datetime import datetime
 
 
 class EventsReplicator(Extractor):
@@ -29,32 +26,47 @@ class EventsReplicator(Extractor):
         )
         self.azure_credential = DefaultAzureCredential()
         self.event_state_key = "event_state"
+        self.logger = logging.getLogger(self.name)
 
     def run(self) -> None:
+        self.logger.info("Run Called for Events Extractor...")
         # init/connect to destination
         self.state_store.initialize()
 
+        self.logger.debug("Current Event Config: %s", self.config.event)
+
         if self.config.event is None:
-            logging.info("No event config found in config")
+            self.logger.warning("No event config found in config")
             return
 
         while True:  # not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
+
+            self.logger.info("Processing events...")
 
             self.process_events()
             end_time = time.time()  # Get the time after function execution
             elapsed_time = end_time - start_time
             sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)
 
+            self.logger.info("Processing took %.2f seconds", elapsed_time)
+
             if sleep_time > 0:
-                logging.debug(f"Sleep for {sleep_time} seconds")
+                self.logger.info("Sleep for %.2f seconds", sleep_time)
                 time.sleep(sleep_time)
 
     def process_events(self) -> None:
         limit = self.config.event.batch_size
         last_created_time = self.get_event_state(self.event_state_key)
+
         if last_created_time is None:
             last_created_time = 0
+            self.logger.debug("No last created time found.")
+        else:
+            self.logger.debug(
+                "Last created time: %s",
+                datetime.fromtimestamp(last_created_time / 1000).isoformat(),
+            )
 
         for event_list in self.get_events(limit, last_created_time):
             events_dict = event_list.dump()
@@ -66,11 +78,18 @@ class EventsReplicator(Extractor):
                 )
                 last_event = events_dict[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
+            else:
+                self.logger.info("No events found in current batch.")
 
     def get_events(
         self, limit: int, last_created_time: int
     ) -> Iterator[Event] | Iterator[EventList]:
         # only pull events that created after last_created_time (hence the +1); assuming no other events are created at the same time
+        self.logger.debug(
+            "Getting events with limit: %s, last_created_time: %s",
+            limit,
+            last_created_time,
+        )
         return self.cognite_client.events(
             chunk_size=limit,
             created_time={"min": last_created_time + 1},
@@ -86,13 +105,14 @@ class EventsReplicator(Extractor):
     def set_event_state(self, event_state_key: str, created_time: int) -> None:
         self.state_store.set_state(external_id=event_state_key, high=created_time)
         self.state_store.synchronize()
+        self.logger.debug("Event state set: %s", created_time)
 
     def write_events_to_lakehouse_tables(
         self, events: List[Dict[str, Any]], abfss_path: str
     ) -> None:
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
 
-        logging.info(f"Writing {len(events)} to '{abfss_path}' table...")
+        self.logger.info(f"Writing {len(events)} to '{abfss_path}' table...")
         data = pa.Table.from_pylist(events)
         write_deltalake(
             abfss_path,
@@ -105,4 +125,4 @@ class EventsReplicator(Extractor):
                 "use_fabric_endpoint": "true",
             },
         )
-        logging.info("done.")
+        self.logger.info("done.")
