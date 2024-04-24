@@ -10,7 +10,6 @@ import numpy as np
 from cognite.client.data_classes import (
     ExtractionPipelineRunWrite,
     TimeSeries,
-    DataPointSubscriptionWrite,
 )
 from cognite.client.exceptions import CogniteAPIError
 from cognite.client.data_classes.datapoints_subscriptions import (
@@ -19,10 +18,8 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 )
 from cognite.extractorutils.base import Extractor
 from cognite.extractorutils.base import CancellationToken
-from cognite.client.data_classes import filters as flt
-from cognite.client.data_classes.time_series import TimeSeriesProperty
 
-from cdf_fabric_replicator import __version__
+from cdf_fabric_replicator import __version__, subscription
 from cdf_fabric_replicator.config import Config, SubscriptionsConfig
 from cdf_fabric_replicator.metrics import Metrics
 
@@ -81,7 +78,8 @@ class TimeSeriesReplicator(Extractor):
             is None
         ):
             try:
-                self.create_subscription(
+                subscription.create_subscription(
+                    self.cognite_client,
                     self.config.subscription.external_id,
                     self.config.subscription.name,
                     self.config.subscription.num_partitions,
@@ -270,17 +268,3 @@ class TimeSeriesReplicator(Extractor):
         return self.azure_credential.get_token(
             "https://storage.azure.com/.default"
         ).token
-
-    def create_subscription(
-        self, external_id: str, name: str, num_partitions: int
-    ) -> None:
-        logging.debug(f"Subscription {external_id} not found. Creating subscription...")
-
-        sub = DataPointSubscriptionWrite(
-            external_id=external_id,
-            name=name,
-            partition_count=num_partitions,
-            filter=flt.Exists(TimeSeriesProperty.external_id),
-        )
-        self.cognite_client.time_series.subscriptions.create(sub)
-        logging.debug(f"Subscription successfully {external_id} created.")

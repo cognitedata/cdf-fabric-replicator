@@ -11,6 +11,7 @@ from cognite.extractorutils.metrics import BaseMetrics
 from cognite.extractorutils.base import CancellationToken
 from cognite.client.data_classes import DataPointSubscriptionWrite, filters as flt
 from cognite.client.data_classes.time_series import TimeSeriesProperty
+from cdf_fabric_replicator import subscription
 
 
 @pytest.fixture
@@ -65,8 +66,8 @@ class TestTimeSeriesReplicator:
         with patch.object(
             self.replicator.cognite_client.time_series.subscriptions, "create"
         ) as mock_create:
-            self.replicator.create_subscription(
-                external_id=external_id, name=name, num_partitions=num_partitions
+            subscription.create_subscription(
+                self.replicator.cognite_client, external_id, name, num_partitions
             )
 
             mock_create.assert_called_once_with(

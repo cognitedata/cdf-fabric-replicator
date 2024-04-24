@@ -32,8 +32,8 @@ subscription:
   external_id: gauge-ts
   name: Gauge Timeseries
   num_partitions: 1
-  lakehouse_abfss_path_dps: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/Timeseries
-  lakehouse_abfss_path_ts: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/TimeseriesMetadata
+  lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/Timeseries
+  lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/TimeseriesMetadata
 
 
 # sync data model
