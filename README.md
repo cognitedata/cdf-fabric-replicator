@@ -48,7 +48,7 @@ You can optionally copy the contents of `.env.example` to a `.env` file that wil
 # Config YAML
 The replicator reads its configuration from a YAML file specified in the run command.  You can configure your own YAML file based on the one in `example_config.yaml` in the repo.  That configuration file uses the environment variables in `.env`, the configuration can also be set using hard coded values.
 
-`data_modeling` configurations are a list, so you can configure multiple data modeling spaces to replicate into Fabric.
+`subscriptions` and `data_modeling` configurations are a list, so you can configure multiple data point subscriptions or data modeling spaces to replicate into Fabric.
 
 ```
 logger:
