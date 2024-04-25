@@ -95,7 +95,7 @@ def test_timeseries_data_integration_service(
 ):
     # Autocreate subscription in CDF
     subscription.autocreate_subscription(
-        test_replicator.config.subscriptions, cognite_client, "TestSubscription", 1
+        test_replicator.config.subscriptions, cognite_client, "TestSubscription"
     )
     # Assert subscription created in CDF
     assert_subscription_created_in_cdf(

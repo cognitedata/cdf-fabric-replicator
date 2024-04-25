@@ -52,7 +52,7 @@ class TimeSeriesReplicator(Extractor):
         self.state_store.initialize()
 
         sub.autocreate_subscription(
-            self.config.subscriptions, self.cognite_client, self.name, 1
+            self.config.subscriptions, self.cognite_client, self.name
         )
 
         for subscription in self.config.subscriptions:
