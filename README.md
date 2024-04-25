@@ -155,6 +155,8 @@ To run the `cdf_fabric_replicator` application, you can use Poetry, a dependency
 
 First, make sure you have Poetry installed on your system. If not, you can install it by following the instructions in the [Poetry documentation](https://python-poetry.org/docs/#installation).
 
+## Command-line
+
 Once Poetry is installed, navigate to the root directory of your project in your terminal.
 
 Next, run the following command to install the project dependencies:
@@ -166,3 +168,14 @@ Finally, run the replicator:
 ```
 poetry run cdf_fabric_replicator config.yaml
 ```
+
+## Visual Studio Code
+
+Alternatively, if you are using Visual Studio Code, just open the folder of the root directory of your project.
+
+You must still install Poetry as mentioned above in addition to the [Python Extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) for VSCode.
+
+The included ".vscode/launch.json" file will add "poetry install" and "poetry run" to your "Run and Debug" tab. They can be used in place of the manual command line statements above, and will attach the VSCode debugger.
+
+For more information see [Debugging in Visual Studio Code](https://code.visualstudio.com/Docs/editor/debugging).
+
