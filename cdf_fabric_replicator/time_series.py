@@ -1,5 +1,7 @@
 import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Literal
 
 from azure.identity import DefaultAzureCredential
@@ -7,11 +9,7 @@ from deltalake.writer import write_deltalake
 import pandas as pd
 import numpy as np
 
-from cognite.client.data_classes import (
-    ExtractionPipelineRunWrite,
-    TimeSeries,
-)
-from cognite.client.exceptions import CogniteAPIError
+from cognite.client.data_classes import ExtractionPipelineRunWrite, TimeSeries
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionBatch,
     DatapointsUpdate,
@@ -19,7 +17,8 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 from cognite.extractorutils.base import Extractor
 from cognite.extractorutils.base import CancellationToken
 
-from cdf_fabric_replicator import __version__, subscription
+
+from cdf_fabric_replicator import __version__, subscription as sub
 from cdf_fabric_replicator.config import Config, SubscriptionsConfig
 from cdf_fabric_replicator.metrics import Metrics
 
@@ -46,11 +45,20 @@ class TimeSeriesReplicator(Extractor):
 
     def run(self) -> None:
         # init/connect to destination
-        if not self.config.subscription:
-            logging.info("No time series subscription info found in config")
+        if not self.config.subscriptions or len(self.config.subscriptions) == 0:
+            logging.info("No time series subscriptions found in config")
             return
 
         self.state_store.initialize()
+
+        sub.autocreate_subscription(
+            self.config.subscriptions, self.cognite_client, self.name, 1
+        )
+
+        for subscription in self.config.subscriptions:
+            logging.info(
+                f"{self.cognite_client.time_series.subscriptions.retrieve(external_id=subscription.external_id)}"
+            )
 
         while not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
@@ -71,25 +79,13 @@ class TimeSeriesReplicator(Extractor):
                 time.sleep(sleep_time)
 
     def process_subscriptions(self) -> None:
-        if (
-            self.cognite_client.time_series.subscriptions.retrieve(
-                external_id=self.config.subscription.external_id
-            )
-            is None
-        ):
-            try:
-                subscription.create_subscription(
-                    self.cognite_client,
-                    self.config.subscription.external_id,
-                    self.config.subscription.name,
-                    self.config.subscription.num_partitions,
-                )
-            except CogniteAPIError as e:
-                logging.error(f"Error creating subscription: {e}")
-                raise e
-
-        for partition in range(0, self.config.subscription.num_partitions):
-            logging.debug(self.process_partition(self.config.subscription, partition))
+        for subscription in self.config.subscriptions:
+            for partition in subscription.partitions:
+                with ThreadPoolExecutor() as executor:
+                    future = executor.submit(
+                        self.process_partition, subscription, partition
+                    )
+                    logging.debug(future.result())
 
     def process_partition(
         self, subscription: SubscriptionsConfig, partition: int
@@ -98,35 +94,33 @@ class TimeSeriesReplicator(Extractor):
         raw_cursor = self.state_store.get_state(external_id=state_id)[1]
         cursor = str(raw_cursor) if raw_cursor is not None else None
 
-        try:
-            for (
-                update_batch
-            ) in self.cognite_client.time_series.subscriptions.iterate_data(
-                external_id=subscription.external_id,
-                partition=partition,
-                cursor=cursor,
-                limit=self.config.extractor.subscription_batch_size,
-            ):
-                if update_batch.has_next:
-                    self.send_to_lakehouse(
-                        subscription=subscription,
-                        update_batch=update_batch,
-                        state_id=state_id,
-                        send_now=False,
-                    )
-                else:
-                    self.send_to_lakehouse(
-                        subscription=subscription,
-                        update_batch=update_batch,
-                        state_id=state_id,
-                        send_now=True,
-                    )
+        logging.debug(
+            f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}"
+        )
 
-                if not update_batch.has_next:
-                    return f"{state_id} no more data at {update_batch.cursor}"
-        except CogniteAPIError as e:
-            logging.error(f"Error iterating over subscription: {e}")
-            raise e
+        for update_batch in self.cognite_client.time_series.subscriptions.iterate_data(
+            external_id=subscription.external_id,
+            partition=partition,
+            cursor=cursor,
+            limit=self.config.extractor.subscription_batch_size,
+        ):
+            if update_batch.has_next:
+                self.send_to_lakehouse(
+                    subscription=subscription,
+                    update_batch=update_batch,
+                    state_id=state_id,
+                    send_now=False,
+                )
+            else:
+                self.send_to_lakehouse(
+                    subscription=subscription,
+                    update_batch=update_batch,
+                    state_id=state_id,
+                    send_now=True,
+                )
+
+            if not update_batch.has_next:
+                return f"{state_id} no more data at {update_batch.cursor}"
 
         return "No new data"
 
@@ -251,18 +245,15 @@ class TimeSeriesReplicator(Extractor):
     ) -> None:
         token = self.get_token()
 
-        try:
-            write_deltalake(
-                table_or_uri=table,
-                data=df,
-                mode=mode,
-                engine="rust",
-                schema_mode="merge",
-                storage_options={"bearer_token": token, "use_fabric_endpoint": "true"},
-            )
-        except Exception as e:
-            logging.error(f"Error writing to Delta Lake: {e}")
-            raise e
+        write_deltalake(
+            table_or_uri=table,
+            data=df,
+            mode=mode,
+            engine="rust",
+            schema_mode="merge",
+            storage_options={"bearer_token": token, "use_fabric_endpoint": "true"},
+        )
+        return None
 
     def get_token(self) -> str:
         return self.azure_credential.get_token(

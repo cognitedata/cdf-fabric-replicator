@@ -242,16 +242,17 @@ def remove_subscriptions(sub_name: str, cognite_client: CogniteClient):
 
 
 def delete_state_store_in_cdf(
-    subscription: SubscriptionsConfig,
+    subscriptions: List[SubscriptionsConfig],
     database: str,
     table: str,
     cognite_client: CogniteClient,
 ):
-    for i in range(subscription.num_partitions):
-        statename = f"{subscription.external_id}_{i}"
-        row = cognite_client.raw.rows.retrieve(database, table, statename)
-        if row is not None:
-            cognite_client.raw.rows.delete(database, table, statename)
+    for sub in subscriptions:
+        for i in range(len(sub.partitions)):
+            statename = f"{sub.external_id}_{i}"
+            row = cognite_client.raw.rows.retrieve(database, table, statename)
+            if row is not None:
+                cognite_client.raw.rows.delete(database, table, statename)
 
     all_rows = cognite_client.raw.rows.list(database, table, limit=1)
     for row in all_rows:
@@ -259,17 +260,18 @@ def delete_state_store_in_cdf(
 
 
 def assert_state_store_in_cdf(
-    subscription: SubscriptionsConfig,
+    subscriptions: List[SubscriptionsConfig],
     database: str,
     table: str,
     cognite_client: CogniteClient,
 ):
-    for i in range(subscription.num_partitions):
-        statename = f"{subscription.external_id}_{i}"
-        row = cognite_client.raw.rows.retrieve(database, table, statename)
+    for sub in subscriptions:
+        for i in range(len(sub.partitions)):
+            statename = f"{sub.external_id}_{i}"
+            row = cognite_client.raw.rows.retrieve(database, table, statename)
 
-        assert row is not None
-        assert row.columns["high"] is not None
+            assert row is not None
+            assert row.columns["high"] is not None
 
 
 def delete_event_state_store_in_cdf(
@@ -278,6 +280,18 @@ def delete_event_state_store_in_cdf(
     row = cognite_client.raw.rows.retrieve(database, table, event_state_key)
     if row is not None:
         cognite_client.raw.rows.delete(database, table, event_state_key)
+
+
+def push_events_to_cdf(
+    cognite_client: CogniteClient, events: List[EventWrite], cdf_retries: int
+):
+    res = cognite_client.events.create(events)
+    assert confirm_events_in_cdf(
+        cognite_client, events, cdf_retries
+    ), (
+        f"Events not populated in CDF after {cdf_retries} checks"
+    )  # Ensure all events are in CDF list operation before continuing test
+    return res
 
 
 def assert_subscription_created_in_cdf(
@@ -294,23 +308,8 @@ def assert_subscription_created_in_cdf(
         subscription.external_id == subscription_config.external_id
     ), f"Subscription external_id {subscription.external_id} does not match expected {subscription_config.external_id}"
     assert (
-        subscription.name == subscription_config.name
-    ), f"Subscription name {subscription.name} does not match expected {subscription_config.name}"
-    assert (
-        subscription.partition_count == subscription_config.num_partitions
-    ), f"Subscription partition count {subscription.partition_count} does not match expected {subscription_config.num_partitions}"
-
-
-def push_events_to_cdf(
-    cognite_client: CogniteClient, events: List[EventWrite], cdf_retries: int
-):
-    res = cognite_client.events.create(events)
-    assert confirm_events_in_cdf(
-        cognite_client, events, cdf_retries
-    ), (
-        f"Events not populated in CDF after {cdf_retries} checks"
-    )  # Ensure all events are in CDF list operation before continuing test
-    return res
+        subscription.partition_count == len(subscription_config.partitions)
+    ), f"Subscription partition count {subscription.partition_count} does not match expected {len(subscription_config.partitions)}"
 
 
 def confirm_events_in_cdf(

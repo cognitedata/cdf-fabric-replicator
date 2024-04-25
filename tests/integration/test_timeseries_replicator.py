@@ -24,6 +24,7 @@ from tests.integration.integration_steps.fabric_steps import (
     delete_delta_table_data,
     assert_timeseries_data_in_fabric,
 )
+from cdf_fabric_replicator import subscription
 
 
 @pytest.fixture(scope="function")
@@ -48,7 +49,7 @@ def remote_state_store(cognite_client, test_replicator):
     state_store = test_replicator.state_store
     yield state_store
     delete_state_store_in_cdf(
-        test_replicator.config.subscription,
+        test_replicator.config.subscriptions,
         test_replicator.config.extractor.state_store.raw.database,
         test_replicator.config.extractor.state_store.raw.table,
         cognite_client,
@@ -92,11 +93,13 @@ def test_timeseries_data_integration_service(
     azure_credential,
     remote_state_store,
 ):
-    # Run replicator before pushing data points in order to setup subscription
-    run_replicator(test_replicator)
+    # Autocreate subscription in CDF
+    subscription.autocreate_subscription(
+        test_replicator.config.subscriptions, cognite_client, "TestSubscription", 1
+    )
     # Assert subscription created in CDF
     assert_subscription_created_in_cdf(
-        test_replicator.config.subscription,
+        test_replicator.config.subscriptions[0],
         cognite_client,
     )
     # Push data points to CDF
@@ -110,7 +113,7 @@ def test_timeseries_data_integration_service(
         )
     # Assert state store is populated in CDF
     assert_state_store_in_cdf(
-        test_replicator.config.subscription,
+        test_replicator.config.subscriptions,
         remote_state_store.database,
         remote_state_store.table,
         cognite_client,

@@ -28,12 +28,12 @@ extractor:
 
 
 # subscriptions to stream
-subscription:
-  external_id: gauge-ts
-  name: Gauge Timeseries
-  num_partitions: 1
-  lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/Timeseries
-  lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/TimeseriesMetadata
+subscriptions:
+  - external_id: gauge-ts
+    partitions:
+        - 0
+    lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/Timeseries
+    lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/TimeseriesMetadata
 
 
 # sync data model
