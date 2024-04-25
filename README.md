@@ -13,7 +13,7 @@ All four services will run concurrently during the run of the CDF Fabric Replica
 
 # Setting up Data Point Subscription
 
-The time series replicator uses [data point subscriptions](https://cognite-sdk-python.readthedocs-hosted.com/en/latest/time_series.html#create-data-point-subscription) to get updates on incoming time series data.  The subscription is created automatically by the Time Series Replicator, based on the values in the configuration file.
+The time series replicator uses [data point subscriptions](https://cognite-sdk-python.readthedocs-hosted.com/en/latest/time_series.html#create-data-point-subscription) to get updates on incoming time series data.  If only one subscription with a single partition is defined in the configuration file then the subscription is created automatically by the Time Series Replicator, based on the values in the configuration file.
 
 # Environment Variables
 
