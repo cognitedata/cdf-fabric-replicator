@@ -31,6 +31,30 @@ class EventConfig:
     lakehouse_abfss_path_events: str
     batch_size: int = 1000
 
+    # def __init__(self, lakehouse_abfss_path_events: str, batch_size: int = 1000):
+    #     self.lakehouse_abfss_path_events = lakehouse_abfss_path_events
+    #     self.batch_size = batch_size
+
+    #     if self.lakehouse_abfss_path_events is None:
+    #         raise ValueError("lakehouse_abfss_path_events is required")
+        
+    #     if not self.validate_abfss_path(self.lakehouse_abfss_path_events):
+    #         raise ValueError("Invalid ABFSS path")
+        
+        
+def validate_abfss_path(self, path: str) -> bool:
+    # Check if the path starts with 'abfss://'
+    if not path.startswith('abfss://'):
+        return False
+    
+    # Check for invalid characters
+    invalid_chars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*']
+    if any(char in path for char in invalid_chars):
+        return False
+    
+    # Additional validation logic here
+    
+    return True
 
 @dataclass
 class SourceConfig:

@@ -5,12 +5,14 @@ from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.base import Extractor
 from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake
+from deltalake.exceptions import DeltaError
 import pyarrow as pa
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import EventList, Event
 from datetime import datetime
+from deltalake import DeltaTable
 
 
 class EventsReplicator(Extractor):
@@ -38,22 +40,42 @@ class EventsReplicator(Extractor):
         if self.config.event is None:
             self.logger.warning("No event config found in config")
             return
+        
+        self.logger.info(f"Event config: {self.config.event}")
 
-        while True:  # not self.stop_event.is_set():
-            start_time = time.time()  # Get the current time in seconds
+        retry_count = 0
+        max_retries = 5
 
-            self.logger.info("Processing events...")
+        while not self.stop_event.is_set():
+            try:
+                start_time = time.time()  # Get the current time in seconds
 
-            self.process_events()
-            end_time = time.time()  # Get the time after function execution
-            elapsed_time = end_time - start_time
-            sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)
+                self.logger.info("Processing events...")
 
-            self.logger.info("Processing took %.2f seconds", elapsed_time)
+                self.process_events()
+                end_time = time.time()  # Get the time after function execution
+                elapsed_time = end_time - start_time
+                sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)
 
-            if sleep_time > 0:
-                self.logger.info("Sleep for %.2f seconds", sleep_time)
-                time.sleep(sleep_time)
+                self.logger.info("Processing took %.2f seconds", elapsed_time)
+
+                if sleep_time > 0:
+                    self.logger.info("Sleep for %.2f seconds", sleep_time)
+                    time.sleep(sleep_time)
+            except Exception as e:
+                # Restrict to N number of retries
+                retry_count += 1
+                self.logger.error("Error processing events, retrying: %s", e)
+                self.logger.exception(e)
+                if retry_count >= max_retries:
+                    self.logger.error("Max retries reached. Exiting...")
+                    break
+                else:
+                    self.logger.info("Retrying in 5 seconds...")
+                    time.sleep(5)
+                    continue
+        
+        self.logger.info("Stop event set. Exiting...")
 
     def process_events(self) -> None:
         limit = self.config.event.batch_size
@@ -68,14 +90,22 @@ class EventsReplicator(Extractor):
                 datetime.fromtimestamp(last_created_time / 1000).isoformat(),
             )
 
+        
+
         for event_list in self.get_events(limit, last_created_time):
             events_dict = event_list.dump()
             if len(events_dict) > 0:
                 if isinstance(events_dict, dict):
                     events_dict = [events_dict]
+                # try:
                 self.write_events_to_lakehouse_tables(
                     events_dict, self.config.event.lakehouse_abfss_path_events
                 )
+                # except DeltaError as e:
+                #     self.logger.error(
+                #         "Error writing events to lakehouse tables: %s", e
+                #     )
+                #     continue
                 last_event = events_dict[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
             else:
@@ -114,15 +144,22 @@ class EventsReplicator(Extractor):
 
         self.logger.info(f"Writing {len(events)} to '{abfss_path}' table...")
         data = pa.Table.from_pylist(events)
-        write_deltalake(
-            abfss_path,
-            data,
-            mode="append",
-            engine="rust",
-            schema_mode="merge",
-            storage_options={
-                "bearer_token": token.token,
-                "use_fabric_endpoint": "true",
-            },
-        )
+        try:
+            write_deltalake(
+                abfss_path,
+                data,
+                mode="append",
+                engine="rust",
+                schema_mode="merge",
+                storage_options={
+                    "bearer_token": token.token,
+                    "use_fabric_endpoint": "true",
+                },
+            )
+        except DeltaError as e:
+            self.logger.error(
+                "Error writing events to lakehouse tables: %s", e
+            )
+            raise e
+            
         self.logger.info("done.")
