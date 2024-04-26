@@ -11,7 +11,7 @@ The replicator consists of four services:
 
 All four services will run concurrently during the run of the CDF Fabric Replicator program.  The services use one state store in CDF's raw storage to maintain checkpoints of when the latest data was copied, so the services can be started and stopped and will be able to pick back up where they left off.
 
-# Setting up Data Point Subscription
+# Setting up Data Point Subscriptions
 
 The time series replicator uses [data point subscriptions](https://cognite-sdk-python.readthedocs-hosted.com/en/latest/time_series.html#create-data-point-subscription) to get updates on incoming time series data.  If only one subscription with a single partition is defined in the configuration file then the subscription is created automatically by the Time Series Replicator, based on the values in the configuration file.
 
