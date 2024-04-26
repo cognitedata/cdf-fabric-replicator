@@ -11,10 +11,6 @@ from cognite.client.data_classes import (
     EventWrite,
 )
 from cognite.client.exceptions import CogniteNotFoundError
-from cognite.client.data_classes import (
-    DataPointSubscriptionWrite,
-    DatapointSubscription,
-)
 from cognite.client.data_classes.data_modeling import Space, NodeApply, EdgeApply
 from cognite.client.data_classes.data_modeling.ids import DataModelId
 from cdf_fabric_replicator.config import SubscriptionsConfig
@@ -84,19 +80,6 @@ def push_data_to_cdf(
         )
     sleep(5)
     return time_series_data_points_pushed
-
-
-def create_subscription_in_cdf(
-    time_series_data: list[TimeSeries], sub_name: str, cognite_client: CogniteClient
-) -> DatapointSubscription:
-    ts_external_ids = [ts.external_id for ts in time_series_data]
-    sub = DataPointSubscriptionWrite(
-        sub_name,
-        partition_count=1,
-        time_series_ids=ts_external_ids,
-        name="Test subscription",
-    )
-    return cognite_client.time_series.subscriptions.create(sub)
 
 
 def create_data_model_in_cdf(
@@ -309,6 +292,24 @@ def push_events_to_cdf(
         f"Events not populated in CDF after {cdf_retries} checks"
     )  # Ensure all events are in CDF list operation before continuing test
     return res
+
+
+def assert_subscription_created_in_cdf(
+    subscription_config: SubscriptionsConfig, cognite_client: CogniteClient
+):
+    subscription = cognite_client.time_series.subscriptions.retrieve(
+        subscription_config.external_id
+    )
+
+    assert (
+        subscription is not None
+    ), f"Subscription {subscription_config.external_id} not found in CDF"
+    assert (
+        subscription.external_id == subscription_config.external_id
+    ), f"Subscription external_id {subscription.external_id} does not match expected {subscription_config.external_id}"
+    assert (
+        subscription.partition_count == len(subscription_config.partitions)
+    ), f"Subscription partition count {subscription.partition_count} does not match expected {len(subscription_config.partitions)}"
 
 
 def confirm_events_in_cdf(

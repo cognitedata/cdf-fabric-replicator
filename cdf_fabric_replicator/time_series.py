@@ -18,7 +18,7 @@ from cognite.extractorutils.base import Extractor
 from cognite.extractorutils.base import CancellationToken
 
 
-from cdf_fabric_replicator import __version__
+from cdf_fabric_replicator import __version__, subscription as sub
 from cdf_fabric_replicator.config import Config, SubscriptionsConfig
 from cdf_fabric_replicator.metrics import Metrics
 
@@ -45,11 +45,15 @@ class TimeSeriesReplicator(Extractor):
 
     def run(self) -> None:
         # init/connect to destination
-        if not self.config.subscriptions:
+        if not self.config.subscriptions or len(self.config.subscriptions) == 0:
             logging.info("No time series subscriptions found in config")
             return
 
         self.state_store.initialize()
+
+        sub.autocreate_subscription(
+            self.config.subscriptions, self.cognite_client, self.name
+        )
 
         for subscription in self.config.subscriptions:
             logging.info(
