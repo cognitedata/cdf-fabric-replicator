@@ -4,8 +4,10 @@ from deltalake import DeltaTable
 import pandas as pd
 from pandas import DataFrame
 from pandas.testing import assert_frame_equal
+from urllib.parse import urlparse
 from deltalake.writer import write_deltalake
 from deltalake.exceptions import TableNotFoundError
+from azure.storage.filedatalake import DataLakeServiceClient
 
 TIMESTAMP_COLUMN = "timestamp"
 EVENT_CDF_COLUMNS = ["id", "createdTime", "lastUpdatedTime"]
@@ -140,3 +142,60 @@ def assert_events_data_in_fabric(
 
     # Assert that the two DataFrames are equal
     assert_frame_equal(events_dataframe, events_from_lakehouse, check_dtype=False)
+
+
+def parse_abfss_url(url: str) -> tuple[str, str, str]:
+    parsed_url = urlparse(url)
+
+    container_id = parsed_url.netloc.split("@")[0]
+    account_name = parsed_url.netloc.split("@")[1].split(".")[0]
+    file_path = parsed_url.path
+
+    return container_id, account_name, file_path
+
+
+def get_lakehouse_file_client(
+    abfss_prefix: str,
+    table_name: str,
+    file_name: str,
+    credential: DefaultAzureCredential,
+):
+    workspace_name, account_name, lakehouse_file_path = parse_abfss_url(abfss_prefix)
+    lakehouse_file_path = lakehouse_file_path + "/" + table_name + "/"
+
+    service_client = DataLakeServiceClient(
+        f"https://{account_name}.dfs.fabric.microsoft.com", credential=credential
+    )
+    file_system_client = service_client.get_file_system_client(workspace_name)
+    directory_client = file_system_client.get_directory_client(lakehouse_file_path)
+    file_client = directory_client.get_file_client(file_name)
+    return file_client
+
+
+def upload_file_to_lakehouse(
+    file_name: str,
+    local_file_path: str,
+    abfss_prefix: str,
+    table_name: str,
+    credential: DefaultAzureCredential,
+):
+    file_client = get_lakehouse_file_client(
+        abfss_prefix, table_name, file_name, credential
+    )
+    with open(file=local_file_path, mode="rb") as data:
+        file_client.upload_data(data, overwrite=True)
+
+
+def remove_file_from_lakehouse(
+    file_name: str,
+    abfss_prefix: str,
+    table_name: str,
+    credential: DefaultAzureCredential,
+):
+    file_client = get_lakehouse_file_client(
+        abfss_prefix, table_name, file_name, credential
+    )
+    try:
+        file_client.delete_file()
+    except Exception as e:
+        print(f"Error deleting file: {e}")
