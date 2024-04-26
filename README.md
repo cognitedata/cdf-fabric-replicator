@@ -79,11 +79,11 @@ extractor:
     ingest-batch-size: 100000
     poll-time: 5
 
-# subscription to stream (will be automatically created with the given properties)
-subscription:
-    external_id: ts-subscription
-    name: My Subscription
-    num_partitions: 1
+# subscriptions to stream
+subscriptions:
+    - external_id: ts-subscription
+      partitions:
+          - 0
     lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${DPS_TABLE_NAME}
     lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${TS_TABLE_NAME}
 
