@@ -169,7 +169,7 @@ poetry run cdf_fabric_replicator config.yaml
 
 # Docker
 
-If you are running the Docker Container on ARM based Macs. You will need to use platform emulation for the Docker run command. You can do this by running the following command:
+If you are running the Docker Container on ARM Architecture, you will need to use platform emulation for the Docker run command. You can do this by running the following command:
 
 ```
 docker run -i -t <image-name> --platform linux/arm64 
