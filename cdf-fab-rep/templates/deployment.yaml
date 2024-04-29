@@ -20,10 +20,6 @@ spec:
       labels:
         {{- include "cdf-fab-rep.selectorLabels" . | nindent 8 }}
     spec:
-      volumes:
-        - name: cdf-conn-mount
-          configMap:
-            name: cdf-conn-config
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
@@ -37,13 +33,12 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          envFrom:
-            - configMapRef:
-                name: cdf-conn-config
-          volumeMounts:
-            - name: cdf-conn-mount
-              mountPath: /app/appsettings.k8s.json
-              subPath: appsettings.k8s.json
+          env:
+            - name: COGNITE_CLIENT_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_CLIENT_NAME
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
