@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: ktstacrhelmdeploy.azurecr.io/ktst-conn
+  repository: ktstacrhelmdeploy.azurecr.io/ktst-conn-2
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
@@ -89,3 +89,44 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+externals:
+  dataProviders:
+    cognite:
+      clientSecret: "TestClientSecret"
+
+streams:
+  enriched:
+    eventHub:
+      consumerGroup: "TestConsumerGroup"
+
+cognite:
+  tokenUrl: "https://login.microsoftonline.com/1a3fbda0-40c8-437f-9d41-d6ebb12194c6/oauth2/v2.0/token"
+  clientName: "carbon-client-name"
+  clientId: "768d61e8-f85f-47e9-918e-828f0a26f100"
+  clientSecret: ""
+  tokenScopes: "https://bluefield.cognitedata.com/.default"
+  project: "cdf-fabric-integration-test"
+  baseUrl: "https://bluefield.cognitedata.com"
+  stateTable: "TestStateTableTwelve"
+lakehouse:
+  timeseriesTable: "TimeSeries"
+  tableName: "testtimeseriestable"
+  dmEdgeTableName: "TestEdgeTable"
+  dmNodeTableName: "TestNodeTable"
+  abfssPrefix: "abfss://Data_Activator_Workspace@msit-onelake.dfs.fabric.microsoft.com/lakehouse.Lakehouse"
+dps:
+  tableName: "CalculatedTimeseries"
+ts:
+  tableName: "TimeSeries"
+test:
+  configPath: "/Users/kchalupa/source/cedar/cdf-collab/cdf-fabric-replicator/tests/integration/test_config.yaml"
+extractor:
+  eventPath: "Tables/testevents3"
+  filePath: "Files/tank_thumbnail.png"
+  rawTsPath: "Tables/mtu_historic"
+  datasetId: "3351080165451477"
+  tsPrefix: "test"
+  destinationType: "test"
+event:
+  tableName: "KtestEvents"
