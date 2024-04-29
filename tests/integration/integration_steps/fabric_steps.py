@@ -8,6 +8,7 @@ from deltalake.writer import write_deltalake
 from deltalake.exceptions import TableNotFoundError
 
 TIMESTAMP_COLUMN = "timestamp"
+DATA_MODEL_TIMESTAMP_COLUMNS = ["lastUpdatedTime", "createdTime"]
 EVENT_CDF_COLUMNS = ["id", "createdTime", "lastUpdatedTime"]
 EVENT_SORT_COLUMNS = "startTime"
 
@@ -108,14 +109,33 @@ def assert_timeseries_data_in_fabric(
     assert_frame_equal(test_dataframe, lakehouse_dataframe, check_dtype=False)
 
 
-def assert_data_model_in_fabric():
+def assert_data_model_instances_in_fabric(
+    instance_table_paths: list,
+    instance_dataframes: dict[str, pd.DataFrame],
+    azure_credential: DefaultAzureCredential,
+):
     # Assert the data model is populated in a Fabric lakehouse
-    pass
+    for path in instance_table_paths:
+        delta_table = get_ts_delta_table(azure_credential, path)
+        lakehouse_dataframe = delta_table.to_pandas()
+        lakehouse_dataframe = lakehouse_dataframe.drop(
+            columns=DATA_MODEL_TIMESTAMP_COLUMNS
+        )
+        table_name = path.split("Tables/")[1]
+        assert_frame_equal(
+            instance_dataframes[table_name], lakehouse_dataframe, check_dtype=False
+        )
 
 
-def assert_data_model_update():
-    # Assert the data model changes including versions and last updated timestamps are propagated to a Fabric lakehouse
-    pass
+def assert_data_model_instances_update(
+    update_dataframe: tuple, azure_credential: DefaultAzureCredential
+):
+    # Assert the data model changes including versions are propagated to a Fabric lakehouse
+    path = lakehouse_table_name(update_dataframe[0])
+    delta_table = get_ts_delta_table(azure_credential, path)
+    lakehouse_dataframe = delta_table.to_pandas()
+    lakehouse_dataframe = lakehouse_dataframe.drop(columns=DATA_MODEL_TIMESTAMP_COLUMNS)
+    assert_frame_equal(update_dataframe[1], lakehouse_dataframe, check_dtype=False)
 
 
 def assert_events_data_in_fabric(
