@@ -13,47 +13,7 @@ All four services will run concurrently during the run of the CDF Fabric Replica
 
 # Setting up Data Point Subscriptions
 
-The time series replicator uses [data point subscriptions](https://cognite-sdk-python.readthedocs-hosted.com/en/latest/time_series.html#create-data-point-subscription) to get updates on incoming time series data.  Currently the only way to create these subscriptions is by using the Cognite SDK.
-
-Here is an example of how to set up a subscription using the Python SDK:
-
-First, install the SDK using `pip`:
-```
-pip install cognite-sdk
-```
-Next, set up the OAuth Credentials to use for authentication for the client.  You can get these values from an administrator:
-```
-from cognite.client.credentials import OAuthClientCredentials
-import os
-
-oauth_creds = OAuthClientCredentials(
-    token_url="https://login.microsoftonline.com/xyz/oauth2/v2.0/token", # Auth token URL, replace "xyz" with Azure tenant ID
-    client_id="abcd", # Client ID of the service principal for interacting with Cognite
-    client_secret=os.environ["OAUTH_CLIENT_SECRET"], # Secret for the service principal, save as an environment variable as a best practice
-    scopes=["https://greenfield.cognitedata.com/.default"], # Scope, contains cluster name for the CDF project
-)
-```
-Create the Cognite Client using these credentials:
-```
-from cognite.client import CogniteClient, ClientConfig, global_config
-
-cnf = ClientConfig(
-  client_name="my-special-client",
-  base_url="https://greenfield.cognitedata.com", # Base URL for CDF project, includes cluster name
-  project="project-name", # CDF project name
-  credentials=oauth_creds # OAuth credentials from earlier
-)
-global_config.default_client_config = cnf
-client = CogniteClient()
-```
-Finally, create the subscriptions by referencing the external IDs of the time series to which you would like to subscribe:
-```
-from cognite.client.data_classes import DataPointSubscriptionWrite
-
-sub = DataPointSubscriptionWrite(external_id="mySubscription", partition_count=1, time_series_ids=["myFistTimeSeries", "mySecondTimeSeries"], name="My subscription")
-created = client.time_series.subscriptions.create(sub)
-```
-The external ID of the subscription (in this case, "mySubscription") will be used in the configuration file for the replicator.  For more specifics on the SDK, please refer to the [SDK documentation](https://cognite-sdk-python.readthedocs-hosted.com/en/latest/index.html).
+The time series replicator uses [data point subscriptions](https://cognite-sdk-python.readthedocs-hosted.com/en/latest/time_series.html#create-data-point-subscription) to get updates on incoming time series data.  If only one subscription with a single partition is defined in the configuration file then the subscription is created automatically by the Time Series Replicator, based on the values in the configuration file.
 
 # Environment Variables
 
@@ -124,8 +84,8 @@ subscriptions:
     - external_id: ts-subscription
       partitions:
           - 0
-      lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${DPS_TABLE_NAME}
-      lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${TS_TABLE_NAME}
+    lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${DPS_TABLE_NAME}
+    lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${TS_TABLE_NAME}
 
 # sync data model
 data_modeling:
@@ -155,6 +115,8 @@ To run the `cdf_fabric_replicator` application, you can use Poetry, a dependency
 
 First, make sure you have Poetry installed on your system. If not, you can install it by following the instructions in the [Poetry documentation](https://python-poetry.org/docs/#installation).
 
+## Command-line
+
 Once Poetry is installed, navigate to the root directory of your project in your terminal.
 
 Next, run the following command to install the project dependencies:
@@ -166,3 +128,14 @@ Finally, run the replicator:
 ```
 poetry run cdf_fabric_replicator config.yaml
 ```
+
+## Visual Studio Code
+
+Alternatively, if you are using Visual Studio Code, just open the folder of the root directory of your project.
+
+You must still install Poetry as mentioned above in addition to the [Python Extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) for VSCode.
+
+The included ".vscode/launch.json" file will add "poetry install" and "poetry run" to your "Run and Debug" tab. They can be used in place of the manual command line statements above, and will attach the VSCode debugger.
+
+For more information see [Debugging in Visual Studio Code](https://code.visualstudio.com/Docs/editor/debugging).
+
