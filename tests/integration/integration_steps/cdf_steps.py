@@ -254,7 +254,7 @@ def delete_state_store_in_cdf(
             if row is not None:
                 cognite_client.raw.rows.delete(database, table, statename)
 
-    all_rows = cognite_client.raw.rows.list(database, table, limit=1)
+    all_rows = cognite_client.raw.rows.list(database, table)
     for row in all_rows:
         cognite_client.raw.rows.delete(database, table, row.key)
 
@@ -333,3 +333,21 @@ def remove_events_from_cdf(cognite_client: CogniteClient, events: List[EventWrit
     return cognite_client.events.delete(
         external_id=event_external_ids, ignore_unknown_ids=True
     )
+
+
+def assert_file_in_cdf(cognite_client: CogniteClient, file_name: str, retries: int):
+    for _ in range(retries):
+        res = cognite_client.files.search(name=file_name)
+        if len(res.data) == 1:
+            print("File found in CDF")
+            return True
+        print(f"File not found in CDF, retrying...(attempt {_+1}/{retries})")
+        sleep(2**_)  # wait before the next retry using exponential backoff
+    return False
+
+
+def remove_file_from_cdf(cognite_client: CogniteClient, file_name: str):
+    res = cognite_client.files.search(name=file_name)
+    if len(res.data) == 1:
+        return cognite_client.files.delete(id=res.data[0].id)
+    return None

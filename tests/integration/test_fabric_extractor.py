@@ -16,6 +16,8 @@ from tests.integration.integration_steps.cdf_steps import (
     push_time_series_to_cdf,
     assert_time_series_in_cdf_by_id,
     assert_data_points_df_in_cdf,
+    assert_file_in_cdf,
+    remove_file_from_cdf,
 )
 from tests.integration.integration_steps.service_steps import run_extractor
 from tests.integration.integration_steps.fabric_steps import (
@@ -28,6 +30,7 @@ from tests.integration.integration_steps.fabric_steps import (
 
 TEST_FILE_NAME = "test_file.csv"
 TEST_FILE_DIRECTORY = "tests/integration/resources/"
+CDF_RETRIES = 5
 
 
 @pytest.fixture(scope="session")
@@ -92,7 +95,7 @@ def raw_time_series(request, azure_credential, cognite_client, test_extractor):
 
 
 @pytest.fixture(scope="function")
-def test_csv_file_path(test_extractor, azure_credential):
+def test_csv_file_path(test_extractor, azure_credential, cognite_client):
     os.makedirs(TEST_FILE_DIRECTORY, exist_ok=True)
 
     file_path = os.path.join(TEST_FILE_DIRECTORY, TEST_FILE_NAME)
@@ -109,6 +112,7 @@ def test_csv_file_path(test_extractor, azure_credential):
         test_extractor.config.source.file_path,
         azure_credential,
     )
+    remove_file_from_cdf(cognite_client, TEST_FILE_NAME)
 
 
 # Test for Timeseries Extractor service between CDF and Fabric
@@ -149,10 +153,9 @@ def test_extractor_abfss_file_upload(
     )
     # Run extractor upload
     test_extractor.upload_files_from_abfss(
-        test_extractor.config.source.abfss_prefix + f"/{test_extractor.config.source.file_path}/"
+        test_extractor.config.source.abfss_prefix
+        + f"/{test_extractor.config.source.file_path}/"
     )
 
     # Assert that the file is available in CDF
-    res = cognite_client.files.search(name=TEST_FILE_NAME)
-    assert len(res.data) == 1
-    cognite_client.files.delete(id=res.data[0].id)
+    assert assert_file_in_cdf(cognite_client, TEST_FILE_NAME, CDF_RETRIES)

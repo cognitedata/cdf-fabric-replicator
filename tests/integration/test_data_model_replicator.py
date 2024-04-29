@@ -13,6 +13,7 @@ from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.data_modeling import DataModelingReplicator
 from tests.integration.integration_steps.cdf_steps import (
     apply_data_model_instances_in_cdf,
+    delete_state_store_in_cdf,
 )
 from tests.integration.integration_steps.fabric_steps import (
     delete_delta_table_data,
@@ -42,6 +43,12 @@ def test_data_modeling_replicator():
         os.remove("states.json")
     except FileNotFoundError:
         pass
+    delete_state_store_in_cdf(
+        replicator.config.subscriptions,
+        replicator.config.extractor.state_store.raw.database,
+        replicator.config.extractor.state_store.raw.table,
+        replicator.cognite_client,
+    )
 
 
 @pytest.fixture(scope="session")
@@ -303,6 +310,7 @@ def test_data_model_sync_service_creation(
 
 def test_data_model_sync_service_update(
     test_data_modeling_replicator,
+    instance_table_paths,
     updated_node_list,
     node_list,
     edge_list,
