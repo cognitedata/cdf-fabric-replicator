@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: ktstacrhelmdeploy.azurecr.io/ktst-conn-3
+  repository: ktstacrhelmdeploy.azurecr.io/ktst-conn-6
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
@@ -115,7 +115,7 @@ env:
   LAKEHOUSE_TABLE_NAME: "testtimeseriestable"
   LAKEHOUSE_DM_EDGE_TABLE_NAME: TestEdgeTable
   LAKEHOUSE_DM_NODE_TABLE_NAME: TestNodeTable
-  LAKEHOUSE_ABFSS_PREFIX: "abfss://Data_Activator_Workspace@msit-onelake.dfs.fabric.microsoft.com/lakehouse.Lakehouse"
+  LAKEHOUSE_ABFSS_PREFIX: "abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse"
   EXTRACTOR_EVENT_PATH: "Tables/RawEvents"
   EXTRACTOR_FILE_PATH: "Files/tank_thumbnail.png"
   EXTRACTOR_RAW_TS_PATH: "Tables/RawTS"
@@ -125,7 +125,6 @@ env:
   EVENT_TABLE_NAME: "KtestEvents"
   COGNITE_STATE_DB: "cdffabricreplicator"
   COGNITE_EXTRACTION_PIPELINE: "fabric-replicator"
-  
 # cognite:
 #   tokenUrl: "https://login.microsoftonline.com/1a3fbda0-40c8-437f-9d41-d6ebb12194c6/oauth2/v2.0/token"
 #   clientName: "carbon-client-name"

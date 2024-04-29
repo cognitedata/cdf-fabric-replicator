@@ -9,33 +9,28 @@ from cdf_fabric_replicator.event import EventsReplicator
 
 from cdf_fabric_replicator.metrics import Metrics
 import threading
-import time
-
 
 def main() -> None:
     stop_event = CancellationToken()
     worker_list = []
 
-    # with EventsReplicator(
-    #     metrics=safe_get(Metrics), stop_event=stop_event
-    # ) as event_replicator:
-    #     worker_list.append(threading.Thread(target=event_replicator.run))
+    with EventsReplicator(
+        metrics=safe_get(Metrics), stop_event=stop_event
+    ) as event_replicator:
+        worker_list.append(threading.Thread(target=event_replicator.run))
 
-    # with TimeSeriesReplicator(
-    #     metrics=safe_get(Metrics), stop_event=stop_event
-    # ) as ts_replicator:
-    #     worker_list.append(threading.Thread(target=ts_replicator.run))
+    with TimeSeriesReplicator(
+        metrics=safe_get(Metrics), stop_event=stop_event
+    ) as ts_replicator:
+        worker_list.append(threading.Thread(target=ts_replicator.run))
 
-    # with CdfFabricExtractor(stop_event=stop_event) as extractor:
-    #     worker_list.append(threading.Thread(target=extractor.run))
+    with CdfFabricExtractor(stop_event=stop_event) as extractor:
+        worker_list.append(threading.Thread(target=extractor.run))
 
-    # with DataModelingReplicator(
-    #     metrics=safe_get(Metrics), stop_event=stop_event
-    # ) as dm_replicator:
-    #     worker_list.append(threading.Thread(target=dm_replicator.run))
-    time.sleep(600)
-
-    
+    with DataModelingReplicator(
+        metrics=safe_get(Metrics), stop_event=stop_event
+    ) as dm_replicator:
+        worker_list.append(threading.Thread(target=dm_replicator.run))
 
     for worker in worker_list:
         worker.start()
