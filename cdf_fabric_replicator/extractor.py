@@ -1,4 +1,5 @@
 import time
+import logging
 
 from urllib.parse import urlparse
 
@@ -38,6 +39,7 @@ class CdfFabricExtractor(Extractor[Config]):
         )
         self.azure_credential = DefaultAzureCredential()
         self.stop_event = stop_event
+        self.logger = logging.getLogger(self.name)
 
     def run(self) -> None:
         self.config = self.get_current_config()

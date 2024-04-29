@@ -42,21 +42,22 @@ class TimeSeriesReplicator(Extractor):
         # logged in credentials, either local user or managed identity
         self.azure_credential = DefaultAzureCredential()
         self.ts_cache: Dict[str, int] = {}
+        self.logger = logging.getLogger(self.name)
 
     def run(self) -> None:
         # init/connect to destination
         if not self.config.subscriptions or len(self.config.subscriptions) == 0:
-            logging.info("No time series subscriptions found in config")
+            self.logger.info("No time series subscriptions found in config")
             return
 
         self.state_store.initialize()
 
         sub.autocreate_subscription(
-            self.config.subscriptions, self.cognite_client, self.name
+            self.config.subscriptions, self.cognite_client, self.name, self.logger
         )
 
         for subscription in self.config.subscriptions:
-            logging.info(
+            self.logger.info(
                 f"{self.cognite_client.time_series.subscriptions.retrieve(external_id=subscription.external_id)}"
             )
 
@@ -85,7 +86,7 @@ class TimeSeriesReplicator(Extractor):
                     future = executor.submit(
                         self.process_partition, subscription, partition
                     )
-                    logging.debug(future.result())
+                    self.logger.debug(future.result())
 
     def process_partition(
         self, subscription: SubscriptionsConfig, partition: int
@@ -94,7 +95,7 @@ class TimeSeriesReplicator(Extractor):
         raw_cursor = self.state_store.get_state(external_id=state_id)[1]
         cursor = str(raw_cursor) if raw_cursor is not None else None
 
-        logging.debug(
+        self.logger.debug(
             f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}"
         )
 
@@ -132,7 +133,7 @@ class TimeSeriesReplicator(Extractor):
         send_now: bool = False,
     ) -> None:
         self.update_queue = self.update_queue + update_batch.updates
-        logging.debug(f"update_queue length: {len(self.update_queue)}")
+        self.logger.debug(f"update_queue length: {len(self.update_queue)}")
 
         if len(self.update_queue) > self.config.extractor.ingest_batch_size or send_now:
             self.send_data_point_to_lakehouse_table(
@@ -152,12 +153,12 @@ class TimeSeriesReplicator(Extractor):
 
         df = self.convert_updates_to_pandasdf(updates)
         if df is not None:
-            logging.info(
+            self.logger.info(
                 f"writing {df.shape[0]} rows to '{subscription.lakehouse_abfss_path_dps}' table..."
             )
 
             self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_dps, df)
-            logging.info("done.")
+            self.logger.info("done.")
 
     def send_time_series_to_lakehouse_table(
         self, subscription: SubscriptionsConfig, update: DatapointsUpdate
@@ -212,7 +213,7 @@ class TimeSeriesReplicator(Extractor):
                 self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_ts, df)
             self.ts_cache[str(update.upserts.external_id)] = 1
         else:
-            logging.error(
+            self.logger.error(
                 f"Could not retrieve time series {update.upserts.external_id}"
             )
 
@@ -233,7 +234,7 @@ class TimeSeriesReplicator(Extractor):
                     )
                 )
         if len(rows) == 0:
-            logging.info("No data in updates list.")
+            self.logger.info("No data in updates list.")
             return None
         return pd.DataFrame(data=rows, columns=["externalId", "timestamp", "value"])
 

@@ -43,13 +43,14 @@ class DataModelingReplicator(Extractor):
         self.endpoint_source_map: Dict[str, Any] = {}
         self.errors: List[str] = []
         self.azure_credential = DefaultAzureCredential()
+        self.logger = logging.getLogger(self.name)
 
     def run(self) -> None:
         # init/connect to destination
         self.state_store.initialize()
 
         if self.config.data_modeling is None:
-            logging.info("No data modeling spaces found in config")
+            self.logger.info("No data modeling spaces found in config")
             return
 
         while True:  # not self.stop_event.is_set():
@@ -63,7 +64,7 @@ class DataModelingReplicator(Extractor):
                 self.config.extractor.poll_time - elapsed_time, 0
             )  # 900s = 15min
             if sleep_time > 0:
-                logging.debug(f"Sleep for {sleep_time} seconds")
+                self.logger.debug(f"Sleep for {sleep_time} seconds")
                 time.sleep(sleep_time)
 
     def process_spaces(self) -> None:
@@ -181,7 +182,7 @@ class DataModelingReplicator(Extractor):
         state_id: str,
         result: QueryResult,
     ) -> None:
-        logging.debug(f"Ingest to lakehouse {state_id}")
+        self.logger.debug(f"Ingest to lakehouse {state_id}")
 
         nodes = self.get_instances(result, is_edge=False)
         edges = self.get_instances(result, is_edge=True)
@@ -249,7 +250,9 @@ class DataModelingReplicator(Extractor):
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
         for table in instances:
             abfss_path = f"{abfss_prefix}/Tables/{table}"
-            logging.info(f"Writing {len(instances[table])} to '{abfss_path}' table...")
+            self.logger.info(
+                f"Writing {len(instances[table])} to '{abfss_path}' table..."
+            )
             data = pa.Table.from_pylist(instances[table])
             write_deltalake(
                 abfss_path,
@@ -262,4 +265,4 @@ class DataModelingReplicator(Extractor):
                     "use_fabric_endpoint": "true",
                 },
             )
-            logging.info("done.")
+            self.logger.info("done.")

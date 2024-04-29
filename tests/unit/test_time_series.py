@@ -1,4 +1,5 @@
 import pytest
+import logging
 import pandas as pd
 from unittest.mock import patch, Mock
 
@@ -67,7 +68,11 @@ class TestTimeSeriesReplicator:
             self.replicator.cognite_client.time_series.subscriptions, "create"
         ) as mock_create:
             subscription.create_subscription(
-                self.replicator.cognite_client, external_id, name, num_partitions
+                self.replicator.cognite_client,
+                external_id,
+                name,
+                num_partitions,
+                logging.getLogger("integration_tests"),
             )
 
             mock_create.assert_called_once_with(

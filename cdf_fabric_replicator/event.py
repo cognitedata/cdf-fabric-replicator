@@ -12,7 +12,6 @@ from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import EventList, Event
 from datetime import datetime
-from deltalake import DeltaTable
 
 
 class EventsReplicator(Extractor):
@@ -40,7 +39,7 @@ class EventsReplicator(Extractor):
         if self.config.event is None:
             self.logger.warning("No event config found in config")
             return
-        
+
         self.logger.info(f"Event config: {self.config.event}")
 
         retry_count = 0
@@ -74,7 +73,7 @@ class EventsReplicator(Extractor):
                     self.logger.info("Retrying in 5 seconds...")
                     time.sleep(5)
                     continue
-        
+
         self.logger.info("Stop event set. Exiting...")
 
     def process_events(self) -> None:
@@ -89,8 +88,6 @@ class EventsReplicator(Extractor):
                 "Last created time: %s",
                 datetime.fromtimestamp(last_created_time / 1000).isoformat(),
             )
-
-        
 
         for event_list in self.get_events(limit, last_created_time):
             events_dict = event_list.dump()
@@ -157,9 +154,7 @@ class EventsReplicator(Extractor):
                 },
             )
         except DeltaError as e:
-            self.logger.error(
-                "Error writing events to lakehouse tables: %s", e
-            )
+            self.logger.error("Error writing events to lakehouse tables: %s", e)
             raise e
-            
+
         self.logger.info("done.")
