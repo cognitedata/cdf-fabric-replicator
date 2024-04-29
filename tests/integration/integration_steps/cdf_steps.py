@@ -330,4 +330,6 @@ def confirm_events_in_cdf(
 
 def remove_events_from_cdf(cognite_client: CogniteClient, events: List[EventWrite]):
     event_external_ids = [event.external_id for event in events]
-    return cognite_client.events.delete(external_id=event_external_ids)
+    return cognite_client.events.delete(
+        external_id=event_external_ids, ignore_unknown_ids=True
+    )
