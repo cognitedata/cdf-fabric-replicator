@@ -1,3 +1,5 @@
+type: local
+
 logger:
     console:
         level: INFO
