@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: ktstacrhelmdeploy.azurecr.io/ktst-conn-2
+  repository: ktstacrhelmdeploy.azurecr.io/ktst-conn-3
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
@@ -100,33 +100,59 @@ streams:
     eventHub:
       consumerGroup: "TestConsumerGroup"
 
-cognite:
-  tokenUrl: "https://login.microsoftonline.com/1a3fbda0-40c8-437f-9d41-d6ebb12194c6/oauth2/v2.0/token"
-  clientName: "carbon-client-name"
-  clientId: "768d61e8-f85f-47e9-918e-828f0a26f100"
-  clientSecret: ""
-  tokenScopes: "https://bluefield.cognitedata.com/.default"
-  project: "cdf-fabric-integration-test"
-  baseUrl: "https://bluefield.cognitedata.com"
-  stateTable: "TestStateTableTwelve"
-lakehouse:
-  timeseriesTable: "TimeSeries"
-  tableName: "testtimeseriestable"
-  dmEdgeTableName: "TestEdgeTable"
-  dmNodeTableName: "TestNodeTable"
-  abfssPrefix: "abfss://Data_Activator_Workspace@msit-onelake.dfs.fabric.microsoft.com/lakehouse.Lakehouse"
-dps:
-  tableName: "CalculatedTimeseries"
-ts:
-  tableName: "TimeSeries"
-test:
-  configPath: "/Users/kchalupa/source/cedar/cdf-collab/cdf-fabric-replicator/tests/integration/test_config.yaml"
-extractor:
-  eventPath: "Tables/testevents3"
-  filePath: "Files/tank_thumbnail.png"
-  rawTsPath: "Tables/mtu_historic"
-  datasetId: "3351080165451477"
-  tsPrefix: "test"
-  destinationType: "test"
-event:
-  tableName: "KtestEvents"
+env:
+  COGNITE_TOKEN_URL: "https://login.microsoftonline.com/1a3fbda0-40c8-437f-9d41-d6ebb12194c6/oauth2/v2.0/token"
+  COGNITE_CLIENT_ID: "8cbfc9c5-9f9a-45c6-b484-1fdbaea968e2"
+  COGNITE_CLIENT_SECRET: ""
+  COGNITE_TOKEN_SCOPES: "https://westeurope-1.cognitedata.com/.default"
+  COGNITE_CLIENT_NAME: "carbon-client-name"
+  COGNITE_PROJECT: "carbon-platform-sandbox"
+  COGNITE_BASE_URL: "https://westeurope-1.cognitedata.com"
+  COGNITE_STATE_TABLE: "TestStateTableTwelve"
+  DPS_TABLE_NAME: "CalculatedTimeseries"
+  TS_TABLE_NAME: "TimeSeries"
+  LAKEHOUSE_TIMESERIES_TABLE: TimeSeries
+  LAKEHOUSE_TABLE_NAME: "testtimeseriestable"
+  LAKEHOUSE_DM_EDGE_TABLE_NAME: TestEdgeTable
+  LAKEHOUSE_DM_NODE_TABLE_NAME: TestNodeTable
+  LAKEHOUSE_ABFSS_PREFIX: "abfss://Data_Activator_Workspace@msit-onelake.dfs.fabric.microsoft.com/lakehouse.Lakehouse"
+  EXTRACTOR_EVENT_PATH: "Tables/RawEvents"
+  EXTRACTOR_FILE_PATH: "Files/tank_thumbnail.png"
+  EXTRACTOR_RAW_TS_PATH: "Tables/RawTS"
+  EXTRACTOR_DATASET_ID: "3351080165451477"
+  EXTRACTOR_TS_PREFIX: "np"
+  EXTRACTOR_DESTINATION_TYPE: "ffgg"
+  EVENT_TABLE_NAME: "KtestEvents"
+  COGNITE_STATE_DB: "cdffabricreplicator"
+  COGNITE_EXTRACTION_PIPELINE: "fabric-replicator"
+  
+# cognite:
+#   tokenUrl: "https://login.microsoftonline.com/1a3fbda0-40c8-437f-9d41-d6ebb12194c6/oauth2/v2.0/token"
+#   clientName: "carbon-client-name"
+#   clientId: "768d61e8-f85f-47e9-918e-828f0a26f100"
+#   clientSecret: ""
+#   tokenScopes: "https://bluefield.cognitedata.com/.default"
+#   project: "cdf-fabric-integration-test"
+#   baseUrl: "https://bluefield.cognitedata.com"
+#   stateTable: "TestStateTableTwelve"
+# lakehouse:
+#   timeseriesTable: "TimeSeries"
+#   tableName: "testtimeseriestable"
+#   dmEdgeTableName: "TestEdgeTable"
+#   dmNodeTableName: "TestNodeTable"
+#   abfssPrefix: "abfss://Data_Activator_Workspace@msit-onelake.dfs.fabric.microsoft.com/lakehouse.Lakehouse"
+# dps:
+#   tableName: "CalculatedTimeseries"
+# ts:
+#   tableName: "TimeSeries"
+# test:
+#   configPath: "/Users/kchalupa/source/cedar/cdf-collab/cdf-fabric-replicator/tests/integration/test_config.yaml"
+# extractor:
+#   eventPath: "Tables/testevents3"
+#   filePath: "Files/tank_thumbnail.png"
+#   rawTsPath: "Tables/mtu_historic"
+#   datasetId: "3351080165451477"
+#   tsPrefix: "test"
+#   destinationType: "test"
+# event:
+#   tableName: "KtestEvents"

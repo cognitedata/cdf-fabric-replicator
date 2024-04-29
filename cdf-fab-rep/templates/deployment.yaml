@@ -34,11 +34,126 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+            - name: COGNITE_TOKEN_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_TOKEN_URL
+            - name: COGNITE_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_CLIENT_ID
+            - name: COGNITE_CLIENT_SECRET
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_CLIENT_SECRET
+            - name: COGNITE_TOKEN_SCOPES
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_TOKEN_SCOPES
             - name: COGNITE_CLIENT_NAME
               valueFrom:
                 configMapKeyRef:
                   name: cdf-conn-config
                   key: COGNITE_CLIENT_NAME
+            - name: COGNITE_PROJECT
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_PROJECT
+            - name: COGNITE_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_BASE_URL
+            - name: COGNITE_STATE_TABLE
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_STATE_TABLE
+            - name: DPS_TABLE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: DPS_TABLE_NAME
+            - name: TS_TABLE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: TS_TABLE_NAME
+            - name: LAKEHOUSE_ABFSS_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: LAKEHOUSE_ABFSS_PREFIX
+            - name: EXTRACTOR_EVENT_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_EVENT_PATH
+            - name: EXTRACTOR_FILE_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_FILE_PATH
+            - name: EXTRACTOR_RAW_TS_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_RAW_TS_PATH
+            - name: EXTRACTOR_DATASET_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_DATASET_ID
+            - name: EXTRACTOR_TS_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_TS_PREFIX
+            - name: EXTRACTOR_DESTINATION_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_DESTINATION_TYPE
+            - name: EVENT_TABLE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EVENT_TABLE_NAME
+            - name: LAKEHOUSE_TIMESERIES_TABLE
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: LAKEHOUSE_TIMESERIES_TABLE
+            - name: LAKEHOUSE_TABLE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: LAKEHOUSE_TABLE_NAME
+            - name: LAKEHOUSE_DM_EDGE_TABLE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: LAKEHOUSE_DM_EDGE_TABLE_NAME
+            - name: LAKEHOUSE_DM_NODE_TABLE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: LAKEHOUSE_DM_NODE_TABLE_NAME
+            - name: COGNITE_STATE_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_STATE_DB
+            - name: COGNITE_EXTRACTION_PIPELINE
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_EXTRACTION_PIPELINE
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
