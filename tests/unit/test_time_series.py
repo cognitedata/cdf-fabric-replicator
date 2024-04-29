@@ -1,5 +1,6 @@
 import pytest
 import pandas as pd
+from unittest.mock import patch, Mock
 
 from cdf_fabric_replicator.time_series import TimeSeriesReplicator
 from cognite.client.data_classes.datapoints_subscriptions import (
@@ -8,6 +9,9 @@ from cognite.client.data_classes.datapoints_subscriptions import (
 )
 from cognite.extractorutils.metrics import BaseMetrics
 from cognite.extractorutils.base import CancellationToken
+from cognite.client.data_classes import DataPointSubscriptionWrite, filters as flt
+from cognite.client.data_classes.time_series import TimeSeriesProperty
+from cdf_fabric_replicator import subscription
 
 
 @pytest.fixture
@@ -52,3 +56,25 @@ class TestTimeSeriesReplicator:
     def test_convert_updates_to_pandasdf_when_null(self, input_data_null):
         df = self.replicator.convert_updates_to_pandasdf(input_data_null)
         assert df is None
+
+    def test_create_subscription(self):
+        num_partitions = 5
+        external_id = "test_external_id"
+        name = "test_name"
+        self.replicator.cognite_client = Mock()
+
+        with patch.object(
+            self.replicator.cognite_client.time_series.subscriptions, "create"
+        ) as mock_create:
+            subscription.create_subscription(
+                self.replicator.cognite_client, external_id, name, num_partitions
+            )
+
+            mock_create.assert_called_once_with(
+                DataPointSubscriptionWrite(
+                    external_id=external_id,
+                    name=name,
+                    partition_count=num_partitions,
+                    filter=flt.Exists(TimeSeriesProperty.external_id),
+                )
+            )
