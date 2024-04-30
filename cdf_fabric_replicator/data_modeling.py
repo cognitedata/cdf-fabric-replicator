@@ -39,7 +39,7 @@ class DataModelingReplicator(Extractor):
             cancellation_token=stop_event,
         )
         self.metrics: Metrics
-        # self.stop_event = stop_event
+        self.stop_event = stop_event
         self.endpoint_source_map: Dict[str, Any] = {}
         self.errors: List[str] = []
         self.azure_credential = DefaultAzureCredential()
@@ -52,7 +52,7 @@ class DataModelingReplicator(Extractor):
             logging.info("No data modeling spaces found in config")
             return
 
-        while True:  # not self.stop_event.is_set():
+        while not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
             self.process_spaces()
