@@ -1,57 +1,17 @@
-logger:
-    console:
-        level: INFO
 
-# Cognite project to stream your datapoints from
+type: remote
 cognite:
+    # Read these from environment variables
     host: ${COGNITE_BASE_URL}
     project: ${COGNITE_PROJECT}
 
     idp-authentication:
         token-url: ${COGNITE_TOKEN_URL}
+
         client-id: ${COGNITE_CLIENT_ID}
         secret: ${COGNITE_CLIENT_SECRET}
         scopes:
             - ${COGNITE_BASE_URL}/.default
+
     extraction-pipeline:
         external-id: ${COGNITE_EXTRACTION_PIPELINE}
-
-#Extractor config
-extractor:
-    state-store:
-        raw:
-            database: ${COGNITE_STATE_DB}
-            table: ${COGNITE_STATE_TABLE}
-    subscription-batch-size: 10000
-    ingest-batch-size: 100000
-    poll-time: 5
-
-# subscriptions to stream
-subscriptions:
-    - external_id: charts-persisted
-      partitions:
-          - 0
-      lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/CalculatedTimeseries
-      lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/CalculatedTimeseriesMetadata
-
-# sync data model
-data_modeling:
-    - space: cc_plant
-      lakehouse_abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
-
-source:
-    abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
-    event_path: ${EXTRACTOR_EVENT_PATH}
-    file_path: ${EXTRACTOR_FILE_PATH}
-    raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
-    data_set_id: ${EXTRACTOR_DATASET_ID}
-
-destination:
-    type: ${EXTRACTOR_DESTINATION_TYPE}
-    time_series_prefix: ${EXTRACTOR_TS_PREFIX}
-
-# sync events
-event:
-    lakehouse_abfss_path_events: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${EVENT_TABLE_NAME}
-    batch_size: 5
-
