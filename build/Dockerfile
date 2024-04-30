@@ -20,9 +20,9 @@ RUN chmod +x /entrypoint.sh
 RUN pipx install .
 
 RUN mkdir -p /config
-COPY build/config_remote.yaml /config/config_remote.yaml
+COPY config.yaml /config/config.yaml
 
 WORKDIR cdf_fabric_replicator
 
 ENTRYPOINT [ "/entrypoint.sh" ]
-CMD ["/config/config_remote.yaml"]
+CMD ["/config/config.yaml"]
