@@ -43,37 +43,17 @@ class EventsReplicator(Extractor):
 
         self.logger.info(f"Event config: {self.config.event}")
 
-        retry_count = 0
-        max_retries = 5
-
         while not self.stop_event.is_set():
-            try:
-                start_time = time.time()  # Get the current time in seconds
+            start_time = time.time()  # Get the current time in seconds
 
-                self.logger.info("Processing events...")
+            self.process_events()
+            end_time = time.time()  # Get the time after function execution
+            elapsed_time = end_time - start_time
+            sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)
 
-                self.process_events()
-                end_time = time.time()  # Get the time after function execution
-                elapsed_time = end_time - start_time
-                sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)
-
-                self.logger.info("Processing took %.2f seconds", elapsed_time)
-
-                if sleep_time > 0:
-                    self.logger.info("Sleep for %.2f seconds", sleep_time)
-                    time.sleep(sleep_time)
-            except Exception as e:
-                # Restrict to N number of retries
-                retry_count += 1
-                self.logger.error("Error processing events, retrying: %s", e)
-                self.logger.exception(e)
-                if retry_count >= max_retries:
-                    self.logger.error("Max retries reached. Exiting...")
-                    break
-                else:
-                    self.logger.info("Retrying in 5 seconds...")
-                    time.sleep(5)
-                    continue
+            if sleep_time > 0:
+                logging.debug(f"Sleep for {sleep_time} seconds")
+                time.sleep(sleep_time)
 
         self.logger.info("Stop event set. Exiting...")
 
@@ -95,15 +75,15 @@ class EventsReplicator(Extractor):
             if len(events_dict) > 0:
                 if isinstance(events_dict, dict):
                     events_dict = [events_dict]
-                # try:
-                self.write_events_to_lakehouse_tables(
-                    events_dict, self.config.event.lakehouse_abfss_path_events
-                )
-                # except DeltaError as e:
-                #     self.logger.error(
-                #         "Error writing events to lakehouse tables: %s", e
-                #     )
-                #     continue
+                try:
+                    self.write_events_to_lakehouse_tables(
+                        events_dict, self.config.event.lakehouse_abfss_path_events
+                    )
+                except DeltaError as e:
+                    self.logger.error(
+                        "Error writing events to lakehouse tables: %s", e
+                    )
+                    raise e
                 last_event = events_dict[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
             else:

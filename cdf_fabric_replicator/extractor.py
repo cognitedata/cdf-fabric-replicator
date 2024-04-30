@@ -101,13 +101,12 @@ class CdfFabricExtractor(Extractor[Config]):
                     asset_ids.append(asset.id)
             except CogniteNotFoundError as e:
                 self.logger.error(
-                    f"Asset with external id {external_id} not found", exc_info=e
+                    f"Asset with external id {external_id} not found"
                 )
                 raise e
             except CogniteAPIError as e:
                 self.logger.error(
-                    f"Error while retrieving asset with external id {external_id}",
-                    exc_info=e,
+                    "Error while retrieving asset: %s", e
                 )
                 raise e
 
@@ -173,7 +172,7 @@ class CdfFabricExtractor(Extractor[Config]):
                 overwrite=True,
             )
         except CogniteAPIError as e:
-            self.logger.error("Error while uploading file to CDF", exc_info=e)
+            self.logger.error("Error while uploading file to CDF: %s", e)
             raise e
 
     def write_time_series_to_cdf(self, data_frame: DataFrame) -> None:
@@ -216,7 +215,7 @@ class CdfFabricExtractor(Extractor[Config]):
                         )
                 except CogniteAPIError as e:
                     self.logger.error(
-                        "Error while writing time series data to CDF", exc_info=e
+                        "Error while writing time series data to CDF: %s", e
                     )
                     raise e
 
@@ -233,7 +232,7 @@ class CdfFabricExtractor(Extractor[Config]):
             try:
                 self.client.events.upsert(events)
             except CogniteAPIError as e:
-                self.logger.error("Error while writing event data to CDF", exc_info=e)
+                self.logger.error("Error while writing event data to CDF: %s", e)
                 raise e
 
             self.run_extraction_pipeline(status="success")
@@ -271,7 +270,7 @@ class CdfFabricExtractor(Extractor[Config]):
             return dt.to_pandas()
         except Exception as e:
             self.logger.error(
-                "Error while converting lakehouse data to DataFrame", exc_info=e
+                "Error while converting lakehouse data to DataFrame: %s", e
             )
             raise e
 
@@ -290,7 +289,6 @@ class CdfFabricExtractor(Extractor[Config]):
                 )
             except CogniteAPIError as e:
                 self.logger.error(
-                    f"Error while running extraction pipeline '{self.config.cognite.extraction_pipeline.external_id}'",
-                    exc_info=e,
+                    "Error while running extraction pipeline: %s", e
                 )
                 raise e
