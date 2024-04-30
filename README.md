@@ -161,6 +161,8 @@ az aks create -g MyResourceGroup -n MyManagedCluster --generate-ssh-keys --attac
 
 ## Build Docker to Push to ARC
 
+Note: When you build the CDF Fabric Replicator from docker, the docker image is configured to use the config located in the Extraction Pipeline in CDF. You will need to configure the yaml file in the Extraction Pipeline in CDF.
+
 First, you should build your your docker image locally:
 
 ```bash
