@@ -69,9 +69,16 @@ class DataModelingReplicator(Extractor):
 
     def process_spaces(self) -> None:
         for data_model_config in self.config.data_modeling:
-            all_views = self.cognite_client.data_modeling.views.list(
-                space=data_model_config.space, limit=-1
-            )
+            try:
+                all_views = self.cognite_client.data_modeling.views.list(
+                    space=data_model_config.space, limit=-1
+                )
+            except CogniteAPIError as e:
+                self.logger.error(
+                    f"Failed to list views for space {data_model_config.space}. Error: {e}"
+                )
+                raise e
+
             views_dict = all_views.dump()
 
             for view in views_dict:
@@ -152,7 +159,11 @@ class DataModelingReplicator(Extractor):
             res = self.cognite_client.data_modeling.instances.sync(query=query)
         except CogniteAPIError:
             query.cursors = None  # type: ignore
-            res = self.cognite_client.data_modeling.instances.sync(query=query)
+            try:
+                res = self.cognite_client.data_modeling.instances.sync(query=query)
+            except CogniteAPIError as e:
+                self.logger.error(f"Failed to sync instances. Error: {e}")
+                raise e
 
         self.send_to_lakehouse(
             data_model_config=data_model_config, state_id=state_id, result=res
@@ -167,7 +178,11 @@ class DataModelingReplicator(Extractor):
                 res = self.cognite_client.data_modeling.instances.sync(query=query)
             except CogniteAPIError:
                 query.cursors = None  # type: ignore
-                res = self.cognite_client.data_modeling.instances.sync(query=query)
+                try:
+                    res = self.cognite_client.data_modeling.instances.sync(query=query)
+                except CogniteAPIError as e:
+                    self.logger.error(f"Failed to sync instances. Error: {e}")
+                    raise e
 
             self.send_to_lakehouse(
                 data_model_config=data_model_config, state_id=state_id, result=res
@@ -254,15 +269,19 @@ class DataModelingReplicator(Extractor):
                 f"Writing {len(instances[table])} to '{abfss_path}' table..."
             )
             data = pa.Table.from_pylist(instances[table])
-            write_deltalake(
-                abfss_path,
-                data,
-                engine="rust",
-                mode="append",
-                schema_mode="merge",
-                storage_options={
-                    "bearer_token": token.token,
-                    "use_fabric_endpoint": "true",
-                },
-            )
+            try:
+                write_deltalake(
+                    abfss_path,
+                    data,
+                    engine="rust",
+                    mode="append",
+                    schema_mode="merge",
+                    storage_options={
+                        "bearer_token": token.token,
+                        "use_fabric_endpoint": "true",
+                    },
+                )
+            except Exception as e:
+                self.logger.error(f"Error writing instances to lakehouse tables: {e}")
+                raise e
             self.logger.info("done.")

@@ -100,14 +100,10 @@ class CdfFabricExtractor(Extractor[Config]):
                 if asset:
                     asset_ids.append(asset.id)
             except CogniteNotFoundError as e:
-                self.logger.error(
-                    f"Asset with external id {external_id} not found"
-                )
+                self.logger.error(f"Asset with external id {external_id} not found")
                 raise e
             except CogniteAPIError as e:
-                self.logger.error(
-                    "Error while retrieving asset: %s", e
-                )
+                self.logger.error("Error while retrieving asset: %s", e)
                 raise e
 
         return asset_ids
@@ -288,7 +284,5 @@ class CdfFabricExtractor(Extractor[Config]):
                     )
                 )
             except CogniteAPIError as e:
-                self.logger.error(
-                    "Error while running extraction pipeline: %s", e
-                )
+                self.logger.error("Error while running extraction pipeline: %s", e)
                 raise e

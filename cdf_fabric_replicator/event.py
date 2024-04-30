@@ -41,8 +41,6 @@ class EventsReplicator(Extractor):
             self.logger.warning("No event config found in config")
             return
 
-        self.logger.info(f"Event config: {self.config.event}")
-
         while not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
@@ -80,9 +78,7 @@ class EventsReplicator(Extractor):
                         events_dict, self.config.event.lakehouse_abfss_path_events
                     )
                 except DeltaError as e:
-                    self.logger.error(
-                        "Error writing events to lakehouse tables: %s", e
-                    )
+                    self.logger.error("Error writing events to lakehouse tables: %s", e)
                     raise e
                 last_event = events_dict[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
