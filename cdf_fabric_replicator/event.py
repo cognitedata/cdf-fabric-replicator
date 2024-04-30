@@ -27,6 +27,7 @@ class EventsReplicator(Extractor):
         )
         self.azure_credential = DefaultAzureCredential()
         self.event_state_key = "event_state"
+        self.stop_event = stop_event
         self.logger = logging.getLogger(self.name)
 
     def run(self) -> None:
