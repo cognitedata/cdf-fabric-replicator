@@ -73,16 +73,6 @@ spec:
                 configMapKeyRef:
                   name: cdf-conn-config
                   key: COGNITE_STATE_TABLE
-            - name: DPS_TABLE_NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
-                  key: DPS_TABLE_NAME
-            - name: TS_TABLE_NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
-                  key: TS_TABLE_NAME
             - name: LAKEHOUSE_ABFSS_PREFIX
               valueFrom:
                 configMapKeyRef:
@@ -128,21 +118,6 @@ spec:
                 configMapKeyRef:
                   name: cdf-conn-config
                   key: LAKEHOUSE_TIMESERIES_TABLE
-            - name: LAKEHOUSE_TABLE_NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
-                  key: LAKEHOUSE_TABLE_NAME
-            - name: LAKEHOUSE_DM_EDGE_TABLE_NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
-                  key: LAKEHOUSE_DM_EDGE_TABLE_NAME
-            - name: LAKEHOUSE_DM_NODE_TABLE_NAME
-              valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
-                  key: LAKEHOUSE_DM_NODE_TABLE_NAME
             - name: COGNITE_STATE_DB
               valueFrom:
                 configMapKeyRef:
@@ -153,16 +128,6 @@ spec:
                 configMapKeyRef:
                   name: cdf-conn-config
                   key: COGNITE_EXTRACTION_PIPELINE
-            - name: LAKEHOUSE_ABFSS_PATH_DPS
-              valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
-                  key: LAKEHOUSE_ABFSS_PATH_DPS
-            - name: LAKEHOUSE_ABFSS_PATH_TS
-              valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
-                  key: LAKEHOUSE_ABFSS_PATH_TS
           livenessProbe:
             httpGet:
               path: /

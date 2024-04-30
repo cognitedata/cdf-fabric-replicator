@@ -31,8 +31,9 @@ subscriptions:
     - external_id: charts-persisted
       partitions:
           - 0
-      lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PATH_DPS}
-      lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PATH_TS}
+      lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/CalculatedTimeseries
+      lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/CalculatedTimeseriesMetadata
+
 # sync data model
 data_modeling:
     - space: cc_plant
@@ -53,3 +54,4 @@ destination:
 event:
     lakehouse_abfss_path_events: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${EVENT_TABLE_NAME}
     batch_size: 5
+
