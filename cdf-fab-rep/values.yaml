@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: ktstacrhelmdeploy.azurecr.io/ktst-conn-3
+  repository: ktstacrhelmdeploy.azurecr.io/ktst-conn-6
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
@@ -115,7 +115,7 @@ env:
   LAKEHOUSE_TABLE_NAME: "testtimeseriestable"
   LAKEHOUSE_DM_EDGE_TABLE_NAME: TestEdgeTable
   LAKEHOUSE_DM_NODE_TABLE_NAME: TestNodeTable
-  LAKEHOUSE_ABFSS_PREFIX: "abfss://Data_Activator_Workspace@msit-onelake.dfs.fabric.microsoft.com/lakehouse.Lakehouse"
+  LAKEHOUSE_ABFSS_PREFIX: "abfss://61e85697-16b3-4f8d-89d9-e8d4ac438f7a@msit-onelake.dfs.fabric.microsoft.com/9297c764-ee60-422a-9055-ea319cce0a91"
   EXTRACTOR_EVENT_PATH: "Tables/RawEvents"
   EXTRACTOR_FILE_PATH: "Files/tank_thumbnail.png"
   EXTRACTOR_RAW_TS_PATH: "Tables/RawTS"
