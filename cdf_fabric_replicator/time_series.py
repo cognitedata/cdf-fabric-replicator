@@ -91,6 +91,8 @@ class TimeSeriesReplicator(Extractor):
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
+        self.logger.info("Stop event set. Exiting...")
+
     def process_subscriptions(self) -> None:
         for subscription in self.config.subscriptions:
             for partition in subscription.partitions:

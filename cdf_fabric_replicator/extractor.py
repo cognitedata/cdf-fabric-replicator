@@ -56,7 +56,7 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error("No source path or directory provided")
             return
 
-        while self.stop_event.is_set() is False:
+        while not self.stop_event.is_set():
             token = self.azure_credential.get_token(
                 "https://storage.azure.com/.default"
             ).token
@@ -91,6 +91,8 @@ class CdfFabricExtractor(Extractor[Config]):
                 )
 
             time.sleep(5)
+
+        self.logger.info("Stop event set. Exiting...")
 
     def get_asset_ids(self, asset_external_ids: list) -> list:
         asset_ids = []
