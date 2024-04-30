@@ -129,6 +129,14 @@ Finally, run the replicator:
 poetry run cdf_fabric_replicator config.yaml
 ```
 
+# Docker
+
+If you are running the Docker Container on ARM Architecture, you will need to use platform emulation for the Docker run command. You can do this by running the following command:
+
+```
+docker run -i -t <image-name> --platform linux/arm64 
+```
+=======
 ## Visual Studio Code
 
 Alternatively, if you are using Visual Studio Code, just open the folder of the root directory of your project.
