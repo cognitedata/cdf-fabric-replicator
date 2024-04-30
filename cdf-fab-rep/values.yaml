@@ -3,7 +3,7 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: ktstacrhelmdeploy.azurecr.io/ktst-conn-8
+  repository: 
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "latest"
@@ -13,76 +13,23 @@ imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-# image:
-#   repository: ktstacrhelmdeploy.azurecr.io/ktst-helm-image
-#   pullPolicy: Always
-#   # Overrides the image tag whose default is the chart appVersion.
-#   tag: "latest"
-
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
 
 podAnnotations: {}
 
 podSecurityContext:
   {}
-  # fsGroup: 2000
 
 securityContext:
   {}
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
-
-service:
-  type: ClusterIP
-  port: 80
-
-ingress:
-  enabled: false
-  className: ""
-  annotations:
-    {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
-  hosts:
-    - host: chart-example.local
-      paths:
-        - path: /
-          pathType: ImplementationSpecific
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
 
 resources:
   {}
-  # We usually recommend not to specify default resources and to leave this as a conscious
-  # choice for the user. This also increases chances charts run on environments with little
-  # resources, such as Minikube. If you do want to specify resources, uncomment the following
-  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
-  # limits:
-  #   cpu: 100m
-  #   memory: 128Mi
-  # requests:
-  #   cpu: 100m
-  #   memory: 128Mi
 
 autoscaling:
   enabled: false
   minReplicas: 1
   maxReplicas: 100
   targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
 
 nodeSelector: {}
 
@@ -101,59 +48,29 @@ streams:
       consumerGroup: "TestConsumerGroup"
 
 env:
-  COGNITE_TOKEN_URL: "https://login.microsoftonline.com/1a3fbda0-40c8-437f-9d41-d6ebb12194c6/oauth2/v2.0/token"
-  COGNITE_CLIENT_ID: "8cbfc9c5-9f9a-45c6-b484-1fdbaea968e2"
+  COGNITE_TOKEN_URL: ""
+  COGNITE_CLIENT_ID: ""
   COGNITE_CLIENT_SECRET: ""
-  COGNITE_TOKEN_SCOPES: "https://westeurope-1.cognitedata.com/.default"
-  COGNITE_CLIENT_NAME: "carbon-client-name"
-  COGNITE_PROJECT: "carbon-platform-sandbox"
-  COGNITE_BASE_URL: "https://westeurope-1.cognitedata.com"
-  COGNITE_STATE_TABLE: "TestStateTableTwelve"
+  COGNITE_TOKEN_SCOPES: ""
+  COGNITE_CLIENT_NAME: ""
+  COGNITE_PROJECT: ""
+  COGNITE_BASE_URL: ""
+  COGNITE_STATE_TABLE: ""
   DPS_TABLE_NAME: "CalculatedTimeseries"
   TS_TABLE_NAME: "TimeSeries"
   LAKEHOUSE_TIMESERIES_TABLE: TimeSeries
-  LAKEHOUSE_TABLE_NAME: "testtimeseriestable"
-  LAKEHOUSE_DM_EDGE_TABLE_NAME: TestEdgeTable
-  LAKEHOUSE_DM_NODE_TABLE_NAME: TestNodeTable
-  LAKEHOUSE_ABFSS_PREFIX: "abfss://61e85697-16b3-4f8d-89d9-e8d4ac438f7a@msit-onelake.dfs.fabric.microsoft.com/9297c764-ee60-422a-9055-ea319cce0a91"
+  LAKEHOUSE_TABLE_NAME: ""
+  LAKEHOUSE_DM_EDGE_TABLE_NAME: 
+  LAKEHOUSE_DM_NODE_TABLE_NAME: 
+  LAKEHOUSE_ABFSS_PREFIX: ""
   EXTRACTOR_EVENT_PATH: "Tables/RawEvents"
-  EXTRACTOR_FILE_PATH: "Files/tank_thumbnail.png"
+  EXTRACTOR_FILE_PATH: ""
   EXTRACTOR_RAW_TS_PATH: "Tables/RawTS"
-  EXTRACTOR_DATASET_ID: "3351080165451477"
-  EXTRACTOR_TS_PREFIX: "np"
-  EXTRACTOR_DESTINATION_TYPE: "ffgg"
-  EVENT_TABLE_NAME: "KtestEvents"
-  COGNITE_STATE_DB: "cdffabricreplicator"
-  COGNITE_EXTRACTION_PIPELINE: "fabric-replicator"
-  LAKEHOUSE_ABFSS_PATH_DPS: abfss://61e85697-16b3-4f8d-89d9-e8d4ac438f7a@msit-onelake.dfs.fabric.microsoft.com/9297c764-ee60-422a-9055-ea319cce0a91/Tables/CalculatedTimeseries
-  LAKEHOUSE_ABFSS_PATH_TS: abfss://61e85697-16b3-4f8d-89d9-e8d4ac438f7a@msit-onelake.dfs.fabric.microsoft.com/9297c764-ee60-422a-9055-ea319cce0a91/Tables/CalculatedTimeseriesMetadata
-# cognite:
-#   tokenUrl: "https://login.microsoftonline.com/1a3fbda0-40c8-437f-9d41-d6ebb12194c6/oauth2/v2.0/token"
-#   clientName: "carbon-client-name"
-#   clientId: "768d61e8-f85f-47e9-918e-828f0a26f100"
-#   clientSecret: ""
-#   tokenScopes: "https://bluefield.cognitedata.com/.default"
-#   project: "cdf-fabric-integration-test"
-#   baseUrl: "https://bluefield.cognitedata.com"
-#   stateTable: "TestStateTableTwelve"
-# lakehouse:
-#   timeseriesTable: "TimeSeries"
-#   tableName: "testtimeseriestable"
-#   dmEdgeTableName: "TestEdgeTable"
-#   dmNodeTableName: "TestNodeTable"
-#   abfssPrefix: "abfss://Data_Activator_Workspace@msit-onelake.dfs.fabric.microsoft.com/lakehouse.Lakehouse"
-# dps:
-#   tableName: "CalculatedTimeseries"
-# ts:
-#   tableName: "TimeSeries"
-# test:
-#   configPath: "/Users/kchalupa/source/cedar/cdf-collab/cdf-fabric-replicator/tests/integration/test_config.yaml"
-# extractor:
-#   eventPath: "Tables/testevents3"
-#   filePath: "Files/tank_thumbnail.png"
-#   rawTsPath: "Tables/mtu_historic"
-#   datasetId: "3351080165451477"
-#   tsPrefix: "test"
-#   destinationType: "test"
-# event:
-#   tableName: "KtestEvents"
+  EXTRACTOR_DATASET_ID: ""
+  EXTRACTOR_TS_PREFIX: ""
+  EXTRACTOR_DESTINATION_TYPE: ""
+  EVENT_TABLE_NAME: ""
+  COGNITE_STATE_DB: ""
+  COGNITE_EXTRACTION_PIPELINE: ""
+  LAKEHOUSE_ABFSS_PATH_DPS: ""
+  LAKEHOUSE_ABFSS_PATH_TS: ""

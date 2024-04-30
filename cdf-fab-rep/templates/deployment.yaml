@@ -24,7 +24,6 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "cdf-fab-rep.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -164,10 +163,6 @@ spec:
                 configMapKeyRef:
                   name: cdf-conn-config
                   key: LAKEHOUSE_ABFSS_PATH_TS
-          ports:
-            - name: http
-              containerPort: {{ .Values.service.port }}
-              protocol: TCP
           livenessProbe:
             httpGet:
               path: /

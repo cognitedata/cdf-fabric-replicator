@@ -49,14 +49,3 @@ Selector labels
 app.kubernetes.io/name: {{ include "cdf-fab-rep.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "cdf-fab-rep.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "cdf-fab-rep.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
-{{- end }}
