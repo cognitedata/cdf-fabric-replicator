@@ -13,7 +13,6 @@ from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.data_modeling import DataModelingReplicator
 from tests.integration.integration_steps.cdf_steps import (
     apply_data_model_instances_in_cdf,
-    delete_state_store_in_cdf,
 )
 from tests.integration.integration_steps.fabric_steps import (
     delete_delta_table_data,
@@ -43,13 +42,6 @@ def test_data_modeling_replicator():
         os.remove("states.json")
     except FileNotFoundError:
         pass
-    delete_state_store_in_cdf(
-        replicator.config.subscriptions,
-        replicator.config.extractor.state_store.raw.database,
-        replicator.config.extractor.state_store.raw.table,
-        replicator.cognite_client,
-    )
-
 
 @pytest.fixture(scope="session")
 def test_space(test_config, cognite_client: CogniteClient):
@@ -72,7 +64,7 @@ def test_space(test_config, cognite_client: CogniteClient):
 
 
 @pytest.fixture(scope="function")
-def test_model(cognite_client: CogniteClient, test_space: Space):
+def test_model(cognite_client: CogniteClient, test_space: Space, test_data_modeling_replicator: DataModelingReplicator):
     test_dml = (RESOURCES / "movie_model.graphql").read_text()
     movie_id = DataModelId(space=test_space.space, external_id="Movie", version="1")
     created = cognite_client.data_modeling.graphql.apply_dml(
@@ -96,6 +88,9 @@ def test_model(cognite_client: CogniteClient, test_space: Space):
         cognite_client.data_modeling.containers.delete(
             (test_space.space, view.external_id)
         )
+        test_data_modeling_replicator.state_store.delete_state(f"state_{test_space.space}_{view.external_id}_{view.version}")
+    test_data_modeling_replicator.state_store.delete_state(f"state_{test_space.space}_edges")
+    test_data_modeling_replicator.state_store.synchronize()
 
 
 @pytest.fixture(scope="function")
