@@ -5,7 +5,6 @@ metadata:
 data:
   COGNITE_TOKEN_URL: {{ .Values.env.COGNITE_TOKEN_URL | quote }}
   COGNITE_CLIENT_ID: {{ .Values.env.COGNITE_CLIENT_ID | quote }}
-  COGNITE_CLIENT_SECRET: {{ .Values.env.COGNITE_CLIENT_SECRET | quote }}
   COGNITE_TOKEN_SCOPES: {{ .Values.env.COGNITE_TOKEN_SCOPES | quote }}
   COGNITE_CLIENT_NAME: {{ .Values.env.COGNITE_CLIENT_NAME | quote }}
   COGNITE_PROJECT: {{ .Values.env.COGNITE_PROJECT | quote }}

@@ -46,8 +46,8 @@ spec:
                   key: COGNITE_CLIENT_ID
             - name: COGNITE_CLIENT_SECRET
               valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
+                secretKeyRef:
+                  name: cdf-conn-secrets
                   key: COGNITE_CLIENT_SECRET
             - name: COGNITE_TOKEN_SCOPES
               valueFrom:
