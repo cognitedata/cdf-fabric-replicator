@@ -31,9 +31,8 @@ subscriptions:
     - external_id: charts-persisted
       partitions:
           - 0
-      lakehouse_abfss_path_dps: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/CalculatedTimeseries
-      lakehouse_abfss_path_ts: abfss://a0fd605a-3a69-401e-a586-bee3bf2c8127@onelake.dfs.fabric.microsoft.com/40b75c4d-5ddd-47ff-bd81-8faadec1804b/Tables/CalculatedTimeseriesMetadata
-
+      lakehouse_abfss_path_dps: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/CalculatedTimeseries
+      lakehouse_abfss_path_ts: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/CalculatedTimeseriesMetadata
 # sync data model
 data_modeling:
     - space: cc_plant
@@ -54,4 +53,3 @@ destination:
 event:
     lakehouse_abfss_path_events: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${EVENT_TABLE_NAME}
     batch_size: 5
-

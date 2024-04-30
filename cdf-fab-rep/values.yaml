@@ -125,7 +125,6 @@ env:
   EVENT_TABLE_NAME: "KtestEvents"
   COGNITE_STATE_DB: "cdffabricreplicator"
   COGNITE_EXTRACTION_PIPELINE: "fabric-replicator"
-  
 # cognite:
 #   tokenUrl: "https://login.microsoftonline.com/1a3fbda0-40c8-437f-9d41-d6ebb12194c6/oauth2/v2.0/token"
 #   clientName: "carbon-client-name"
