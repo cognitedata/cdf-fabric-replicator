@@ -15,15 +15,16 @@ from tests.integration.integration_steps.cdf_steps import (
     remove_time_series_data,
     push_time_series_to_cdf,
     push_data_to_cdf,
-    create_subscription_in_cdf,
     remove_subscriptions,
     assert_state_store_in_cdf,
+    assert_subscription_created_in_cdf,
 )
 from tests.integration.integration_steps.service_steps import run_replicator
 from tests.integration.integration_steps.fabric_steps import (
     delete_delta_table_data,
     assert_timeseries_data_in_fabric,
 )
+from cdf_fabric_replicator import subscription
 
 
 @pytest.fixture(scope="function")
@@ -62,7 +63,6 @@ def time_series(request, cognite_client):
     remove_time_series_data(timeseries_set, cognite_client)
     remove_subscriptions(sub_name, cognite_client)
     push_time_series_to_cdf(timeseries_set, cognite_client)
-    create_subscription_in_cdf(timeseries_set, sub_name, cognite_client)
     sleep(5)
     yield timeseries_set
     remove_time_series_data(timeseries_set, cognite_client)
@@ -93,6 +93,15 @@ def test_timeseries_data_integration_service(
     azure_credential,
     remote_state_store,
 ):
+    # Autocreate subscription in CDF
+    subscription.autocreate_subscription(
+        test_replicator.config.subscriptions, cognite_client, "TestSubscription"
+    )
+    # Assert subscription created in CDF
+    assert_subscription_created_in_cdf(
+        test_replicator.config.subscriptions[0],
+        cognite_client,
+    )
     # Push data points to CDF
     pushed_data = push_data_to_cdf(time_series, cognite_client)
     # Run replicator for data point subscription between CDF and Fabric
