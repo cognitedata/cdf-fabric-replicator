@@ -3,22 +3,22 @@ kind: ConfigMap
 metadata:
   name: cdf-conn-config
 data:
-  COGNITE_TOKEN_URL: {{ .Values.env.COGNITE_TOKEN_URL | quote }}
-  COGNITE_CLIENT_ID: {{ .Values.env.COGNITE_CLIENT_ID | quote }}
-  COGNITE_TOKEN_SCOPES: {{ .Values.env.COGNITE_TOKEN_SCOPES | quote }}
-  COGNITE_CLIENT_NAME: {{ .Values.env.COGNITE_CLIENT_NAME | quote }}
-  COGNITE_PROJECT: {{ .Values.env.COGNITE_PROJECT | quote }}
-  COGNITE_BASE_URL: {{ .Values.env.COGNITE_BASE_URL | quote }}
-  COGNITE_STATE_TABLE: {{ .Values.env.COGNITE_STATE_TABLE | quote }}
-  LAKEHOUSE_ABFSS_PREFIX: {{ .Values.env.LAKEHOUSE_ABFSS_PREFIX | quote }}
-  EXTRACTOR_EVENT_PATH: {{ .Values.env.EXTRACTOR_EVENT_PATH | quote }}
-  EXTRACTOR_FILE_PATH: {{ .Values.env.EXTRACTOR_FILE_PATH | quote }}
-  EXTRACTOR_RAW_TS_PATH: {{ .Values.env.EXTRACTOR_RAW_TS_PATH | quote }}
-  EXTRACTOR_DATASET_ID: {{ .Values.env.EXTRACTOR_DATASET_ID | quote }}
-  EXTRACTOR_TS_PREFIX: {{ .Values.env.EXTRACTOR_TS_PREFIX | quote }}
-  EXTRACTOR_DESTINATION_TYPE: {{ .Values.env.EXTRACTOR_DESTINATION_TYPE | quote }}
-  EVENT_TABLE_NAME: {{ .Values.env.EVENT_TABLE_NAME | quote }}
-  LAKEHOUSE_TIMESERIES_TABLE: {{ .Values.env.LAKEHOUSE_TIMESERIES_TABLE | quote }}
-  COGNITE_STATE_DB: {{ .Values.env.COGNITE_STATE_DB | quote }}
-  COGNITE_EXTRACTION_PIPELINE: {{ .Values.env.COGNITE_EXTRACTION_PIPELINE | quote }}
+  COGNITE_TOKEN_URL: {{ .Values.env.cognite.tokenUrl | quote }}
+  COGNITE_CLIENT_ID: {{ .Values.env.cognite.clientId | quote }}
+  COGNITE_TOKEN_SCOPES: {{ .Values.env.cognite.tokenScopes | quote }}
+  COGNITE_CLIENT_NAME: {{ .Values.env.cognite.clientName | quote }}
+  COGNITE_PROJECT: {{ .Values.env.cognite.project | quote }}
+  COGNITE_BASE_URL: {{ .Values.env.cognite.baseUrl | quote }}
+  COGNITE_STATE_TABLE: {{ .Values.env.cognite.stateTable | quote }}
+  LAKEHOUSE_ABFSS_PREFIX: {{ .Values.env.lakehouse.abfssPrefix | quote }}
+  EXTRACTOR_EVENT_PATH: {{ .Values.env.extractor.eventPath | quote }}
+  EXTRACTOR_FILE_PATH: {{ .Values.env.extractor.filePath | quote }}
+  EXTRACTOR_RAW_TS_PATH: {{ .Values.env.extractor.rawTsPath | quote }}
+  EXTRACTOR_DATASET_ID: {{ .Values.env.extractor.datasetId | quote }}
+  EXTRACTOR_TS_PREFIX: {{ .Values.env.extractor.tsPrefix | quote }}
+  EXTRACTOR_DESTINATION_TYPE: {{ .Values.env.extractor.destinationType | quote }}
+  EVENT_TABLE_NAME: {{ .Values.env.eventTableName | quote }}
+  LAKEHOUSE_TIMESERIES_TABLE: {{ .Values.env.lakehouse.timeseriesTable | quote }}
+  COGNITE_STATE_DB: {{ .Values.env.cognite.stateDb | quote }}
+  COGNITE_EXTRACTION_PIPELINE: {{ .Values.env.cognite.extractionPipeline | quote }}
 
