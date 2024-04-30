@@ -19,6 +19,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.base import Extractor
 
 from azure.identity import DefaultAzureCredential
+from deltalake.exceptions import DeltaError
 from deltalake import write_deltalake
 import pyarrow as pa
 
@@ -281,7 +282,7 @@ class DataModelingReplicator(Extractor):
                         "use_fabric_endpoint": "true",
                     },
                 )
-            except Exception as e:
+            except DeltaError as e:
                 self.logger.error(f"Error writing instances to lakehouse tables: {e}")
                 raise e
             self.logger.info("done.")

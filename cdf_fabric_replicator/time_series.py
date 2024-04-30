@@ -5,10 +5,12 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Literal
 
 from azure.identity import DefaultAzureCredential
+from deltalake.exceptions import DeltaError
 from deltalake.writer import write_deltalake
 import pandas as pd
 import numpy as np
 
+from cognite.client.exceptions import CogniteAPIError
 from cognite.client.data_classes import ExtractionPipelineRunWrite, TimeSeries
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionBatch,
@@ -57,20 +59,30 @@ class TimeSeriesReplicator(Extractor):
         )
 
         for subscription in self.config.subscriptions:
-            self.logger.info(
-                f"{self.cognite_client.time_series.subscriptions.retrieve(external_id=subscription.external_id)}"
-            )
+            try:
+                self.logger.info(
+                    f"{self.cognite_client.time_series.subscriptions.retrieve(external_id=subscription.external_id)}"
+                )
+            except CogniteAPIError as e:
+                self.logger.error(
+                    f"Error retrieving subscription {subscription.external_id}: {e}"
+                )
+                raise e
 
         while not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
             self.process_subscriptions()
-            self.cognite_client.extraction_pipelines.runs.create(
-                ExtractionPipelineRunWrite(
-                    status="success",
-                    extpipe_external_id=self.config.cognite.extraction_pipeline.external_id,
+            try:
+                self.cognite_client.extraction_pipelines.runs.create(
+                    ExtractionPipelineRunWrite(
+                        status="success",
+                        extpipe_external_id=self.config.cognite.extraction_pipeline.external_id,
+                    )
                 )
-            )
+            except CogniteAPIError as e:
+                self.logger.error(f"Error creating extraction pipeline run: {e}.")
+                raise e
             end_time = time.time()  # Get the time after function execution
             elapsed_time = end_time - start_time
             sleep_time = max(
@@ -99,29 +111,35 @@ class TimeSeriesReplicator(Extractor):
             f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}"
         )
 
-        for update_batch in self.cognite_client.time_series.subscriptions.iterate_data(
-            external_id=subscription.external_id,
-            partition=partition,
-            cursor=cursor,
-            limit=self.config.extractor.subscription_batch_size,
-        ):
-            if update_batch.has_next:
-                self.send_to_lakehouse(
-                    subscription=subscription,
-                    update_batch=update_batch,
-                    state_id=state_id,
-                    send_now=False,
-                )
-            else:
-                self.send_to_lakehouse(
-                    subscription=subscription,
-                    update_batch=update_batch,
-                    state_id=state_id,
-                    send_now=True,
-                )
+        try:
+            for (
+                update_batch
+            ) in self.cognite_client.time_series.subscriptions.iterate_data(
+                external_id=subscription.external_id,
+                partition=partition,
+                cursor=cursor,
+                limit=self.config.extractor.subscription_batch_size,
+            ):
+                if update_batch.has_next:
+                    self.send_to_lakehouse(
+                        subscription=subscription,
+                        update_batch=update_batch,
+                        state_id=state_id,
+                        send_now=False,
+                    )
+                else:
+                    self.send_to_lakehouse(
+                        subscription=subscription,
+                        update_batch=update_batch,
+                        state_id=state_id,
+                        send_now=True,
+                    )
 
-            if not update_batch.has_next:
-                return f"{state_id} no more data at {update_batch.cursor}"
+                if not update_batch.has_next:
+                    return f"{state_id} no more data at {update_batch.cursor}"
+        except CogniteAPIError as e:
+            self.logger.error(f"Error iterating partition {partition}: {e}")
+            raise e
 
         return "No new data"
 
@@ -163,59 +181,65 @@ class TimeSeriesReplicator(Extractor):
     def send_time_series_to_lakehouse_table(
         self, subscription: SubscriptionsConfig, update: DatapointsUpdate
     ) -> None:
-        ts = self.cognite_client.time_series.retrieve(
-            external_id=update.upserts.external_id
-        )
-        if isinstance(ts, TimeSeries):
-            asset = (
-                self.cognite_client.assets.retrieve(id=ts.asset_id)
-                if ts.asset_id is not None
-                else None
+        try:
+            ts = self.cognite_client.time_series.retrieve(
+                external_id=update.upserts.external_id
             )
-            asset_xid = asset.external_id if asset is not None else ""
+            if isinstance(ts, TimeSeries):
+                asset = (
+                    self.cognite_client.assets.retrieve(id=ts.asset_id)
+                    if ts.asset_id is not None
+                    else None
+                )
+                asset_xid = asset.external_id if asset is not None else ""
 
-            metadata = (
-                ts.metadata
-                if len(ts.metadata.keys()) > 0
-                else {"source": "cdf_fabric_replicator"}
-            )
-            df = pd.DataFrame(
-                np.array(
-                    [
+                metadata = (
+                    ts.metadata
+                    if len(ts.metadata.keys()) > 0
+                    else {"source": "cdf_fabric_replicator"}
+                )
+                df = pd.DataFrame(
+                    np.array(
                         [
-                            ts.external_id,
-                            ts.name,
-                            ts.description if ts.description else "",
-                            ts.is_string,
-                            ts.is_step,
-                            ts.unit,
-                            metadata,
-                            asset_xid,
+                            [
+                                ts.external_id,
+                                ts.name,
+                                ts.description if ts.description else "",
+                                ts.is_string,
+                                ts.is_step,
+                                ts.unit,
+                                metadata,
+                                asset_xid,
+                            ]
                         ]
-                    ]
-                ),
-                columns=[
-                    "externalId",
-                    "name",
-                    "description",
-                    "isString",
-                    "isStep",
-                    "unit",
-                    "metadata",
-                    "assetExternalId",
-                ],
-            )
-            df = df.dropna()
-            self.logger.info(
-                f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table..."
-            )
-            if not df.empty:
-                self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_ts, df)
-            self.ts_cache[str(update.upserts.external_id)] = 1
-        else:
+                    ),
+                    columns=[
+                        "externalId",
+                        "name",
+                        "description",
+                        "isString",
+                        "isStep",
+                        "unit",
+                        "metadata",
+                        "assetExternalId",
+                    ],
+                )
+                df = df.dropna()
+                self.logger.info(
+                    f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table..."
+                )
+                if not df.empty:
+                    self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_ts, df)
+                self.ts_cache[str(update.upserts.external_id)] = 1
+            else:
+                self.logger.error(
+                    f"Could not retrieve time series {update.upserts.external_id}"
+                )
+        except CogniteAPIError as e:
             self.logger.error(
-                f"Could not retrieve time series {update.upserts.external_id}"
+                f"Error retrieving time series {update.upserts.external_id}: {e}"
             )
+            raise e
 
     def convert_updates_to_pandasdf(
         self, updates: List[DatapointsUpdate]
@@ -246,14 +270,19 @@ class TimeSeriesReplicator(Extractor):
     ) -> None:
         token = self.get_token()
 
-        write_deltalake(
-            table_or_uri=table,
-            data=df,
-            mode=mode,
-            engine="rust",
-            schema_mode="merge",
-            storage_options={"bearer_token": token, "use_fabric_endpoint": "true"},
-        )
+        try:
+            write_deltalake(
+                table_or_uri=table,
+                data=df,
+                mode=mode,
+                engine="rust",
+                schema_mode="merge",
+                storage_options={"bearer_token": token, "use_fabric_endpoint": "true"},
+            )
+        except DeltaError as e:
+            self.logger.error(f"Error writing to {table}: {e}")
+            raise e
+
         return None
 
     def get_token(self) -> str:

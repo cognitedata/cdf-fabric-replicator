@@ -35,7 +35,7 @@ class EventsReplicator(Extractor):
         # init/connect to destination
         self.state_store.initialize()
 
-        self.logger.debug("Current Event Config: %s", self.config.event)
+        self.logger.debug(f"Current Event Config: {self.config.event}")
 
         if self.config.event is None:
             self.logger.warning("No event config found in config")
@@ -50,7 +50,7 @@ class EventsReplicator(Extractor):
             sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)
 
             if sleep_time > 0:
-                logging.debug(f"Sleep for {sleep_time} seconds")
+                self.logger.debug(f"Sleep for {sleep_time} seconds")
                 time.sleep(sleep_time)
 
         self.logger.info("Stop event set. Exiting...")
@@ -64,8 +64,7 @@ class EventsReplicator(Extractor):
             self.logger.debug("No last created time found.")
         else:
             self.logger.debug(
-                "Last created time: %s",
-                datetime.fromtimestamp(last_created_time / 1000).isoformat(),
+                f"Last created time: {datetime.fromtimestamp(last_created_time / 1000).isoformat()}"
             )
 
         for event_list in self.get_events(limit, last_created_time):
@@ -78,7 +77,7 @@ class EventsReplicator(Extractor):
                         events_dict, self.config.event.lakehouse_abfss_path_events
                     )
                 except DeltaError as e:
-                    self.logger.error("Error writing events to lakehouse tables: %s", e)
+                    self.logger.error(f"Error writing events to lakehouse tables: {e}")
                     raise e
                 last_event = events_dict[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
@@ -90,9 +89,7 @@ class EventsReplicator(Extractor):
     ) -> Iterator[Event] | Iterator[EventList]:
         # only pull events that created after last_created_time (hence the +1); assuming no other events are created at the same time
         self.logger.debug(
-            "Getting events with limit: %s, last_created_time: %s",
-            limit,
-            last_created_time,
+            f"Getting events with limit: {limit}, last_created_time: {last_created_time}"
         )
         return self.cognite_client.events(
             chunk_size=limit,
@@ -109,7 +106,7 @@ class EventsReplicator(Extractor):
     def set_event_state(self, event_state_key: str, created_time: int) -> None:
         self.state_store.set_state(external_id=event_state_key, high=created_time)
         self.state_store.synchronize()
-        self.logger.debug("Event state set: %s", created_time)
+        self.logger.debug(f"Event state set: {created_time}")
 
     def write_events_to_lakehouse_tables(
         self, events: List[Dict[str, Any]], abfss_path: str
@@ -131,7 +128,7 @@ class EventsReplicator(Extractor):
                 },
             )
         except DeltaError as e:
-            self.logger.error("Error writing events to lakehouse tables: %s", e)
+            self.logger.error(f"Error writing events to lakehouse tables: {e}")
             raise e
 
         self.logger.info("done.")
