@@ -7,7 +7,14 @@ from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointsUpdate,
     Datapoints,
 )
-from cognite.client.data_classes import TimeSeries
+from cognite.client.data_classes import (
+    TimeSeries,
+    DataPointSubscriptionWrite,
+    filters as flt,
+)
+from cognite.client.data_classes.time_series import TimeSeriesProperty
+from cdf_fabric_replicator import subscription
+
 
 @pytest.fixture(scope="function")
 def test_timeseries_replicator():
@@ -16,6 +23,7 @@ def test_timeseries_replicator():
     replicator.state_store = Mock()
     replicator.config = Mock()
     return replicator
+
 
 @pytest.fixture
 def mock_subscription():
@@ -95,26 +103,43 @@ def input_data_null():
 
 
 class TestTimeSeriesReplicator:
-
     def test_run_no_subscriptions(self, test_timeseries_replicator):
         test_timeseries_replicator.config = Mock(subscriptions=[])
         test_timeseries_replicator.process_subscriptions = Mock()
         test_timeseries_replicator.run()
         test_timeseries_replicator.process_subscriptions.assert_not_called()
 
-    @patch("cdf_fabric_replicator.time_series.sub.autocreate_subscription", return_value=None)
+    @patch(
+        "cdf_fabric_replicator.time_series.sub.autocreate_subscription",
+        return_value=None,
+    )
     def test_run(self, mock_autocreate, mock_subscription, test_timeseries_replicator):
-        test_timeseries_replicator.stop_event.is_set.side_effect = [False, True] # Stop after first iteration
-        test_timeseries_replicator.config = Mock(subscriptions=[mock_subscription], extractor=Mock(poll_time=1))
+        test_timeseries_replicator.stop_event.is_set.side_effect = [
+            False,
+            True,
+        ]  # Stop after first iteration
+        test_timeseries_replicator.config = Mock(
+            subscriptions=[mock_subscription], extractor=Mock(poll_time=1)
+        )
         test_timeseries_replicator.state_store = Mock()
         test_timeseries_replicator.process_subscriptions = Mock()
         test_timeseries_replicator.run()
+        test_timeseries_replicator.state_store.initialize.assert_called_once()
+        mock_autocreate.assert_called_with(
+            [mock_subscription],
+            test_timeseries_replicator.cognite_client,
+            test_timeseries_replicator.name,
+        )
         test_timeseries_replicator.process_subscriptions.assert_called_once()
-        # TODO: Add more assertions
+        test_timeseries_replicator.cognite_client.extraction_pipelines.runs.create.assert_called_once()
 
     @patch("cdf_fabric_replicator.time_series.ThreadPoolExecutor", autospec=True)
     def test_process_subscriptions(
-        self, mock_executor, mock_subscription, mock_subscription_2, test_timeseries_replicator
+        self,
+        mock_executor,
+        mock_subscription,
+        mock_subscription_2,
+        test_timeseries_replicator,
     ):
         test_subscriptions = [
             mock_subscription,
@@ -128,7 +153,9 @@ class TestTimeSeriesReplicator:
 
         # Check that ThreadPoolExecutor was called once for each partition
         expected_calls = [
-            call().__enter__().submit(test_timeseries_replicator.process_partition, sub, part)
+            call()
+            .__enter__()
+            .submit(test_timeseries_replicator.process_partition, sub, part)
             for sub in test_subscriptions
             for part in sub.partitions
         ]  # Call enter submit for each partition
@@ -165,7 +192,6 @@ class TestTimeSeriesReplicator:
     def test_process_partition_when_no_updates(
         self, mock_send_to_lakehouse, mock_subscription, test_timeseries_replicator
     ):
-
         # Mock the return value of state_store.get_state
         test_timeseries_replicator.state_store.get_state.return_value = [None, None]
 
@@ -246,7 +272,11 @@ class TestTimeSeriesReplicator:
         assert test_timeseries_replicator.update_queue == [1, 2, 3]
 
     def test_send_data_point_to_lakehouse_table(
-        self, mock_subscription, mock_datapoints_update, datapoints_dataframe, test_timeseries_replicator
+        self,
+        mock_subscription,
+        mock_datapoints_update,
+        datapoints_dataframe,
+        test_timeseries_replicator,
     ):
         test_timeseries_replicator.send_time_series_to_lakehouse_table = Mock()
         test_timeseries_replicator.write_pd_to_deltalake = Mock()
@@ -255,7 +285,9 @@ class TestTimeSeriesReplicator:
         updates = [mock_datapoints_update]
 
         # Call send_data_point_to_lakehouse_table
-        test_timeseries_replicator.send_data_point_to_lakehouse_table(mock_subscription, updates)
+        test_timeseries_replicator.send_data_point_to_lakehouse_table(
+            mock_subscription, updates
+        )
 
         # Check that send_time_series_to_lakehouse_table was called with the correct arguments
         test_timeseries_replicator.send_time_series_to_lakehouse_table.assert_called_once_with(
@@ -274,18 +306,24 @@ class TestTimeSeriesReplicator:
         pd.testing.assert_frame_equal(args[1], datapoints_dataframe)
 
     def test_send_time_series_to_lakehouse_table(
-        self, mock_subscription, mock_datapoints_update, timeseries_dataframe, test_timeseries_replicator
+        self,
+        mock_subscription,
+        mock_datapoints_update,
+        timeseries_dataframe,
+        test_timeseries_replicator,
     ):
         test_timeseries_replicator.logger = Mock()
-        test_timeseries_replicator.cognite_client.time_series.retrieve.return_value = TimeSeries(
-            external_id="id1",
-            name="test_ts",
-            description="test_description",
-            is_string=False,
-            is_step=False,
-            unit="test_unit",
-            metadata={"key": "value"},
-            asset_id=123,
+        test_timeseries_replicator.cognite_client.time_series.retrieve.return_value = (
+            TimeSeries(
+                external_id="id1",
+                name="test_ts",
+                description="test_description",
+                is_string=False,
+                is_step=False,
+                unit="test_unit",
+                metadata={"key": "value"},
+                asset_id=123,
+            )
         )
         test_timeseries_replicator.cognite_client.assets.retrieve.return_value = Mock(
             external_id="test_asset"
@@ -303,7 +341,9 @@ class TestTimeSeriesReplicator:
         )
 
         # Check that assets.retrieve was called with the correct arguments
-        test_timeseries_replicator.cognite_client.assets.retrieve.assert_called_once_with(id=123)
+        test_timeseries_replicator.cognite_client.assets.retrieve.assert_called_once_with(
+            id=123
+        )
 
         # Check that write_pd_to_deltalake was called with the correct arguments
         args, kwargs = test_timeseries_replicator.write_pd_to_deltalake.call_args
@@ -313,10 +353,13 @@ class TestTimeSeriesReplicator:
         pd.testing.assert_frame_equal(args[1], timeseries_dataframe, check_dtype=False)
 
     @patch("cdf_fabric_replicator.time_series.logging")
-    def test_send_time_series_to_lakehouse_table_error(self, mock_logger, mock_subscription, test_timeseries_replicator):
-        test_timeseries_replicator.cognite_client.time_series.retrieve.return_value = Mock()
+    def test_send_time_series_to_lakehouse_table_error(
+        self, mock_logger, mock_subscription, test_timeseries_replicator
+    ):
+        test_timeseries_replicator.cognite_client.time_series.retrieve.return_value = (
+            Mock()
+        )
         test_timeseries_replicator.write_pd_to_deltalake = Mock()
-
 
         # Call send_time_series_to_lakehouse_table
         test_timeseries_replicator.send_time_series_to_lakehouse_table(
@@ -338,11 +381,15 @@ class TestTimeSeriesReplicator:
     def test_convert_updates_to_pandasdf_when_not_null(
         self, mock_datapoints_update, datapoints_dataframe, test_timeseries_replicator
     ):
-        df = test_timeseries_replicator.convert_updates_to_pandasdf([mock_datapoints_update])
+        df = test_timeseries_replicator.convert_updates_to_pandasdf(
+            [mock_datapoints_update]
+        )
 
         pd.testing.assert_frame_equal(df, datapoints_dataframe)
 
-    def test_convert_updates_to_pandasdf_when_null(self, input_data_null, test_timeseries_replicator):
+    def test_convert_updates_to_pandasdf_when_null(
+        self, input_data_null, test_timeseries_replicator
+    ):
         df = test_timeseries_replicator.convert_updates_to_pandasdf(input_data_null)
         assert df is None
 
@@ -351,7 +398,9 @@ class TestTimeSeriesReplicator:
         return_value="test_token",
     )
     @patch("cdf_fabric_replicator.time_series.write_deltalake")
-    def test_write_pd_to_deltalake(self, mock_write_deltalake, mock_get_token, test_timeseries_replicator):
+    def test_write_pd_to_deltalake(
+        self, mock_write_deltalake, mock_get_token, test_timeseries_replicator
+    ):
         # Create a mock DataFrame
         df = pd.DataFrame()
 
@@ -379,30 +428,31 @@ class TestTimeSeriesReplicator:
         return_value=Mock(token="test_token"),
     )
     def test_get_token(self, mock_default_azure_credential, test_timeseries_replicator):
-
         token = test_timeseries_replicator.get_token()
 
         assert token == mock_default_azure_credential.return_value.token
 
-    # def test_create_subscription(self):
-    #     num_partitions = 5
-    #     external_id = "test_external_id"
-    #     name = "test_name"
-    #     replicator = TimeSeriesReplicator(metrics=self.metrics, stop_event=CancellationToken())
-    #     replicator.cognite_client = Mock()
+    def test_create_subscription(self, test_timeseries_replicator):
+        num_partitions = 5
+        external_id = "test_external_id"
+        name = "test_name"
 
-    #     with patch.object(
-    #         replicator.cognite_client.time_series.subscriptions, "create"
-    #     ) as mock_create:
-    #         subscription.create_subscription(
-    #             replicator.cognite_client, external_id, name, num_partitions
-    #         )
+        with patch.object(
+            test_timeseries_replicator.cognite_client.time_series.subscriptions,
+            "create",
+        ) as mock_create:
+            subscription.create_subscription(
+                test_timeseries_replicator.cognite_client,
+                external_id,
+                name,
+                num_partitions,
+            )
 
-    #         mock_create.assert_called_once_with(
-    #             DataPointSubscriptionWrite(
-    #                 external_id=external_id,
-    #                 name=name,
-    #                 partition_count=num_partitions,
-    #                 filter=flt.Exists(TimeSeriesProperty.external_id),
-    #             )
-    #         )
+            mock_create.assert_called_once_with(
+                DataPointSubscriptionWrite(
+                    external_id=external_id,
+                    name=name,
+                    partition_count=num_partitions,
+                    filter=flt.Exists(TimeSeriesProperty.external_id),
+                )
+            )
