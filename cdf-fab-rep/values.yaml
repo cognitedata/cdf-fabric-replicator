@@ -125,6 +125,8 @@ env:
   EVENT_TABLE_NAME: "KtestEvents"
   COGNITE_STATE_DB: "cdffabricreplicator"
   COGNITE_EXTRACTION_PIPELINE: "fabric-replicator"
+  LAKEHOUSE_ABFSS_PATH_DPS: abfss://61e85697-16b3-4f8d-89d9-e8d4ac438f7a@msit-onelake.dfs.fabric.microsoft.com/9297c764-ee60-422a-9055-ea319cce0a91/Tables/CalculatedTimeseries
+  LAKEHOUSE_ABFSS_PATH_TS: abfss://61e85697-16b3-4f8d-89d9-e8d4ac438f7a@msit-onelake.dfs.fabric.microsoft.com/9297c764-ee60-422a-9055-ea319cce0a91/Tables/CalculatedTimeseriesMetadata
 # cognite:
 #   tokenUrl: "https://login.microsoftonline.com/1a3fbda0-40c8-437f-9d41-d6ebb12194c6/oauth2/v2.0/token"
 #   clientName: "carbon-client-name"

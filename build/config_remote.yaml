@@ -31,8 +31,8 @@ subscriptions:
     - external_id: charts-persisted
       partitions:
           - 0
-      lakehouse_abfss_path_dps: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/CalculatedTimeseries
-      lakehouse_abfss_path_ts: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse/Tables/CalculatedTimeseriesMetadata
+      lakehouse_abfss_path_dps: ${LAKEHOUSE_ABFSS_PATH_DPS}
+      lakehouse_abfss_path_ts: ${LAKEHOUSE_ABFSS_PATH_TS}
 # sync data model
 data_modeling:
     - space: cc_plant

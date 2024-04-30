@@ -154,6 +154,16 @@ spec:
                 configMapKeyRef:
                   name: cdf-conn-config
                   key: COGNITE_EXTRACTION_PIPELINE
+            - name: LAKEHOUSE_ABFSS_PATH_DPS
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: LAKEHOUSE_ABFSS_PATH_DPS
+            - name: LAKEHOUSE_ABFSS_PATH_TS
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: LAKEHOUSE_ABFSS_PATH_TS
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
