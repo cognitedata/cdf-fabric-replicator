@@ -54,6 +54,8 @@ class TimeSeriesReplicator(Extractor):
 
         self.state_store.initialize()
 
+        self.logger.debug(f"Current Subscription Config: {self.config.subscriptions}")
+
         sub.autocreate_subscription(
             self.config.subscriptions, self.cognite_client, self.name, self.logger
         )
@@ -89,6 +91,7 @@ class TimeSeriesReplicator(Extractor):
                 self.config.extractor.poll_time - elapsed_time, 0
             )  # 900s = 15min
             if sleep_time > 0:
+                self.logger.debug(f"Sleep for {sleep_time} seconds")
                 time.sleep(sleep_time)
 
         self.logger.info("Stop event set. Exiting...")
@@ -96,6 +99,9 @@ class TimeSeriesReplicator(Extractor):
     def process_subscriptions(self) -> None:
         for subscription in self.config.subscriptions:
             for partition in subscription.partitions:
+                self.logger.debug(
+                    f"Processing partition {partition} for subscription {subscription.external_id}"
+                )
                 with ThreadPoolExecutor() as executor:
                     future = executor.submit(
                         self.process_partition, subscription, partition

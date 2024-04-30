@@ -52,6 +52,8 @@ class CdfFabricExtractor(Extractor[Config]):
             else None
         )
 
+        self.logger.debug(f"Current Extractor Config: {self.config.extractor}")
+
         if not self.config.source:
             self.logger.error("No source path or directory provided")
             return
@@ -90,6 +92,7 @@ class CdfFabricExtractor(Extractor[Config]):
                     self.config.source.abfss_prefix + "/" + self.config.source.file_path
                 )
 
+            self.logger.debug("Sleep for 5 seconds")
             time.sleep(5)
 
         self.logger.info("Stop event set. Exiting...")
@@ -98,6 +101,7 @@ class CdfFabricExtractor(Extractor[Config]):
         asset_ids = []
         for external_id in asset_external_ids:
             try:
+                self.logger.debug(f"Retrieving asset with external id {external_id}")
                 asset = self.client.assets.retrieve(external_id=external_id)
                 if asset:
                     asset_ids.append(asset.id)

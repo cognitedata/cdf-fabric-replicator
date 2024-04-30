@@ -50,6 +50,8 @@ class DataModelingReplicator(Extractor):
         # init/connect to destination
         self.state_store.initialize()
 
+        self.logger.debug(f"Current Data Modeling Config: {self.config.data_modeling}")
+
         if self.config.data_modeling is None:
             self.logger.info("No data modeling spaces found in config")
             return
