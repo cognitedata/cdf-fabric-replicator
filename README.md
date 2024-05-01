@@ -141,7 +141,9 @@ For more information see [Debugging in Visual Studio Code](https://code.visualst
 
 # Building and Deploying with Docker on AKS
 
-## Arm Architecture
+## Pre-requisites
+
+### Set Target Platform Arhcitecture
 
 If you are running the Docker Container on ARM Architecture, you will need to use platform emulation for the Docker run command. You can do this by running the following command:
 
@@ -149,7 +151,7 @@ If you are running the Docker Container on ARM Architecture, you will need to us
 docker run -i -t <image-name> --platform linux/arm64 
 ```
 
-## Creating an AKS(Azure Kubernetes Service) Cluster with Managed Identity and Attached ACR(Azure Container Registry)
+### Creating an AKS Cluster with Managed Identity
 
 Azure Kubernetes Service (AKS) can use Azure Managed Identities to interact with other Azure services. This eliminates the need to manage service principals and rotate credentials. The Fabric Replicator requires managed identity on AKS to be enabled to run.
 
@@ -159,7 +161,7 @@ To create an AKS cluster with Managed Identity and an attached ACR, you can use 
 az aks create -g MyResourceGroup -n MyManagedCluster --generate-ssh-keys --attach-acr MyACR --enable-managed-identity
 ```
 
-## Build Docker to Push to ACR
+### Build Docker to Push to ACR
 
 Note: When you build the CDF Fabric Replicator from docker, the docker image is configured to use the config located in the Extraction Pipeline in CDF. You will need to configure the yaml file in the Extraction Pipeline in CDF.
 
@@ -183,7 +185,7 @@ docker push <myregistry>.azurecr.io/<MyImageName>:latest
 
 Now, your Docker image is available in your ACR and can be pulled from your AKS cluster.
 
-## Use helm deploy to deploy your container to AKS
+## Use helm to deploy your container to AKS
 
 ### Configure values.yaml
 
