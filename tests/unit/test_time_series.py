@@ -19,9 +19,11 @@ from cdf_fabric_replicator import subscription
 @pytest.fixture(scope="function")
 def test_timeseries_replicator():
     replicator = TimeSeriesReplicator(metrics=Mock(), stop_event=Mock())
+    # These attributes must be mocked here as they don't exist until __enter__ is called in the base class
     replicator.cognite_client = Mock()
     replicator.state_store = Mock()
     replicator.config = Mock()
+    replicator.logger = Mock()
     return replicator
 
 
@@ -103,17 +105,32 @@ def input_data_null():
 
 
 class TestTimeSeriesReplicator:
-    def test_run_no_subscriptions(self, test_timeseries_replicator):
+    @patch(
+        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.process_subscriptions"
+    )
+    def test_run_no_subscriptions(
+        self, mock_process_subscriptions, test_timeseries_replicator
+    ):
         test_timeseries_replicator.config = Mock(subscriptions=[])
-        test_timeseries_replicator.process_subscriptions = Mock()
         test_timeseries_replicator.run()
-        test_timeseries_replicator.process_subscriptions.assert_not_called()
+        mock_process_subscriptions.assert_not_called()
 
     @patch(
         "cdf_fabric_replicator.time_series.sub.autocreate_subscription",
         return_value=None,
     )
-    def test_run(self, mock_autocreate, mock_subscription, test_timeseries_replicator):
+    @patch(
+        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.process_subscriptions"
+    )
+    @patch("cdf_fabric_replicator.time_series.time.sleep")
+    def test_run(
+        self,
+        mock_sleep,
+        mock_process_subscriptions,
+        mock_autocreate,
+        mock_subscription,
+        test_timeseries_replicator,
+    ):
         test_timeseries_replicator.stop_event.is_set.side_effect = [
             False,
             True,
@@ -121,8 +138,6 @@ class TestTimeSeriesReplicator:
         test_timeseries_replicator.config = Mock(
             subscriptions=[mock_subscription], extractor=Mock(poll_time=1)
         )
-        test_timeseries_replicator.state_store = Mock()
-        test_timeseries_replicator.process_subscriptions = Mock()
         test_timeseries_replicator.run()
         test_timeseries_replicator.state_store.initialize.assert_called_once()
         mock_autocreate.assert_called_with(
@@ -130,12 +145,15 @@ class TestTimeSeriesReplicator:
             test_timeseries_replicator.cognite_client,
             test_timeseries_replicator.name,
         )
-        test_timeseries_replicator.process_subscriptions.assert_called_once()
+        mock_process_subscriptions.assert_called_once()
+        mock_sleep.assert_called_once()
         test_timeseries_replicator.cognite_client.extraction_pipelines.runs.create.assert_called_once()
 
     @patch("cdf_fabric_replicator.time_series.ThreadPoolExecutor", autospec=True)
+    @patch("cdf_fabric_replicator.time_series.TimeSeriesReplicator.process_partition")
     def test_process_subscriptions(
         self,
+        mock_process_partition,
         mock_executor,
         mock_subscription,
         mock_subscription_2,
@@ -146,16 +164,13 @@ class TestTimeSeriesReplicator:
             mock_subscription_2,
         ]
         test_timeseries_replicator.config.subscriptions = test_subscriptions
-        test_timeseries_replicator.process_partition = Mock()
 
         # Call process_subscriptions
         test_timeseries_replicator.process_subscriptions()
 
         # Check that ThreadPoolExecutor was called once for each partition
         expected_calls = [
-            call()
-            .__enter__()
-            .submit(test_timeseries_replicator.process_partition, sub, part)
+            call().__enter__().submit(mock_process_partition, sub, part)
             for sub in test_subscriptions
             for part in sub.partitions
         ]  # Call enter submit for each partition
@@ -215,10 +230,14 @@ class TestTimeSeriesReplicator:
         # Check that the return value is correct
         assert result == "test1_0 no more data at test_cursor"
 
-    def test_send_to_lakehouse_send_now(self, test_timeseries_replicator):
+    @patch(
+        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.send_data_point_to_lakehouse_table"
+    )
+    def test_send_to_lakehouse_send_now(
+        self, mock_send_dp_to_lakehouse, test_timeseries_replicator
+    ):
         test_timeseries_replicator.config.extractor.ingest_batch_size = 3
         test_timeseries_replicator.update_queue = []
-        test_timeseries_replicator.send_data_point_to_lakehouse_table = Mock()
 
         # Create a mock update_batch
         mock_update_batch = Mock(updates=[1, 2, 3])
@@ -232,7 +251,7 @@ class TestTimeSeriesReplicator:
         )
 
         # Check that send_data_point_to_lakehouse_table was called with the correct arguments
-        test_timeseries_replicator.send_data_point_to_lakehouse_table.assert_called_once_with(
+        mock_send_dp_to_lakehouse.assert_called_once_with(
             subscription="test1", updates=[1, 2, 3]
         )
 
@@ -245,10 +264,14 @@ class TestTimeSeriesReplicator:
         # Check that update_queue is empty
         assert test_timeseries_replicator.update_queue == []
 
-    def test_send_to_lakehouse_send_now_false(self, test_timeseries_replicator):
+    @patch(
+        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.send_data_point_to_lakehouse_table"
+    )
+    def test_send_to_lakehouse_send_now_false(
+        self, mock_send_dp_to_lakehouse, test_timeseries_replicator
+    ):
         test_timeseries_replicator.config.extractor.ingest_batch_size = 3
         test_timeseries_replicator.update_queue = []
-        test_timeseries_replicator.send_data_point_to_lakehouse_table = Mock()
 
         # Create a mock update_batch
         mock_update_batch = Mock(updates=[1, 2, 3])
@@ -262,7 +285,7 @@ class TestTimeSeriesReplicator:
         )
 
         # Check that send_data_point_to_lakehouse_table was not called
-        test_timeseries_replicator.send_data_point_to_lakehouse_table.assert_not_called()
+        mock_send_dp_to_lakehouse.assert_not_called()
 
         # Check that state store was not synchronized
         test_timeseries_replicator.state_store.set_state.assert_not_called()
@@ -271,16 +294,21 @@ class TestTimeSeriesReplicator:
         # Check that update_queue contains the updates
         assert test_timeseries_replicator.update_queue == [1, 2, 3]
 
+    @patch(
+        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.write_pd_to_deltalake"
+    )
+    @patch(
+        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.send_time_series_to_lakehouse_table"
+    )
     def test_send_data_point_to_lakehouse_table(
         self,
+        mock_send_ts_to_lakehouse,
+        mock_write_pd_to_deltalake,
         mock_subscription,
         mock_datapoints_update,
         datapoints_dataframe,
         test_timeseries_replicator,
     ):
-        test_timeseries_replicator.send_time_series_to_lakehouse_table = Mock()
-        test_timeseries_replicator.write_pd_to_deltalake = Mock()
-
         # Create a mock subscription and updates
         updates = [mock_datapoints_update]
 
@@ -290,29 +318,30 @@ class TestTimeSeriesReplicator:
         )
 
         # Check that send_time_series_to_lakehouse_table was called with the correct arguments
-        test_timeseries_replicator.send_time_series_to_lakehouse_table.assert_called_once_with(
-            mock_subscription, updates[0]
-        )
+        mock_send_ts_to_lakehouse.assert_called_once_with(mock_subscription, updates[0])
 
         # Check that write_pd_to_deltalake was called once
-        assert test_timeseries_replicator.write_pd_to_deltalake.call_count == 1
+        assert mock_write_pd_to_deltalake.call_count == 1
 
         # Get the arguments that write_pd_to_deltalake was called with
-        args, kwargs = test_timeseries_replicator.write_pd_to_deltalake.call_args
+        args, kwargs = mock_write_pd_to_deltalake.call_args
 
         # Check the non-DataFrame arguments
         assert args[0] == "dps"
 
         pd.testing.assert_frame_equal(args[1], datapoints_dataframe)
 
+    @patch(
+        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.write_pd_to_deltalake"
+    )
     def test_send_time_series_to_lakehouse_table(
         self,
+        mock_write_pd_to_deltalake,
         mock_subscription,
         mock_datapoints_update,
         timeseries_dataframe,
         test_timeseries_replicator,
     ):
-        test_timeseries_replicator.logger = Mock()
         test_timeseries_replicator.cognite_client.time_series.retrieve.return_value = (
             TimeSeries(
                 external_id="id1",
@@ -328,7 +357,6 @@ class TestTimeSeriesReplicator:
         test_timeseries_replicator.cognite_client.assets.retrieve.return_value = Mock(
             external_id="test_asset"
         )
-        test_timeseries_replicator.write_pd_to_deltalake = Mock()
 
         # Call send_time_series_to_lakehouse_table
         test_timeseries_replicator.send_time_series_to_lakehouse_table(
@@ -346,20 +374,26 @@ class TestTimeSeriesReplicator:
         )
 
         # Check that write_pd_to_deltalake was called with the correct arguments
-        args, kwargs = test_timeseries_replicator.write_pd_to_deltalake.call_args
+        args, kwargs = mock_write_pd_to_deltalake.call_args
 
         assert args[0] == "ts"
 
         pd.testing.assert_frame_equal(args[1], timeseries_dataframe, check_dtype=False)
 
+    @patch(
+        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.write_pd_to_deltalake"
+    )
     @patch("cdf_fabric_replicator.time_series.logging")
     def test_send_time_series_to_lakehouse_table_error(
-        self, mock_logger, mock_subscription, test_timeseries_replicator
+        self,
+        mock_logger,
+        mock_write_pd_to_deltalake,
+        mock_subscription,
+        test_timeseries_replicator,
     ):
         test_timeseries_replicator.cognite_client.time_series.retrieve.return_value = (
             Mock()
         )
-        test_timeseries_replicator.write_pd_to_deltalake = Mock()
 
         # Call send_time_series_to_lakehouse_table
         test_timeseries_replicator.send_time_series_to_lakehouse_table(
@@ -373,7 +407,7 @@ class TestTimeSeriesReplicator:
         test_timeseries_replicator.cognite_client.assets.retrieve.assert_not_called()
 
         # Check that write_pd_to_deltalake was not called
-        test_timeseries_replicator.write_pd_to_deltalake.assert_not_called()
+        mock_write_pd_to_deltalake.assert_not_called()
 
         # Check that an error message was logged
         mock_logger.error.assert_called_once()
