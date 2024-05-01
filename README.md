@@ -159,7 +159,7 @@ To create an AKS cluster with Managed Identity and an attached ACR, you can use 
 az aks create -g MyResourceGroup -n MyManagedCluster --generate-ssh-keys --attach-acr MyACR --enable-managed-identity
 ```
 
-## Build Docker to Push to ARC
+## Build Docker to Push to ACR
 
 Note: When you build the CDF Fabric Replicator from docker, the docker image is configured to use the config located in the Extraction Pipeline in CDF. You will need to configure the yaml file in the Extraction Pipeline in CDF.
 
