@@ -131,22 +131,37 @@ class TestTimeSeriesReplicator:
         mock_subscription,
         test_timeseries_replicator,
     ):
+        # Set the stop event to False for the first iteration and True for the second iteration
         test_timeseries_replicator.stop_event.is_set.side_effect = [
             False,
             True,
-        ]  # Stop after first iteration
+        ]
+
+        # Set the subscriptions and poll time in the config
         test_timeseries_replicator.config = Mock(
             subscriptions=[mock_subscription], extractor=Mock(poll_time=1)
         )
+
+        # Call the run method
         test_timeseries_replicator.run()
+
+        # Check that the state store is initialized
         test_timeseries_replicator.state_store.initialize.assert_called_once()
+
+        # Check that autocreate_subscription is called with the correct arguments
         mock_autocreate.assert_called_with(
             [mock_subscription],
             test_timeseries_replicator.cognite_client,
             test_timeseries_replicator.name,
         )
+
+        # Check that process_subscriptions is called
         mock_process_subscriptions.assert_called_once()
+
+        # Check that sleep is called
         mock_sleep.assert_called_once()
+
+        # Check that extraction_pipelines.runs.create is called
         test_timeseries_replicator.cognite_client.extraction_pipelines.runs.create.assert_called_once()
 
     @patch("cdf_fabric_replicator.time_series.ThreadPoolExecutor", autospec=True)
@@ -424,7 +439,9 @@ class TestTimeSeriesReplicator:
     def test_convert_updates_to_pandasdf_when_null(
         self, input_data_null, test_timeseries_replicator
     ):
+        # Call the convert_updates_to_pandasdf method with input_data_null
         df = test_timeseries_replicator.convert_updates_to_pandasdf(input_data_null)
+        # Assert that the result is None
         assert df is None
 
     @patch(
@@ -462,8 +479,10 @@ class TestTimeSeriesReplicator:
         return_value=Mock(token="test_token"),
     )
     def test_get_token(self, mock_default_azure_credential, test_timeseries_replicator):
+        # Call the get_token method of test_timeseries_replicator
         token = test_timeseries_replicator.get_token()
 
+        # Check that the returned token is equal to the token returned by mock_default_azure_credential
         assert token == mock_default_azure_credential.return_value.token
 
     def test_create_subscription(self, test_timeseries_replicator):
