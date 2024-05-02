@@ -1,211 +1,89 @@
 import pytest
-from typing import Dict, List, Any
+from unittest.mock import patch, Mock
 from cdf_fabric_replicator.event import EventsReplicator
-from cognite.extractorutils.base import CancellationToken
-from cognite.extractorutils.statestore import LocalStateStore
-from cognite.client.data_classes import EventList, Event
+from cognite.client.data_classes import Event
+import pyarrow as pa
 
-EARLY_CREATED_TIME = 1710503304020
-LATE_CREATED_TIME = 1710506651232
+EVENT_BATCH_SIZE = 1
 
-
-@pytest.fixture(scope="session")
-def event_replicator(config):
-    stop_event = CancellationToken()
-    event_replicator = EventsReplicator(metrics=None, stop_event=stop_event)
-    event_replicator.config = config
-    event_replicator.client = event_replicator.config.cognite.get_cognite_client(
-        "test_event_replicator"
-    )
-    event_replicator.state_store = LocalStateStore(
-        event_replicator.config.extractor.state_store.local.path
-    )
-
+@pytest.fixture()
+def test_event_replicator():
+    event_replicator = EventsReplicator(metrics=Mock(), stop_event=Mock())
+    event_replicator.config = Mock(event=Mock(batch_size=EVENT_BATCH_SIZE, lakehouse_abfss_path_events="Events"), extractor=Mock(poll_time=1))
+    event_replicator.client = Mock()
+    event_replicator.state_store = Mock()
+    event_replicator.cognite_client = Mock()
+    event_replicator.azure_credential = Mock(get_token=Mock(return_value=Mock(token="token")))
     return event_replicator
 
-
 @pytest.fixture
-def event_data():
-    return [
-        {
-            "external_id": "Test_Early_Notification_1710502959241",
-            "data_set_id": 3351080165451477,
-            "start_time": 1710502959241,
-            "end_time": 1710503079241,
-            "type": "Notification",
-            "subtype": "HE3",
+def event():
+    return {
+        "external_id": "Test_Early_Notification_1710502959241",
+        "data_set_id": 3351080165451477,
+        "start_time": 1710502959241,
+        "end_time": 1710503079241,
+        "type": "Notification",
+        "subtype": "HE3",
+        "description": "Failed Instrumentation Fire extinguisher test",
+        "metadata": {
             "description": "Failed Instrumentation Fire extinguisher test",
-            "metadata": {
-                "description": "Failed Instrumentation Fire extinguisher test",
-                "notification": "22081904",
-                "work_order_number": "22082901",
-                "notification_type": "HE3",
-                "work_center": "SUPV",
-            },
-            "asset_ids": [5534771458240925],
-            "id": 3631277804748961,
-            "last_updated_time": 1710505316426,
-            "created_time": EARLY_CREATED_TIME,
+            "notification": "22081904",
+            "work_order_number": "22082901",
+            "notification_type": "HE3",
+            "work_center": "SUPV",
         },
-        {
-            "external_id": "Test_Late_Notification_1710506390376",
-            "data_set_id": 3351080165451477,
-            "start_time": 1710506390376,
-            "end_time": 1710506510376,
-            "type": "Notification",
-            "subtype": "HE3",
-            "description": "Failed Instrumentation Fire extinguisher test",
-            "metadata": {
-                "description": "Failed Instrumentation Fire extinguisher test",
-                "notification": "22081904",
-                "notification_type": "HE3",
-                "work_center": "SUPV",
-                "work_order_number": "22082901",
-            },
-            "asset_ids": [5534771458240925],
-            "id": 5875589750425323,
-            "last_updated_time": 1710506651232,
-            "created_time": LATE_CREATED_TIME,
+        "asset_ids": [5534771458240925],
+        "id": 3631277804748961,
+        "last_updated_time": 1710505316426,
+        "created_time": 1710503304020,
+    }
+
+@patch("cdf_fabric_replicator.event.time.sleep")
+@patch("cdf_fabric_replicator.event.EventsReplicator.process_events")
+def test_run(mock_process_events, mock_sleep, test_event_replicator):
+    test_event_replicator.stop_event = Mock(is_set=Mock(side_effect=[False, True]))
+    test_event_replicator.run()
+    test_event_replicator.state_store.initialize.assert_called_once()
+    mock_process_events.assert_called_once()
+    mock_sleep.assert_called_once()
+
+@patch("cdf_fabric_replicator.event.logging.info")
+def test_run_no_event_config(mock_logging, test_event_replicator):
+    test_event_replicator.config.event = None
+    test_event_replicator.run()
+    mock_logging.assert_called_with("No event config found in config")
+
+@pytest.mark.parametrize("last_created_time, event_query_time", [(None, 1), (1714685606, 1714685607)])
+@patch("cdf_fabric_replicator.event.write_deltalake")
+def test_process_events(mock_write_deltalake, event, test_event_replicator, last_created_time, event_query_time):
+    # Set up empty state and cognite client events iterator
+    test_event_replicator.state_store.get_state.return_value = [(None,last_created_time)]
+    test_event_replicator.cognite_client.events = Mock(return_value=iter([Event(**event)]))
+
+    # Run the process_events method
+    test_event_replicator.process_events()
+
+    # State store assertions
+    test_event_replicator.state_store.get_state.assert_called_once_with(external_id="event_state")
+    test_event_replicator.state_store.set_state.assert_called_once_with(external_id="event_state", high=event["created_time"])
+    test_event_replicator.state_store.synchronize.assert_called_once()
+    
+    # Cognite client assertions
+    test_event_replicator.cognite_client.events.assert_called_with(
+        chunk_size=EVENT_BATCH_SIZE,
+        created_time={"min": event_query_time},
+        sort=("createdTime", "asc"),
+    )
+    pyarrow_event_data = pa.Table.from_pylist([Event(**event).dump()])
+    mock_write_deltalake.assert_called_with(
+        "Events",
+        pyarrow_event_data,
+        mode="append",
+        engine="rust",
+        schema_mode="merge",
+        storage_options={
+            "bearer_token": "token",
+            "use_fabric_endpoint": "true",
         },
-    ]
-
-
-@pytest.fixture
-def mock_get_events(mocker, event_data):
-    event_collection = [Event(**data) for data in event_data]
-    return_value = iter([EventList(event_collection)])
-    return mocker.patch(
-        "cdf_fabric_replicator.event.EventsReplicator.get_events",
-        return_value=return_value,
     )
-
-
-@pytest.fixture
-def mock_get_late_events(mocker, event_data):
-    return_value = iter([EventList([Event(**event_data[-1])])])
-    return mocker.patch(
-        "cdf_fabric_replicator.event.EventsReplicator.get_events",
-        return_value=return_value,
-    )
-
-
-@pytest.fixture
-def mock_get_no_events(mocker):
-    return_value = iter([EventList([])])
-    return mocker.patch(
-        "cdf_fabric_replicator.event.EventsReplicator.get_events",
-        return_value=return_value,
-    )
-
-
-@pytest.fixture
-def mock_set_event_state(mocker):
-    return mocker.patch(
-        "cdf_fabric_replicator.event.EventsReplicator.set_event_state",
-        return_value=None,
-    )
-
-
-@pytest.fixture
-def mock_write_events_to_lakehouse_tables(mocker):
-    return mocker.patch(
-        "cdf_fabric_replicator.event.EventsReplicator.write_events_to_lakehouse_tables",
-        return_value=None,
-    )
-
-
-def snake_to_camel(snake_str: str) -> str:
-    components = snake_str.split("_")
-    return components[0] + "".join(x.title() for x in components[1:])
-
-
-def convert_dict_keys_to_camel_case(snake_case_dict: Dict[str, Any]) -> Dict[str, Any]:
-    return {snake_to_camel(k): v for k, v in snake_case_dict.items()}
-
-
-@pytest.fixture
-def event_data_camel_case(event_data):
-    return [convert_dict_keys_to_camel_case(data) for data in event_data]
-
-
-def test_process_events_all_events(
-    event_replicator: EventsReplicator,
-    event_data_camel_case: List[dict],
-    mock_get_events: Any,
-    mock_set_event_state: Any,
-    mock_write_events_to_lakehouse_tables: Any,
-    mocker,
-):
-    # Arrange
-    mocker.patch(
-        "cdf_fabric_replicator.event.EventsReplicator.get_event_state",
-        return_value=None,
-    )
-
-    # Act
-    event_replicator.process_events()
-
-    # Assert
-    mock_get_events.assert_called_with(event_replicator.config.event.batch_size, 0)
-    mock_write_events_to_lakehouse_tables.assert_called_once()
-    mock_write_events_to_lakehouse_tables.assert_called_with(
-        event_data_camel_case, event_replicator.config.event.lakehouse_abfss_path_events
-    )
-    mock_set_event_state.assert_called_with(
-        event_replicator.event_state_key, event_data_camel_case[-1]["createdTime"]
-    )
-
-
-def test_process_events_late_event(
-    event_replicator: EventsReplicator,
-    event_data_camel_case: List[dict],
-    mock_get_late_events: Any,
-    mock_set_event_state: Any,
-    mock_write_events_to_lakehouse_tables: Any,
-    mocker,
-):
-    # Arrange
-    mocker.patch(
-        "cdf_fabric_replicator.event.EventsReplicator.get_event_state",
-        return_value=EARLY_CREATED_TIME,
-    )
-
-    # Act
-    event_replicator.process_events()
-
-    # Assert
-    mock_get_late_events.assert_called_with(
-        event_replicator.config.event.batch_size, EARLY_CREATED_TIME
-    )
-    mock_write_events_to_lakehouse_tables.assert_called_once()
-    mock_write_events_to_lakehouse_tables.assert_called_with(
-        [event_data_camel_case[-1]],
-        event_replicator.config.event.lakehouse_abfss_path_events,
-    )
-    mock_set_event_state.assert_called_with(
-        event_replicator.event_state_key, event_data_camel_case[-1]["createdTime"]
-    )
-
-
-def test_process_events_no_event(
-    event_replicator: EventsReplicator,
-    mock_get_no_events: Any,
-    mock_set_event_state: Any,
-    mock_write_events_to_lakehouse_tables: Any,
-    mocker,
-):
-    # Arrange
-    mocker.patch(
-        "cdf_fabric_replicator.event.EventsReplicator.get_event_state",
-        return_value=LATE_CREATED_TIME,
-    )
-
-    # Act
-    event_replicator.process_events()
-
-    # Assert
-    mock_get_no_events.assert_called_with(
-        event_replicator.config.event.batch_size, LATE_CREATED_TIME
-    )
-    mock_write_events_to_lakehouse_tables.assert_not_called()
-    mock_set_event_state.assert_not_called()

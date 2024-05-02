@@ -38,7 +38,7 @@ class EventsReplicator(Extractor):
             logging.info("No event config found in config")
             return
 
-        while True:  # not self.stop_event.is_set():
+        while not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
             self.process_events()
