@@ -1,33 +1,33 @@
 import pytest
 import pandas as pd
-from cognite.client.data_classes import EventWrite
+from unittest.mock import patch, Mock
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
-from cognite.extractorutils.base import CancellationToken
-from cognite.extractorutils.statestore import LocalStateStore
+from cognite.client.data_classes import TimeSeriesWrite
+from cognite.client.exceptions import CogniteNotFoundError
 
+TEST_DATA_SET_ID = 123456789101112
 
-@pytest.fixture(scope="session")
-def extractor(config):
-    stop_event = CancellationToken()
-    extractor = CdfFabricExtractor(stop_event=stop_event)
-    extractor.config = config
-    extractor.client = extractor.config.cognite.get_cognite_client("test_extractor")
-    extractor.state_store = LocalStateStore(
-        extractor.config.extractor.state_store.local.path
+@pytest.fixture()
+def test_extractor():
+    extractor = CdfFabricExtractor(stop_event=Mock(), metrics=Mock())
+    extractor.config = Mock(
+        source=Mock(raw_time_series_path="/table/path"),
+        destination=Mock(time_series_prefix="test_prefix"),
     )
+    # These need to be mocked as they are not set in the constructor
+    extractor.cognite_client = Mock()
+    extractor.client = Mock()
+    extractor.state_store = Mock()
+    extractor.logger = Mock()
+    extractor.data_set_id = TEST_DATA_SET_ID
 
     yield extractor
 
 
-def test_parse_abfss_url(extractor):
-    url = "https://container@account.dfs.core.windows.net/path"
-    result = extractor.parse_abfss_url(url)
-    assert result == ("container", "account", "/path")
-
-
-def test_write_time_series_to_cdf(extractor, mocker):
-    data = {
-        "externalId": ["id1", "id2", "id1", "id2"],
+@pytest.fixture()
+def mock_timeseries_data():
+    return {
+        "externalId": ["id1", "id1", "id1", "id1"],
         "timestamp": [
             "2022-02-07T16:01:27.001Z",
             "2022-02-07T16:03:47.000Z",
@@ -36,131 +36,247 @@ def test_write_time_series_to_cdf(extractor, mocker):
         ],
         "value": [1.0, 2.0, 3.0, 4.0],
     }
-    df = pd.DataFrame(data)
 
-    mocker.patch.object(extractor.state_store, "get_state", return_value=(None,))
-    mocker.patch.object(
-        extractor.client.time_series.data, "insert_dataframe", return_value=None
+
+@pytest.fixture()
+def mock_service_client():
+    # File Object Mock
+    mock_file = Mock()
+    mock_file.is_directory = False
+    mock_file.name = (
+        "https://container@account.dfs.core.windows.net/Files/test_file.csv"
     )
-    mocker.patch(
-        "cdf_fabric_replicator.extractor.CdfFabricExtractor.set_state",
-        return_value=None,
+    mock_file.last_modified.timestamp.return_value = 1714798800
+    mock_file.creation_time.timestamp.return_value = 1714798800
+    # File Client Mock
+    mock_file_client = Mock()
+    mock_file_client.download_file.return_value = Mock(
+        readall=Mock(return_value=b"test_data")
     )
-
-    extractor.write_time_series_to_cdf(df)
-
-    for external_id in list(set(data["externalId"])):
-        extractor.state_store.get_state.assert_any_call(
-            f"/table/path-{external_id}-state"
-        )
-        extractor.set_state.assert_any_call(
-            f"/table/path-{external_id}-state",
-            df[df["externalId"] == external_id]["timestamp"].max(),
-        )
-
-    assert extractor.client.time_series.data.insert_dataframe.call_count == 2
+    # File System Client Mock
+    mock_file_system_client = Mock()
+    mock_file_system_client.get_file_client.return_value = mock_file_client
+    mock_file_system_client.get_paths.return_value = [mock_file]
+    # Service Client Mock
+    mock_service_client = Mock()
+    mock_service_client.get_file_system_client.return_value = mock_file_system_client
+    yield mock_service_client
 
 
-def test_write_time_series_to_cdf_filter_old_data_points(extractor, mocker):
-    LAST_UPDATE_TIME = "2022-02-07T16:03:47.000Z"
-
-    data = {
-        "externalId": ["id1", "id1", "id1", "id1"],
-        "timestamp": [
-            "2022-02-07T16:01:27.001Z",
-            LAST_UPDATE_TIME,
-            "2022-02-07T16:03:52.000Z",
-            "2022-02-07T16:04:12.000Z",
-        ],
-        "value": [1.0, 2.0, 3.0, 4.0],
+@pytest.fixture()
+def event_data():
+    return {
+        "externalId": ["event1", "event2"],
+        "startTime": [1633027200000, 1633113600000],  # Unix timestamp in milliseconds
+        "endTime": [1633028200000, 1633114600000],  # Unix timestamp in milliseconds
+        "type": ["type1", "type2"],
+        "subtype": ["subtype1", "subtype2"],
+        "metadata": [{"key1": "value1"}, {"key2": "value2"}],
+        "description": ["description1", "description2"],
+        "assetExternalIds": [["asset1", "asset2"], ["asset3", "asset4"]],
     }
-    df = pd.DataFrame(data)
 
-    mocker.patch.object(
-        extractor.state_store, "get_state", return_value=(LAST_UPDATE_TIME,)
-    )
-    mocker.patch.object(
-        extractor.client.time_series.data, "insert_dataframe", return_value=None
-    )
-    mocker.patch(
-        "cdf_fabric_replicator.extractor.CdfFabricExtractor.set_state",
-        return_value=None,
-    )
-
-    extractor.write_time_series_to_cdf(df)
-
-    expected_update_list = df[df["timestamp"] > LAST_UPDATE_TIME]
-
-    for external_id in list(set(data["externalId"])):
-        extractor.state_store.get_state.assert_any_call(
+def assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state=True):
+    for external_id in list(set(mock_timeseries_data["externalId"])):
+        test_extractor.state_store.get_state.assert_any_call(
             f"/table/path-{external_id}-state"
         )
-        extractor.set_state.assert_any_call(
-            f"/table/path-{external_id}-state",
-            df[df["externalId"] == external_id]["timestamp"].max(),
+        if set_state:
+            test_extractor.state_store.set_state.assert_any_call(
+                f"/table/path-{external_id}-state",
+                df[df["externalId"] == external_id]["timestamp"].max(),
+            )
+
+@pytest.mark.parametrize(
+    "raw_time_series_path, event_path, file_path, expected_calls",
+    [
+        ("table/timeseries_path", None, None, {"convert_lakehouse_data_to_df": 1, "write_time_series_to_cdf": 1}),
+        (None, "table/event_path", None, {"write_event_data_to_cdf": 1}),
+        (None, None, "files/file_path", {"upload_files_from_abfss": 1}),
+    ],
+)
+
+@patch("cdf_fabric_replicator.extractor.time.sleep")
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.upload_files_from_abfss")
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.write_event_data_to_cdf")
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.write_time_series_to_cdf")
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.convert_lakehouse_data_to_df")
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.run_extraction_pipeline")
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_statestore")
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_config")
+def test_extractor_run(
+    mock_get_current_config,
+    mock_get_current_statestore,
+    mock_run_extraction_pipeline,
+    mock_convert_lakehouse_data_to_df,
+    mock_write_time_series_to_cdf,
+    mock_write_event_data_to_cdf,
+    mock_upload_files_from_abfss,
+    mock_sleep,
+    test_extractor,
+    raw_time_series_path,
+    event_path,
+    file_path,
+    expected_calls,
+):
+    # Set up a config with source paths in order to trigger the various extractor methods
+    mock_get_current_config.return_value = Mock(
+        source=Mock(
+            data_set_id=str(TEST_DATA_SET_ID),
+            abfss_prefix="abfss_prefix",
+            raw_time_series_path=raw_time_series_path,
+            event_path=event_path,
+            file_path=file_path,
+        ),
+        destination=Mock(time_series_prefix="test_prefix"),
+    )
+    # Run the loop exactly once by setting the stop_event after the first run
+    test_extractor.stop_event.is_set.side_effect = [False, True]
+    test_extractor.azure_credential = Mock(
+        get_token=Mock(return_value=Mock(token="token"))
+    )
+
+    # Call the method under test
+    test_extractor.run()
+
+    # Assert that the state store was initialized, the extraction pipeline was run, and the sleep method was called
+    test_extractor.state_store.initialize.assert_called_once()
+    mock_run_extraction_pipeline.assert_called_once_with(status="seen")
+    mock_sleep.assert_called_once()
+
+    # Assert extractor methods were called
+    assert mock_convert_lakehouse_data_to_df.call_count == expected_calls.get("convert_lakehouse_data_to_df", 0)
+    assert mock_write_time_series_to_cdf.call_count == expected_calls.get("write_time_series_to_cdf", 0)
+    assert mock_write_event_data_to_cdf.call_count == expected_calls.get("write_event_data_to_cdf", 0)
+    assert mock_upload_files_from_abfss.call_count == expected_calls.get("upload_files_from_abfss", 0)
+
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_statestore")
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_config",return_value=Mock(source=None))
+def test_run_no_config_source(mock_config, mock_get_statestore, test_extractor):
+    test_extractor.run()
+    # Assert that an error was logged if no source path was provided
+    test_extractor.logger.error.assert_called_once_with("No source path or directory provided")
+
+@pytest.mark.parametrize(
+    "last_update_time_index, expected_insert_dataframe_call_count, expected_set_state_call_count, expected_create_call_count",
+    [
+        (None, 1, 1, 0),  # test_write_time_series_to_cdf_all_new_data_points
+        (1, 1, 1, 0),  # test_write_time_series_to_cdf_filter_old_data_points
+        (-1, 0, 0, 0),  # test_write_time_series_to_cdf_no_new_data_points
+    ],
+)
+def test_write_time_series_to_cdf(
+    test_extractor,
+    mock_timeseries_data,
+    last_update_time_index,
+    expected_insert_dataframe_call_count,
+    expected_set_state_call_count,
+    expected_create_call_count,
+):
+    # Create dataframe from test data
+    df = pd.DataFrame(mock_timeseries_data)
+
+    # Determine last update time based on the index
+    last_update_time = (
+        mock_timeseries_data["timestamp"][last_update_time_index]
+        if last_update_time_index is not None
+        else None
+    )
+
+    test_extractor.state_store.get_state.return_value = (last_update_time,)
+    test_extractor.state_store.set_state.return_value = None
+    test_extractor.client.time_series.data.insert_dataframe.return_value = None
+
+    # Call the method under test
+    test_extractor.write_time_series_to_cdf(df)
+
+    # Assert state store calls
+    assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state=expected_set_state_call_count > 0)
+
+    # Assert that the time series write was called the expected number of times
+    assert test_extractor.client.time_series.data.insert_dataframe.call_count == expected_insert_dataframe_call_count
+
+    # Assert that the time series create was called the expected number of times
+    assert test_extractor.client.time_series.create.call_count == expected_create_call_count
+
+def test_write_time_series_to_cdf_timeseries_not_found(
+    test_extractor, mock_timeseries_data
+):
+    # Create dataframe from test data
+    df = pd.DataFrame(mock_timeseries_data)
+
+    test_extractor.state_store.get_state.return_value = (None,)
+    test_extractor.state_store.set_state.return_value = None
+    # Mock Cognite API to raise a CogniteNotFoundError
+    test_extractor.client.time_series.data.insert_dataframe.side_effect = [
+        CogniteNotFoundError(not_found=[{"externalId": "id1"}])
+    ]
+
+    test_extractor.write_time_series_to_cdf(df)
+
+    assert_state_store_calls(test_extractor, df, mock_timeseries_data)
+
+    # Assert time series write was called for the missing time series
+    assert test_extractor.client.time_series.data.insert_dataframe.call_count == 1
+    test_extractor.client.time_series.create.assert_called_once_with(
+        TimeSeriesWrite(
+            external_id="id1",
+            is_string=True,
+            name="id1",
+            data_set_id=TEST_DATA_SET_ID,
         )
-
-    assert extractor.client.time_series.data.insert_dataframe.call_count == 1
-    assert len(
-        extractor.client.time_series.data.insert_dataframe.call_args_list[0]
-    ) == len(expected_update_list)
-
-
-def test_write_time_series_to_cdf_no_new_data_points(extractor, mocker):
-    LAST_UPDATE_TIME = "2022-02-07T16:04:12.000Z"
-
-    data = {
-        "externalId": ["id1", "id1", "id1", "id1"],
-        "timestamp": [
-            "2022-02-07T16:01:27.001Z",
-            "2022-02-07T16:03:47.000Z",
-            "2022-02-07T16:03:52.000Z",
-            LAST_UPDATE_TIME,
-        ],
-        "value": [1.0, 2.0, 3.0, 4.0],
-    }
-    df = pd.DataFrame(data)
-
-    mocker.patch.object(
-        extractor.state_store, "get_state", return_value=(LAST_UPDATE_TIME,)
     )
-    mocker.patch.object(
-        extractor.client.time_series.data, "insert_dataframe", return_value=None
-    )
+
+@pytest.mark.parametrize(
+    "last_update_time, expected_upsert_call_count, expected_run_extraction_pipeline_call_count",
+    [
+        (1, 1, 1),  # test_write_event_data_to_cdf_new_events
+        (2, 0, 0),  # test_write_event_data_to_cdf_no_new_events
+    ],
+)
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.run_extraction_pipeline")
+def test_write_event_data_to_cdf(
+    mock_run_extraction_pipeline, 
+    event_data, 
+    test_extractor, 
+    mocker, 
+    last_update_time, 
+    expected_upsert_call_count, 
+    expected_run_extraction_pipeline_call_count
+):
     mocker.patch(
-        "cdf_fabric_replicator.extractor.CdfFabricExtractor.set_state",
-        return_value=None,
+        "cdf_fabric_replicator.extractor.DeltaTable",
+        return_value=Mock(to_pandas=Mock(return_value=pd.DataFrame(data=event_data))),
     )
+    test_extractor.state_store.get_state.return_value = (last_update_time,)
 
-    extractor.write_time_series_to_cdf(df)
+    # Call the method under test
+    test_extractor.write_event_data_to_cdf("file_path", "token", "state_id")
 
-    for external_id in list(set(data["externalId"])):
-        extractor.state_store.get_state.assert_any_call(
-            f"/table/path-{external_id}-state"
-        )
+    # Assert that the upsert method was called the expected number of times
+    assert test_extractor.client.events.upsert.call_count == expected_upsert_call_count
 
-    extractor.client.time_series.data.insert_dataframe.assert_not_called()
-    extractor.set_state.assert_not_called()
+    # Assert that the run_extraction_pipeline method was called the expected number of times
+    assert mock_run_extraction_pipeline.call_count == expected_run_extraction_pipeline_call_count
 
 
-def test_write_event_data_to_cdf(extractor, mocker):
-    FILE_PATH = "test_file_path"
-    TOKEN = "test_token"
-    STATE_ID = "/table/path-state"
-
-    mocker.patch.object(
-        extractor, "convert_lakehouse_data_to_df", return_value=pd.DataFrame()
+def test_upload_files_from_abfss(mock_service_client, test_extractor, mocker):
+    url = "https://container@account.dfs.core.windows.net/Files"
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DataLakeServiceClient",
+        return_value=mock_service_client,
     )
-    mocker.patch.object(extractor.state_store, "get_state", return_value=(None,))
-    mocker.patch.object(extractor, "get_events", return_value=[EventWrite()])
-    mocker.patch.object(extractor.client.events, "upsert", return_value=None)
-    mocker.patch.object(extractor, "run_extraction_pipeline", return_value=None)
-    mocker.patch.object(extractor, "set_state", return_value=None)
+    test_extractor.state_store.get_state.return_value = (None,)
+    # Call the method under test
+    test_extractor.upload_files_from_abfss(url)
 
-    extractor.write_event_data_to_cdf(FILE_PATH, TOKEN, STATE_ID)
-
-    extractor.convert_lakehouse_data_to_df.assert_called_once_with(FILE_PATH, TOKEN)
-    extractor.state_store.get_state.assert_called_once_with(STATE_ID)
-    extractor.client.events.upsert.assert_called_once_with([EventWrite()])
-    extractor.run_extraction_pipeline.assert_called_once_with(status="success")
-    extractor.set_state.assert_called_once_with(STATE_ID, str(len(pd.DataFrame())))
+    # Assert that upload_bytes was called with the correct arguments
+    test_extractor.cognite_client.files.upload_bytes.assert_called_once_with(
+        content=b"test_data",
+        name="test_file.csv",
+        external_id="https://container@account.dfs.core.windows.net/Files/test_file.csv",
+        data_set_id=TEST_DATA_SET_ID,
+        source_created_time=int(1714798800000),
+        source_modified_time=int(1714798800000),
+        overwrite=True,
+    )

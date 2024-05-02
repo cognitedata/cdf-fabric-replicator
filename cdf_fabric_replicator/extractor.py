@@ -24,18 +24,24 @@ import pandas as pd
 
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
+from cdf_fabric_replicator.metrics import Metrics
 
 
 class CdfFabricExtractor(Extractor[Config]):
     def __init__(
-        self, stop_event: CancellationToken, name: str = "cdf_fabric_extractor"
+        self,
+        metrics: Metrics,
+        stop_event: CancellationToken,
+        name: str = "cdf_fabric_extractor",
     ) -> None:
         super().__init__(
             name=name,
             description="CDF Fabric Extractor",
             config_class=Config,
+            metrics=metrics,
             version=__version__,
         )
+        self.metrics = metrics
         self.azure_credential = DefaultAzureCredential()
         self.stop_event = stop_event
 
@@ -44,15 +50,16 @@ class CdfFabricExtractor(Extractor[Config]):
         self.client = self.config.cognite.get_cognite_client("cdf-fabric-extractor")
         self.state_store = self.get_current_statestore()
         self.state_store.initialize()
+        
+        if not self.config.source:
+            self.logger.error("No source path or directory provided")
+            return
+        
         self.data_set_id = (
             int(self.config.source.data_set_id)
             if self.config.source.data_set_id
             else None
         )
-
-        if not self.config.source:
-            self.logger.error("No source path or directory provided")
-            return
 
         while self.stop_event.is_set() is False:
             token = self.azure_credential.get_token(
