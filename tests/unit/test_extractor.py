@@ -6,6 +6,7 @@ from cognite.client.data_classes import TimeSeriesWrite
 from cognite.client.exceptions import CogniteNotFoundError
 
 TEST_DATA_SET_ID = 123456789101112
+FILE_TIME = 1714798800
 
 @pytest.fixture()
 def test_extractor():
@@ -46,8 +47,8 @@ def mock_service_client():
     mock_file.name = (
         "https://container@account.dfs.core.windows.net/Files/test_file.csv"
     )
-    mock_file.last_modified.timestamp.return_value = 1714798800
-    mock_file.creation_time.timestamp.return_value = 1714798800
+    mock_file.last_modified.timestamp.return_value = FILE_TIME
+    mock_file.creation_time.timestamp.return_value = FILE_TIME
     # File Client Mock
     mock_file_client = Mock()
     mock_file_client.download_file.return_value = Mock(
@@ -276,7 +277,7 @@ def test_upload_files_from_abfss(mock_service_client, test_extractor, mocker):
         name="test_file.csv",
         external_id="https://container@account.dfs.core.windows.net/Files/test_file.csv",
         data_set_id=TEST_DATA_SET_ID,
-        source_created_time=int(1714798800000),
-        source_modified_time=int(1714798800000),
+        source_created_time=int(FILE_TIME*1000),
+        source_modified_time=int(FILE_TIME*1000),
         overwrite=True,
     )
