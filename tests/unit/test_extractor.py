@@ -8,6 +8,7 @@ from cognite.client.exceptions import CogniteNotFoundError
 TEST_DATA_SET_ID = 123456789101112
 FILE_TIME = 1714798800
 
+
 @pytest.fixture()
 def test_extractor():
     extractor = CdfFabricExtractor(stop_event=Mock(), metrics=Mock())
@@ -77,6 +78,7 @@ def event_data():
         "assetExternalIds": [["asset1", "asset2"], ["asset3", "asset4"]],
     }
 
+
 def assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state=True):
     for external_id in list(set(mock_timeseries_data["externalId"])):
         test_extractor.state_store.get_state.assert_any_call(
@@ -88,20 +90,27 @@ def assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state
                 df[df["externalId"] == external_id]["timestamp"].max(),
             )
 
+
 @pytest.mark.parametrize(
     "raw_time_series_path, event_path, file_path, expected_calls",
     [
-        ("table/timeseries_path", None, None, {"convert_lakehouse_data_to_df": 1, "write_time_series_to_cdf": 1}),
+        (
+            "table/timeseries_path",
+            None,
+            None,
+            {"convert_lakehouse_data_to_df": 1, "write_time_series_to_cdf": 1},
+        ),
         (None, "table/event_path", None, {"write_event_data_to_cdf": 1}),
         (None, None, "files/file_path", {"upload_files_from_abfss": 1}),
     ],
 )
-
 @patch("cdf_fabric_replicator.extractor.time.sleep")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.upload_files_from_abfss")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.write_event_data_to_cdf")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.write_time_series_to_cdf")
-@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.convert_lakehouse_data_to_df")
+@patch(
+    "cdf_fabric_replicator.extractor.CdfFabricExtractor.convert_lakehouse_data_to_df"
+)
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.run_extraction_pipeline")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_statestore")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_config")
@@ -146,17 +155,32 @@ def test_extractor_run(
     mock_sleep.assert_called_once()
 
     # Assert extractor methods were called
-    assert mock_convert_lakehouse_data_to_df.call_count == expected_calls.get("convert_lakehouse_data_to_df", 0)
-    assert mock_write_time_series_to_cdf.call_count == expected_calls.get("write_time_series_to_cdf", 0)
-    assert mock_write_event_data_to_cdf.call_count == expected_calls.get("write_event_data_to_cdf", 0)
-    assert mock_upload_files_from_abfss.call_count == expected_calls.get("upload_files_from_abfss", 0)
+    assert mock_convert_lakehouse_data_to_df.call_count == expected_calls.get(
+        "convert_lakehouse_data_to_df", 0
+    )
+    assert mock_write_time_series_to_cdf.call_count == expected_calls.get(
+        "write_time_series_to_cdf", 0
+    )
+    assert mock_write_event_data_to_cdf.call_count == expected_calls.get(
+        "write_event_data_to_cdf", 0
+    )
+    assert mock_upload_files_from_abfss.call_count == expected_calls.get(
+        "upload_files_from_abfss", 0
+    )
+
 
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_statestore")
-@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_config",return_value=Mock(source=None))
+@patch(
+    "cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_config",
+    return_value=Mock(source=None),
+)
 def test_run_no_config_source(mock_config, mock_get_statestore, test_extractor):
     test_extractor.run()
     # Assert that an error was logged if no source path was provided
-    test_extractor.logger.error.assert_called_once_with("No source path or directory provided")
+    test_extractor.logger.error.assert_called_once_with(
+        "No source path or directory provided"
+    )
+
 
 @pytest.mark.parametrize(
     "last_update_time_index, expected_insert_dataframe_call_count, expected_set_state_call_count, expected_create_call_count",
@@ -192,13 +216,25 @@ def test_write_time_series_to_cdf(
     test_extractor.write_time_series_to_cdf(df)
 
     # Assert state store calls
-    assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state=expected_set_state_call_count > 0)
+    assert_state_store_calls(
+        test_extractor,
+        df,
+        mock_timeseries_data,
+        set_state=expected_set_state_call_count > 0,
+    )
 
     # Assert that the time series write was called the expected number of times
-    assert test_extractor.client.time_series.data.insert_dataframe.call_count == expected_insert_dataframe_call_count
+    assert (
+        test_extractor.client.time_series.data.insert_dataframe.call_count
+        == expected_insert_dataframe_call_count
+    )
 
     # Assert that the time series create was called the expected number of times
-    assert test_extractor.client.time_series.create.call_count == expected_create_call_count
+    assert (
+        test_extractor.client.time_series.create.call_count
+        == expected_create_call_count
+    )
+
 
 def test_write_time_series_to_cdf_timeseries_not_found(
     test_extractor, mock_timeseries_data
@@ -228,6 +264,7 @@ def test_write_time_series_to_cdf_timeseries_not_found(
         )
     )
 
+
 @pytest.mark.parametrize(
     "last_update_time, expected_upsert_call_count, expected_run_extraction_pipeline_call_count",
     [
@@ -237,13 +274,13 @@ def test_write_time_series_to_cdf_timeseries_not_found(
 )
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.run_extraction_pipeline")
 def test_write_event_data_to_cdf(
-    mock_run_extraction_pipeline, 
-    event_data, 
-    test_extractor, 
-    mocker, 
-    last_update_time, 
-    expected_upsert_call_count, 
-    expected_run_extraction_pipeline_call_count
+    mock_run_extraction_pipeline,
+    event_data,
+    test_extractor,
+    mocker,
+    last_update_time,
+    expected_upsert_call_count,
+    expected_run_extraction_pipeline_call_count,
 ):
     mocker.patch(
         "cdf_fabric_replicator.extractor.DeltaTable",
@@ -258,7 +295,10 @@ def test_write_event_data_to_cdf(
     assert test_extractor.client.events.upsert.call_count == expected_upsert_call_count
 
     # Assert that the run_extraction_pipeline method was called the expected number of times
-    assert mock_run_extraction_pipeline.call_count == expected_run_extraction_pipeline_call_count
+    assert (
+        mock_run_extraction_pipeline.call_count
+        == expected_run_extraction_pipeline_call_count
+    )
 
 
 def test_upload_files_from_abfss(mock_service_client, test_extractor, mocker):
@@ -277,7 +317,7 @@ def test_upload_files_from_abfss(mock_service_client, test_extractor, mocker):
         name="test_file.csv",
         external_id="https://container@account.dfs.core.windows.net/Files/test_file.csv",
         data_set_id=TEST_DATA_SET_ID,
-        source_created_time=int(FILE_TIME*1000),
-        source_modified_time=int(FILE_TIME*1000),
+        source_created_time=int(FILE_TIME * 1000),
+        source_modified_time=int(FILE_TIME * 1000),
         overwrite=True,
     )

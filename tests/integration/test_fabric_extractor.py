@@ -30,7 +30,9 @@ from tests.integration.integration_steps.fabric_steps import (
 @pytest.fixture(scope="session")
 def test_extractor():
     stop_event = CancellationToken()
-    extractor = CdfFabricExtractor(metrics=safe_get(Metrics), stop_event=stop_event, name="conftest")
+    extractor = CdfFabricExtractor(
+        metrics=safe_get(Metrics), stop_event=stop_event, name="conftest"
+    )
     extractor._initial_load_config(override_path=os.environ["TEST_CONFIG_PATH"])
     extractor.client = extractor.config.cognite.get_cognite_client(extractor.name)
     extractor.cognite_client = extractor.config.cognite.get_cognite_client(
