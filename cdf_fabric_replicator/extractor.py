@@ -1,4 +1,3 @@
-import time
 import logging
 
 from urllib.parse import urlparse
@@ -93,7 +92,7 @@ class CdfFabricExtractor(Extractor[Config]):
                 )
 
             self.logger.debug("Sleep for 5 seconds")
-            time.sleep(5)
+            self.stop_event.wait(5)
 
         self.logger.info("Stop event set. Exiting...")
 

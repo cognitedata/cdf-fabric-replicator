@@ -123,10 +123,8 @@ class TestTimeSeriesReplicator:
     @patch(
         "cdf_fabric_replicator.time_series.TimeSeriesReplicator.process_subscriptions"
     )
-    @patch("cdf_fabric_replicator.time_series.time.sleep")
     def test_run(
         self,
-        mock_sleep,
         mock_process_subscriptions,
         mock_autocreate,
         mock_subscription,
@@ -154,13 +152,14 @@ class TestTimeSeriesReplicator:
             [mock_subscription],
             test_timeseries_replicator.cognite_client,
             test_timeseries_replicator.name,
+            test_timeseries_replicator.logger,
         )
 
         # Check that process_subscriptions is called
         mock_process_subscriptions.assert_called_once()
 
         # Check that sleep is called
-        mock_sleep.assert_called_once()
+        test_timeseries_replicator.stop_event.wait.assert_called_once()
 
         # Check that extraction_pipelines.runs.create is called
         test_timeseries_replicator.cognite_client.extraction_pipelines.runs.create.assert_called_once()
@@ -402,7 +401,6 @@ class TestTimeSeriesReplicator:
     @patch("cdf_fabric_replicator.time_series.logging")
     def test_send_time_series_to_lakehouse_table_error(
         self,
-        mock_logger,
         mock_write_pd_to_deltalake,
         mock_subscription,
         test_timeseries_replicator,
@@ -426,7 +424,7 @@ class TestTimeSeriesReplicator:
         mock_write_pd_to_deltalake.assert_not_called()
 
         # Check that an error message was logged
-        mock_logger.error.assert_called_once()
+        test_timeseries_replicator.logger.error.assert_called_once()
 
     def test_convert_updates_to_pandasdf_when_not_null(
         self, mock_datapoints_update, datapoints_dataframe, test_timeseries_replicator

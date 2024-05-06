@@ -92,7 +92,7 @@ class TimeSeriesReplicator(Extractor):
             )  # 900s = 15min
             if sleep_time > 0:
                 self.logger.debug(f"Sleep for {sleep_time} seconds")
-                time.sleep(sleep_time)
+                self.stop_event.wait(sleep_time)
 
         self.logger.info("Stop event set. Exiting...")
 
