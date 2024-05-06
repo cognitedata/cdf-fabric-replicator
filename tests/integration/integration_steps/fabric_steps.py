@@ -168,7 +168,9 @@ def parse_abfss_url(url: str) -> tuple[str, str, str]:
     parsed_url = urlparse(url)
 
     if "@" not in parsed_url.netloc or "." not in parsed_url.netloc:
-        raise ValueError("URL is not in the expected format.  Expected format is abfss://<workspace>@onelake.dfs.fabric.microsoft.com/<lakehouse>")
+        raise ValueError(
+            "URL is not in the expected format.  Expected format is abfss://<workspace>@onelake.dfs.fabric.microsoft.com/<lakehouse>"
+        )
 
     container_id = parsed_url.netloc.split("@")[0]
     account_name = parsed_url.netloc.split("@")[1].split(".")[0]
