@@ -15,7 +15,7 @@ Set your test environment variables in a `.env` file.  The integration tests wil
 
 ### VS Code Test Explorer
 Tests can run using the test explorer in VS Code.  To set up the test explorer, ensure you have the Python extension installed in VS Code and follow the instructions under [configure tests](https://code.visualstudio.com/docs/python/testing#_configure-tests) in the VS Code docs, configuring tests using the Pytest framework.  Your test setup should look like this:
-
+![VS Code Test Explorer](./images/testexplorer.png)
 Running tests using the explorer allows you to debug tests and easily manage which tests to run.  Ensure that the tests also run using `poetry` before pushing commits.
 ### Poetry
 `poetry` can be used to run the tests in addition to running the replicator itself.  Run all commands at the project root.  These are the important poetry commands to know:
