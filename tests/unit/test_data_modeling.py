@@ -316,7 +316,9 @@ def replicator_config(mock_data_modeling_config):
 
 
 class TestDataModelingReplicator:
-    def test_run(self, mock_data_modeling_config, test_data_modeling_replicator):
+    
+    @patch('cdf_fabric_replicator.data_modeling.time.sleep')
+    def test_run(self, mock_sleep, mock_data_modeling_config, test_data_modeling_replicator):
         # Mock the stop_event.is_set response to only run replicator once
         test_data_modeling_replicator.stop_event.is_set.side_effect = [
             False,
@@ -470,18 +472,8 @@ class TestDataModelingReplicator:
         assert result_query == edge_query
 
     def test_write_instance_to_lakehouse(
-        self, mock_data_modeling_config, node_view_query, test_data_modeling_replicator
+        self, mock_data_modeling_config, query_result_nodes, query_result_empty, node_view_query, test_data_modeling_replicator
     ):
-        test_node = Node(
-            space="test_space",
-            external_id="test_id",
-            version="test_version",
-            last_updated_time=12345600,
-            created_time=12345600,
-            deleted_time=12378900,
-            type=None,
-            properties={"prop1": "value1", "prop2": "value2"},
-        )
         test_data_modeling_replicator.state_store.get_state.return_value = [
             None,
             '{"cursor" : "test_cursor"}',
@@ -491,13 +483,8 @@ class TestDataModelingReplicator:
 
         # Mock two responses for instance sync, first with node data second without
         test_data_modeling_replicator.cognite_client.data_modeling.instances.sync.side_effect = [
-            QueryResult(
-                nodes=NodeListWithCursor(
-                    resources=[test_node],
-                    cursor=None,
-                )
-            ),
-            QueryResult(),
+            query_result_nodes,
+            query_result_empty,
         ]
 
         # Call the method under test
@@ -511,12 +498,7 @@ class TestDataModelingReplicator:
         test_data_modeling_replicator.send_to_lakehouse.assert_any_call(
             data_model_config=mock_data_modeling_config,
             state_id="state_test_space_test_id_test_version",
-            result=QueryResult(
-                nodes=NodeListWithCursor(
-                    resources=[test_node],
-                    cursor={"cursor": "test_cursor"},
-                )
-            ),
+            result=query_result_nodes,
         )
 
     def test_get_instances_null(
@@ -603,31 +585,11 @@ class TestDataModelingReplicator:
     )
     @patch("cdf_fabric_replicator.data_modeling.write_deltalake")
     def test_write_instances_to_lakehouse_tables(
-        self, mock_deltalake_write, mock_token, test_data_modeling_replicator
+        self, mock_deltalake_write, mock_token, expected_node_instance, test_data_modeling_replicator
     ):
-        test_data = [
-            {
-                "space": "test_space",
-                "instanceType": "node",
-                "externalId": "id1",
-                "version": 1,
-                "lastUpdatedTime": 12345600,
-                "createdTime": 12345600,
-                "prop1": "value1",
-            },
-            {
-                "space": "test_space",
-                "instanceType": "node",
-                "externalId": "id2",
-                "version": 1,
-                "lastUpdatedTime": 12345600,
-                "createdTime": 12345600,
-                "prop1": "value1",
-            },
-        ]
-        pyarrow_data = pa.Table.from_pylist(test_data)
+        pyarrow_data = pa.Table.from_pylist(expected_node_instance["test_space_test_view"])
         test_data_modeling_replicator.write_instances_to_lakehouse_tables(
-            {"test_space_test_view": test_data},
+            expected_node_instance,
             "test_abfss_prefix",
         )
         mock_token.assert_called_once()
