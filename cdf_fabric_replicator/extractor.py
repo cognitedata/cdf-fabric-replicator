@@ -62,7 +62,6 @@ class CdfFabricExtractor(Extractor[Config]):
             else None
         )
 
-        while self.stop_event.is_set() is False:
         self.logger.debug(f"Current Extractor Config: {self.config.extractor}")
 
         if not self.config.source:

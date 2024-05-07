@@ -104,7 +104,6 @@ def assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state
         (None, None, "files/file_path", {"upload_files_from_abfss": 1}),
     ],
 )
-@patch("cdf_fabric_replicator.extractor.time.sleep")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.upload_files_from_abfss")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.write_event_data_to_cdf")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.write_time_series_to_cdf")
@@ -122,7 +121,6 @@ def test_extractor_run(
     mock_write_time_series_to_cdf,
     mock_write_event_data_to_cdf,
     mock_upload_files_from_abfss,
-    mock_sleep,
     test_extractor,
     raw_time_series_path,
     event_path,
@@ -152,7 +150,6 @@ def test_extractor_run(
     # Assert that the state store was initialized, the extraction pipeline was run, and the sleep method was called
     test_extractor.state_store.initialize.assert_called_once()
     mock_run_extraction_pipeline.assert_called_once_with(status="seen")
-    mock_sleep.assert_called_once()
 
     # Assert extractor methods were called
     assert mock_convert_lakehouse_data_to_df.call_count == expected_calls.get(
