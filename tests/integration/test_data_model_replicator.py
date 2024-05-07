@@ -65,7 +65,11 @@ def test_space(test_config, cognite_client: CogniteClient):
 
 
 @pytest.fixture(scope="function")
-def test_model(cognite_client: CogniteClient, test_space: Space):
+def test_model(
+    cognite_client: CogniteClient,
+    test_space: Space,
+    test_data_modeling_replicator: DataModelingReplicator,
+):
     test_dml = (RESOURCES / "movie_model.graphql").read_text()
     movie_id = DataModelId(space=test_space.space, external_id="Movie", version="1")
     created = cognite_client.data_modeling.graphql.apply_dml(
@@ -89,6 +93,13 @@ def test_model(cognite_client: CogniteClient, test_space: Space):
         cognite_client.data_modeling.containers.delete(
             (test_space.space, view.external_id)
         )
+        test_data_modeling_replicator.state_store.delete_state(
+            f"state_{test_space.space}_{view.external_id}_{view.version}"
+        )
+    test_data_modeling_replicator.state_store.delete_state(
+        f"state_{test_space.space}_edges"
+    )
+    test_data_modeling_replicator.state_store.synchronize()
 
 
 @pytest.fixture(scope="function")
@@ -303,6 +314,7 @@ def test_data_model_sync_service_creation(
 
 def test_data_model_sync_service_update(
     test_data_modeling_replicator,
+    instance_table_paths,
     updated_node_list,
     node_list,
     edge_list,
