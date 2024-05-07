@@ -112,7 +112,12 @@ def test_csv_file_path(test_extractor, azure_credential, cognite_client):
         test_extractor.config.source.file_path,
         azure_credential,
     )
-    remove_file_from_cdf(cognite_client, TEST_FILE_NAME)
+    remove_file_from_cdf(
+        cognite_client,
+        TEST_FILE_NAME,
+        test_extractor.config.source.abfss_prefix,
+        test_extractor.config.source.file_path,
+    )
 
 
 # Test for Timeseries Extractor service between CDF and Fabric
@@ -158,4 +163,10 @@ def test_extractor_abfss_file_upload(
     )
 
     # Assert that the file is available in CDF
-    assert assert_file_in_cdf(cognite_client, TEST_FILE_NAME, CDF_RETRIES)
+    assert assert_file_in_cdf(
+        cognite_client,
+        TEST_FILE_NAME,
+        test_extractor.config.source.abfss_prefix,
+        test_extractor.config.source.file_path,
+        CDF_RETRIES,
+    )

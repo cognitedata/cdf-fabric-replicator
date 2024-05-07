@@ -335,10 +335,17 @@ def remove_events_from_cdf(cognite_client: CogniteClient, events: List[EventWrit
     )
 
 
-def assert_file_in_cdf(cognite_client: CogniteClient, file_name: str, retries: int):
+def assert_file_in_cdf(
+    cognite_client: CogniteClient,
+    file_name: str,
+    abfss_prefix: str,
+    file_path: str,
+    retries: int,
+):
+    file_external_id = "/" + abfss_prefix.split("/")[-1] + f"/{file_path}/" + file_name
     for _ in range(retries):
-        res = cognite_client.files.search(name=file_name)
-        if len(res.data) == 1:
+        res = cognite_client.files.retrieve(external_id=file_external_id)
+        if res is not None:
             print("File found in CDF")
             return True
         print(f"File not found in CDF, retrying...(attempt {_+1}/{retries})")
@@ -346,8 +353,11 @@ def assert_file_in_cdf(cognite_client: CogniteClient, file_name: str, retries: i
     return False
 
 
-def remove_file_from_cdf(cognite_client: CogniteClient, file_name: str):
-    res = cognite_client.files.search(name=file_name)
-    if len(res.data) == 1:
-        return cognite_client.files.delete(id=res.data[0].id)
+def remove_file_from_cdf(
+    cognite_client: CogniteClient, file_name: str, abfss_prefix: str, file_path: str
+):
+    file_external_id = "/" + abfss_prefix.split("/")[-1] + f"/{file_path}/" + file_name
+    res = cognite_client.files.retrieve(external_id=file_external_id)
+    if res is not None:
+        return cognite_client.files.delete(external_id=file_external_id)
     return None
