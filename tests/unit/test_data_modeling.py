@@ -21,11 +21,14 @@ from cognite.client.data_classes.data_modeling.query import (
     EdgeResultSetExpression,
 )
 from cognite.client.data_classes.filters import HasData, Equals
+from cognite.client.exceptions import CogniteAPIError
+from deltalake.exceptions import DeltaError
 
 
 @pytest.fixture
 def test_data_modeling_replicator():
     replicator = DataModelingReplicator(metrics=Mock(), stop_event=Mock())
+    replicator.logger = Mock()
     replicator.cognite_client = Mock()
     replicator.config = Mock()
     replicator.state_store = Mock()
@@ -316,9 +319,10 @@ def replicator_config(mock_data_modeling_config):
 
 
 class TestDataModelingReplicator:
-    
-    @patch('cdf_fabric_replicator.data_modeling.time.sleep')
-    def test_run(self, mock_sleep, mock_data_modeling_config, test_data_modeling_replicator):
+    @patch("cdf_fabric_replicator.data_modeling.time.sleep")
+    def test_run(
+        self, mock_sleep, mock_data_modeling_config, test_data_modeling_replicator
+    ):
         # Mock the stop_event.is_set response to only run replicator once
         test_data_modeling_replicator.stop_event.is_set.side_effect = [
             False,
@@ -375,6 +379,21 @@ class TestDataModelingReplicator:
         test_data_modeling_replicator.process_instances.assert_any_call(
             mock_data_modeling_config, "state_test_space_edges"
         )
+
+    def test_process_spaces_cognite_error(
+        self, mock_data_modeling_config, test_data_modeling_replicator
+    ):
+        # Mock the data_modeling config
+        test_data_modeling_replicator.config.data_modeling = [mock_data_modeling_config]
+        # Raise CogniteAPIError as from views.list
+        test_data_modeling_replicator.cognite_client.data_modeling.views.list.side_effect = CogniteAPIError(
+            message="test_error", code=500
+        )
+        # Call the method under test and assert it raises CogniteAPIError
+        with pytest.raises(CogniteAPIError):
+            test_data_modeling_replicator.process_spaces()
+        # Assert that logger.error was called
+        test_data_modeling_replicator.logger.error.assert_called_once()
 
     def test_process_instances_with_view(
         self, mock_data_modeling_config, mock_view, test_data_modeling_replicator
@@ -472,7 +491,12 @@ class TestDataModelingReplicator:
         assert result_query == edge_query
 
     def test_write_instance_to_lakehouse(
-        self, mock_data_modeling_config, query_result_nodes, query_result_empty, node_view_query, test_data_modeling_replicator
+        self,
+        mock_data_modeling_config,
+        query_result_nodes,
+        query_result_empty,
+        node_view_query,
+        test_data_modeling_replicator,
     ):
         test_data_modeling_replicator.state_store.get_state.return_value = [
             None,
@@ -500,6 +524,63 @@ class TestDataModelingReplicator:
             state_id="state_test_space_test_id_test_version",
             result=query_result_nodes,
         )
+
+    def test_write_instance_to_lakehouse_instance_sync_errors(
+        self,
+        mock_data_modeling_config,
+        node_view_query,
+        test_data_modeling_replicator,
+    ):
+        test_data_modeling_replicator.state_store.get_state.return_value = [
+            None,
+            '{"cursor" : "test_cursor"}',
+        ]
+        # Raise CogniteAPIError from instances.sync
+        test_data_modeling_replicator.cognite_client.data_modeling.instances.sync.side_effect = [
+            CogniteAPIError(message="test_error", code=500),
+            CogniteAPIError(message="test_error", code=500),
+        ]
+
+        # Call the method under test and assert it raises CogniteAPIError
+        with pytest.raises(CogniteAPIError):
+            test_data_modeling_replicator.write_instance_to_lakehouse(
+                mock_data_modeling_config,
+                "state_test_space_test_id_test_version",
+                node_view_query,
+            )
+        # Assert that logger.error was called
+        test_data_modeling_replicator.logger.error.assert_called_once()
+
+    def test_write_instance_to_lakehouse_instance_sync_errors_after_send(
+        self,
+        mock_data_modeling_config,
+        query_result_nodes,
+        node_view_query,
+        test_data_modeling_replicator,
+    ):
+        test_data_modeling_replicator.state_store.get_state.return_value = [
+            None,
+            '{"cursor" : "test_cursor"}',
+        ]
+        # Mock send_to_lakehouse
+        test_data_modeling_replicator.send_to_lakehouse = Mock()
+
+        # Raise CogniteAPIError from instances.sync after a success
+        test_data_modeling_replicator.cognite_client.data_modeling.instances.sync.side_effect = [
+            query_result_nodes,
+            CogniteAPIError(message="test_error", code=500),
+            CogniteAPIError(message="test_error", code=500),
+        ]
+
+        # Call the method under test and assert it raises CogniteAPIError
+        with pytest.raises(CogniteAPIError):
+            test_data_modeling_replicator.write_instance_to_lakehouse(
+                mock_data_modeling_config,
+                "state_test_space_test_id_test_version",
+                node_view_query,
+            )
+        # Assert that logger.error was called
+        test_data_modeling_replicator.logger.error.assert_called_once()
 
     def test_get_instances_null(
         self, query_result_empty, test_data_modeling_replicator
@@ -585,9 +666,15 @@ class TestDataModelingReplicator:
     )
     @patch("cdf_fabric_replicator.data_modeling.write_deltalake")
     def test_write_instances_to_lakehouse_tables(
-        self, mock_deltalake_write, mock_token, expected_node_instance, test_data_modeling_replicator
+        self,
+        mock_deltalake_write,
+        mock_token,
+        expected_node_instance,
+        test_data_modeling_replicator,
     ):
-        pyarrow_data = pa.Table.from_pylist(expected_node_instance["test_space_test_view"])
+        pyarrow_data = pa.Table.from_pylist(
+            expected_node_instance["test_space_test_view"]
+        )
         test_data_modeling_replicator.write_instances_to_lakehouse_tables(
             expected_node_instance,
             "test_abfss_prefix",
@@ -604,3 +691,26 @@ class TestDataModelingReplicator:
                 "use_fabric_endpoint": "true",
             },
         )
+
+    @patch(
+        "cdf_fabric_replicator.data_modeling.DefaultAzureCredential.get_token",
+        return_value=Mock(token="test_token"),
+    )
+    @patch("cdf_fabric_replicator.data_modeling.write_deltalake")
+    def test_write_instances_to_lakehouse_tables_delta_error(
+        self,
+        mock_deltalake_write,
+        mock_token,
+        expected_node_instance,
+        test_data_modeling_replicator,
+    ):
+        # Raise DeltaError from write_deltalake
+        mock_deltalake_write.side_effect = DeltaError()
+        # Call the method under test and assert it raises DeltaError
+        with pytest.raises(DeltaError):
+            test_data_modeling_replicator.write_instances_to_lakehouse_tables(
+                expected_node_instance,
+                "test_abfss_prefix",
+            )
+        # Assert that logger.error was called
+        test_data_modeling_replicator.logger.error.assert_called_once()
