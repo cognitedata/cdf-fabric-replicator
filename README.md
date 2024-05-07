@@ -177,6 +177,12 @@ Before you can push an image to your ACR, you need to tag it with the login serv
 docker tag <MyImageName>:latest <myregistry>.azurecr.io/<MyImageName>:latest
 ```
 
+Next, log in to your ACR:
+
+```bash
+az acr login --name <myregistry>
+```
+
 Finally, push your image to your ACR instance:
 
 ```bash
