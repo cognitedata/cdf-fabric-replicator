@@ -19,6 +19,7 @@ from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.base import Extractor
 
 from azure.identity import DefaultAzureCredential
+from deltalake.exceptions import DeltaError
 from deltalake import write_deltalake
 import pyarrow as pa
 
@@ -43,13 +44,16 @@ class DataModelingReplicator(Extractor):
         self.endpoint_source_map: Dict[str, Any] = {}
         self.errors: List[str] = []
         self.azure_credential = DefaultAzureCredential()
+        self.logger = logging.getLogger(self.name)
 
     def run(self) -> None:
         # init/connect to destination
         self.state_store.initialize()
 
+        self.logger.debug(f"Current Data Modeling Config: {self.config.data_modeling}")
+
         if self.config.data_modeling is None:
-            logging.info("No data modeling spaces found in config")
+            self.logger.info("No data modeling spaces found in config")
             return
 
         while not self.stop_event.is_set():
@@ -63,14 +67,23 @@ class DataModelingReplicator(Extractor):
                 self.config.extractor.poll_time - elapsed_time, 0
             )  # 900s = 15min
             if sleep_time > 0:
-                logging.debug(f"Sleep for {sleep_time} seconds")
-                time.sleep(sleep_time)
+                self.logger.debug(f"Sleep for {sleep_time} seconds")
+                self.stop_event.wait(sleep_time)
+
+        self.logger.info("Stop event set. Exiting...")
 
     def process_spaces(self) -> None:
         for data_model_config in self.config.data_modeling:
-            all_views = self.cognite_client.data_modeling.views.list(
-                space=data_model_config.space, limit=-1
-            )
+            try:
+                all_views = self.cognite_client.data_modeling.views.list(
+                    space=data_model_config.space, limit=-1
+                )
+            except CogniteAPIError as e:
+                self.logger.error(
+                    f"Failed to list views for space {data_model_config.space}. Error: {e}"
+                )
+                raise e
+
             views_dict = all_views.dump()
 
             for view in views_dict:
@@ -151,7 +164,11 @@ class DataModelingReplicator(Extractor):
             res = self.cognite_client.data_modeling.instances.sync(query=query)
         except CogniteAPIError:
             query.cursors = None  # type: ignore
-            res = self.cognite_client.data_modeling.instances.sync(query=query)
+            try:
+                res = self.cognite_client.data_modeling.instances.sync(query=query)
+            except CogniteAPIError as e:
+                self.logger.error(f"Failed to sync instances. Error: {e}")
+                raise e
 
         self.send_to_lakehouse(
             data_model_config=data_model_config, state_id=state_id, result=res
@@ -166,7 +183,11 @@ class DataModelingReplicator(Extractor):
                 res = self.cognite_client.data_modeling.instances.sync(query=query)
             except CogniteAPIError:
                 query.cursors = None  # type: ignore
-                res = self.cognite_client.data_modeling.instances.sync(query=query)
+                try:
+                    res = self.cognite_client.data_modeling.instances.sync(query=query)
+                except CogniteAPIError as e:
+                    self.logger.error(f"Failed to sync instances. Error: {e}")
+                    raise e
 
             self.send_to_lakehouse(
                 data_model_config=data_model_config, state_id=state_id, result=res
@@ -181,7 +202,7 @@ class DataModelingReplicator(Extractor):
         state_id: str,
         result: QueryResult,
     ) -> None:
-        logging.debug(f"Ingest to lakehouse {state_id}")
+        self.logger.debug(f"Ingest to lakehouse {state_id}")
 
         nodes = self.get_instances(result, is_edge=False)
         edges = self.get_instances(result, is_edge=True)
@@ -249,17 +270,23 @@ class DataModelingReplicator(Extractor):
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
         for table in instances:
             abfss_path = f"{abfss_prefix}/Tables/{table}"
-            logging.info(f"Writing {len(instances[table])} to '{abfss_path}' table...")
-            data = pa.Table.from_pylist(instances[table])
-            write_deltalake(
-                abfss_path,
-                data,
-                engine="rust",
-                mode="append",
-                schema_mode="merge",
-                storage_options={
-                    "bearer_token": token.token,
-                    "use_fabric_endpoint": "true",
-                },
+            self.logger.info(
+                f"Writing {len(instances[table])} to '{abfss_path}' table..."
             )
-            logging.info("done.")
+            data = pa.Table.from_pylist(instances[table])
+            try:
+                write_deltalake(
+                    abfss_path,
+                    data,
+                    engine="rust",
+                    mode="append",
+                    schema_mode="merge",
+                    storage_options={
+                        "bearer_token": token.token,
+                        "use_fabric_endpoint": "true",
+                    },
+                )
+            except DeltaError as e:
+                self.logger.error(f"Error writing instances to lakehouse tables: {e}")
+                raise e
+            self.logger.info("done.")
