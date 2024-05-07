@@ -9,7 +9,10 @@ from cdf_fabric_replicator.config import SubscriptionsConfig
 
 
 def autocreate_subscription(
-    subscriptions: List[SubscriptionsConfig], cognite_client: CogniteClient, name: str
+    subscriptions: List[SubscriptionsConfig],
+    cognite_client: CogniteClient,
+    name: str,
+    logger: logging.Logger,
 ) -> None:
     first_subscription = subscriptions[0]
 
@@ -26,13 +29,18 @@ def autocreate_subscription(
                 first_subscription.external_id,
                 name,
                 len(first_subscription.partitions),
+                logger,
             )
 
 
 def create_subscription(
-    cognite_client: CogniteClient, external_id: str, name: str, num_partitions: int
+    cognite_client: CogniteClient,
+    external_id: str,
+    name: str,
+    num_partitions: int,
+    logger: logging.Logger,
 ) -> None:
-    logging.debug(f"Subscription {external_id} not found. Creating subscription...")
+    logger.debug(f"Subscription {external_id} not found. Creating subscription...")
 
     sub = DataPointSubscriptionWrite(
         external_id=external_id,
@@ -41,4 +49,4 @@ def create_subscription(
         filter=flt.Exists(TimeSeriesProperty.external_id),
     )
     cognite_client.time_series.subscriptions.create(sub)
-    logging.debug(f"Subscription successfully {external_id} created.")
+    logger.debug(f"Subscription successfully {external_id} created.")
