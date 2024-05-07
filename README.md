@@ -268,3 +268,12 @@ To verify the status of your deployment run:
 ```bash
 kubectl get pods
 ```
+
+### Running test_helm_chart_deployment Test
+
+`test_helm_chart_deployment` test is skipped when running integration tests as it requires an AKS cluster, and an container in ACR. The test uses Helm to deploy the image to AKS and checks that the status is running and runs for 1 minute without crashing. To run the test:
+
+1. Remove `@pytest.mark.skip(reason="Skipping as this test requires an AKS cluster.")` from the top of the test.
+2. Ensure your Docker image is build and pushed to an ACR
+3. Ensure your AKS cluster is in and you are able to connect to it from your terminal.
+4. Run `poetry run pytest tests/integration/test_helm.py -s` to run the test_helm_chart_deployment test.
