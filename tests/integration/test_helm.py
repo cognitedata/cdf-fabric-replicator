@@ -1,5 +1,15 @@
 import subprocess
 from time import sleep
+import pytest
+
+@pytest.fixture(scope="function")
+def helm_setup_teardown(request):
+    release_name = request.param
+    print("Uninstalling the Helm chart if it is already installed...")
+    uninstall_helm_chart(release_name)
+    yield release_name
+    print("Uninstalling the Helm chart")
+    uninstall_helm_chart(release_name)
 
 def uninstall_helm_chart(release_name):
     uninstall_command = f"helm uninstall {release_name}"
@@ -43,14 +53,11 @@ def assert_helm_deployed(release_name):
     status_output = subprocess.check_output(status_command, shell=True).decode("utf-8")
     assert "STATUS: deployed" in status_output, "Helm chart deployment failed"
 
-def test_helm_chart_deployment(retries=5, running_time=60):
+@pytest.mark.parametrize('helm_setup_teardown', ["int-test-helm"], indirect=True)
+def test_helm_chart_deployment(helm_setup_teardown, retries=5, running_time=60):
     # Set the Helm chart name and release name
     chart_name = "cdf-fabric-replicator-chart"
-    release_name = "int-test-helm"
-
-    #Ensure the helm chart is not installed
-    print("Uninstalling the Helm chart if it is already installed...")
-    uninstall_helm_chart(release_name)
+    release_name = helm_setup_teardown
     
     # Install the Helm chart
     install_helm_chart(release_name, chart_name)
@@ -62,5 +69,3 @@ def test_helm_chart_deployment(retries=5, running_time=60):
     # Check that the pod stays running for the specified running time
     assert_pod_stays_running(running_time)
 
-    # Uninstall the Helm chart
-    uninstall_helm_chart(release_name)
