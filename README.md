@@ -41,6 +41,10 @@ You can optionally copy the contents of `.env.example` to a `.env` file that wil
 - `EXTRACTOR_RAW_TS_PATH`: The file path for the raw timeseries table in a Fabric lakehouse. It's the relative path after the ABFSS prefix (e.g. "Tables/RawTS")
 - `EXTRACTOR_DATASET_ID`: Specifies the ID of the extractor dataset when the data lands in CDF.
 - `EXTRACTOR_TS_PREFIX`: Specifies the prefix for the extractor timeseries when the data lands in CDF.
+- `EXTRACTOR_RAW_TABLE_PATH`: Specifies the table path a table in Fabric lakehouse which should written into CDF RAW. Default config supports one table, multiple are needed the `example_config.yaml` needs to be modified to add more tables.
+- `EXTRACTOR_RAW_TABLE_NAME`: Name of the table in CDF RAW to write to.
+- `EXTRACTOR_RAW_DB_NAME`: Name of the database in CDF RAW to write to.
+
 
 ## Integration Test Variables
 - `TEST_CONFIG_PATH`: Specifies the path to the test configuration file with which test versions of the replicator are configured.
@@ -49,6 +53,7 @@ You can optionally copy the contents of `.env.example` to a `.env` file that wil
 The replicator reads its configuration from a YAML file specified in the run command.  You can configure your own YAML file based on the one in `example_config.yaml` in the repo.  That configuration file uses the environment variables in `.env`, the configuration can also be set using hard coded values.
 
 `subscriptions` and `data_modeling` configurations are a list, so you can configure multiple data point subscriptions or data modeling spaces to replicate into Fabric.
+`raw_tables` is also a list, to be able configure multiple tables in Fabric to replicate into CDF RAW.
 
 ```
 logger:
@@ -98,6 +103,10 @@ source:
     file_path: ${EXTRACTOR_FILE_PATH}
     raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
     data_set_id: ${EXTRACTOR_DATASET_ID}
+    raw_tables:
+        - raw_path: ${EXTRACTOR_RAW_TABLE_PATH}
+          table_name: ${EXTRACTOR_RAW_TABLE_NAME}
+          db_name: ${EXTRACTOR_RAW_DB_NAME}
 
 destination:
     type: ${EXTRACTOR_DESTINATION_TYPE}
