@@ -1,4 +1,5 @@
 import os
+import logging
 import pytest
 from time import sleep
 from unittest.mock import Mock
@@ -95,7 +96,10 @@ def test_timeseries_data_integration_service(
 ):
     # Autocreate subscription in CDF
     subscription.autocreate_subscription(
-        test_replicator.config.subscriptions, cognite_client, "TestSubscription"
+        test_replicator.config.subscriptions,
+        cognite_client,
+        "TestSubscription",
+        logging.getLogger("integration_tests"),
     )
     # Assert subscription created in CDF
     assert_subscription_created_in_cdf(

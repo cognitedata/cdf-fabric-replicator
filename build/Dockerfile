@@ -6,7 +6,6 @@ ENV PATH /root/.local/bin:$PATH
 RUN apt update
 RUN apt install -y curl
 RUN apt install -y less
-RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
 RUN mkdir -p cdf_fabric_replicator 
 WORKDIR cdf_fabric_replicator
