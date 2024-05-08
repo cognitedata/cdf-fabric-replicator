@@ -110,6 +110,7 @@ Refer to the [Readme](https://github.com/cognitedata/cdf-fabric-replicator/blob/
   poetry run pre-commit run --all
   ```
 - Try to keep test coverage above 90%. (see Readme for more information on Code Coverage)
+- Do not include "commented-out" code
 
 
 ### Improving The Documentation
