@@ -41,9 +41,9 @@ data_modeling:
 
 source:
     abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
-    #event_path: ${EXTRACTOR_EVENT_PATH}
-    #file_path: ${EXTRACTOR_FILE_PATH}
-    #raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
+    event_path: ${EXTRACTOR_EVENT_PATH}
+    file_path: ${EXTRACTOR_FILE_PATH}
+    raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
     data_set_id: ${EXTRACTOR_DATASET_ID}
     raw_tables:
         - raw_path: ${EXTRACTOR_RAW_TABLE_PATH}
