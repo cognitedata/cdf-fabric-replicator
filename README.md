@@ -183,7 +183,7 @@ fail_under = 90
 ```
 
 ## Github Action
-The Github action runs the tests for both Python 3.10 and 3.11 using `poetry`.  This action will run for every pull request created for the repo.
+The Github action runs the unit tests for both Python 3.10 and 3.11 using `poetry`.  This action will run for every pull request created for the repo.  *As integration tests are not part of the pull request actions, please ensure that the integration tests of the service related to your code changes passes successfully locally before making a PR.*
 
 ***Note: Integration tests will not pass for non-members of the `cdf-fabric-replicator` repository due to repository secret access for environment variables.***
 ## Best Practices for Adding Tests
