@@ -3,6 +3,7 @@ from unittest.mock import patch, Mock
 from cdf_fabric_replicator.event import EventsReplicator
 from cognite.client.data_classes import Event
 import pyarrow as pa
+from deltalake.exceptions import DeltaError
 
 EVENT_BATCH_SIZE = 1
 
@@ -21,6 +22,7 @@ def test_event_replicator():
         event_replicator.client = Mock()
         event_replicator.state_store = Mock()
         event_replicator.cognite_client = Mock()
+        event_replicator.logger = Mock()
         return event_replicator
 
 
@@ -48,21 +50,20 @@ def event():
     }
 
 
-@patch("cdf_fabric_replicator.event.time.sleep")
 @patch("cdf_fabric_replicator.event.EventsReplicator.process_events")
-def test_run(mock_process_events, mock_sleep, test_event_replicator):
+def test_run(mock_process_events, test_event_replicator):
     test_event_replicator.stop_event = Mock(is_set=Mock(side_effect=[False, True]))
     test_event_replicator.run()
     test_event_replicator.state_store.initialize.assert_called_once()
     mock_process_events.assert_called_once()
-    mock_sleep.assert_called_once()
 
 
-@patch("cdf_fabric_replicator.event.logging.info")
-def test_run_no_event_config(mock_logging, test_event_replicator):
+def test_run_no_event_config(test_event_replicator):
     test_event_replicator.config.event = None
     test_event_replicator.run()
-    mock_logging.assert_called_with("No event config found in config")
+    test_event_replicator.logger.warning.assert_called_with(
+        "No event config found in config"
+    )
 
 
 @pytest.mark.parametrize(
@@ -114,3 +115,20 @@ def test_process_events(
             "use_fabric_endpoint": "true",
         },
     )
+
+
+@patch("cdf_fabric_replicator.event.write_deltalake")
+def test_process_events_delta_error(mock_write_deltalake, event, test_event_replicator):
+    # Set up empty state and cognite client events iterator
+    test_event_replicator.state_store.get_state.return_value = [(None, None)]
+    test_event_replicator.cognite_client.events = Mock(
+        return_value=iter([Event(**event)])
+    )
+    # Set up mock write_deltalake to raise DeltaError
+    mock_write_deltalake.side_effect = DeltaError()
+
+    # Run the process_events method
+    with pytest.raises(DeltaError):
+        test_event_replicator.process_events()
+    # Assert logger call
+    test_event_replicator.logger.error.call_count == 2
