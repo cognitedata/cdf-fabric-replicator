@@ -11,19 +11,23 @@ FILE_TIME = 1714798800
 
 @pytest.fixture()
 def test_extractor():
-    extractor = CdfFabricExtractor(stop_event=Mock(), metrics=Mock())
-    extractor.config = Mock(
-        source=Mock(raw_time_series_path="/table/path"),
-        destination=Mock(time_series_prefix="test_prefix"),
-    )
-    # These need to be mocked as they are not set in the constructor
-    extractor.cognite_client = Mock()
-    extractor.client = Mock()
-    extractor.state_store = Mock()
-    extractor.logger = Mock()
-    extractor.data_set_id = TEST_DATA_SET_ID
+    with patch(
+        "cdf_fabric_replicator.extractor.DefaultAzureCredential"
+    ) as mock_credential:
+        mock_credential.return_value.get_token.return_value = Mock(token="token")
+        extractor = CdfFabricExtractor(stop_event=Mock(), metrics=Mock())
+        extractor.config = Mock(
+            source=Mock(raw_time_series_path="/table/path"),
+            destination=Mock(time_series_prefix="test_prefix"),
+        )
+        # These need to be mocked as they are not set in the constructor
+        extractor.cognite_client = Mock()
+        extractor.client = Mock()
+        extractor.state_store = Mock()
+        extractor.logger = Mock()
+        extractor.data_set_id = TEST_DATA_SET_ID
 
-    yield extractor
+        yield extractor
 
 
 @pytest.fixture()
@@ -140,9 +144,6 @@ def test_extractor_run(
     )
     # Run the loop exactly once by setting the stop_event after the first run
     test_extractor.stop_event.is_set.side_effect = [False, True]
-    test_extractor.azure_credential = Mock(
-        get_token=Mock(return_value=Mock(token="token"))
-    )
 
     # Call the method under test
     test_extractor.run()
