@@ -128,14 +128,6 @@ spec:
                 configMapKeyRef:
                   name: cdf-conn-config
                   key: COGNITE_EXTRACTION_PIPELINE
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       {{- with .Values.nodeSelector }}
