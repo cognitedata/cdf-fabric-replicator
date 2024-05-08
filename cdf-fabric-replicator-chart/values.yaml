@@ -1,0 +1,68 @@
+# Default values for cdf-fabric-replicator-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+image:
+  repository:
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "1.0.0"
+
+replicaCount: 1
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+
+securityContext: {}
+
+resources: {}
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+externals:
+  dataProviders:
+    cognite:
+      clientSecret: "TestClientSecret"
+
+streams:
+  enriched:
+    eventHub:
+      consumerGroup: "TestConsumerGroup"
+
+env:
+  cognite:
+    baseUrl: ""
+    clientId: ""
+    clientName: ""
+    clientSecret: ""
+    project: ""
+    stateDb: ""
+    stateTable: ""
+    tokenScopes: ""
+    tokenUrl: ""
+    extractionPipeline: ""
+  extractor:
+    datasetId: ""
+    destinationType: ""
+    eventPath: ""
+    filePath: ""
+    rawTsPath: ""
+    tsPrefix: ""
+  lakehouse:
+    abfssPrefix: ""
+    timeseriesTable: ""
+  eventTableName: ""
