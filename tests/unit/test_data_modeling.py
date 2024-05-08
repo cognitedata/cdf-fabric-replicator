@@ -27,12 +27,16 @@ from deltalake.exceptions import DeltaError
 
 @pytest.fixture
 def test_data_modeling_replicator():
-    replicator = DataModelingReplicator(metrics=Mock(), stop_event=Mock())
-    replicator.logger = Mock()
-    replicator.cognite_client = Mock()
-    replicator.config = Mock()
-    replicator.state_store = Mock()
-    yield replicator
+    with patch(
+        "cdf_fabric_replicator.data_modeling.DefaultAzureCredential"
+    ) as mock_credential:
+        mock_credential.return_value.get_token.return_value = Mock(token="test_token")
+        replicator = DataModelingReplicator(metrics=Mock(), stop_event=Mock())
+        replicator.logger = Mock()
+        replicator.cognite_client = Mock()
+        replicator.config = Mock()
+        replicator.state_store = Mock()
+        yield replicator
 
 
 @pytest.fixture
@@ -660,15 +664,10 @@ class TestDataModelingReplicator:
             expected_edge_instance, lakehouse_abfss_prefix
         )
 
-    @patch(
-        "cdf_fabric_replicator.data_modeling.DefaultAzureCredential.get_token",
-        return_value=Mock(token="test_token"),
-    )
     @patch("cdf_fabric_replicator.data_modeling.write_deltalake")
     def test_write_instances_to_lakehouse_tables(
         self,
         mock_deltalake_write,
-        mock_token,
         expected_node_instance,
         test_data_modeling_replicator,
     ):
@@ -679,7 +678,7 @@ class TestDataModelingReplicator:
             expected_node_instance,
             "test_abfss_prefix",
         )
-        mock_token.assert_called_once()
+        test_data_modeling_replicator.azure_credential.get_token.assert_called_once()
         mock_deltalake_write.assert_called_once_with(
             "test_abfss_prefix/Tables/test_space_test_view",
             pyarrow_data,
@@ -692,15 +691,10 @@ class TestDataModelingReplicator:
             },
         )
 
-    @patch(
-        "cdf_fabric_replicator.data_modeling.DefaultAzureCredential.get_token",
-        return_value=Mock(token="test_token"),
-    )
     @patch("cdf_fabric_replicator.data_modeling.write_deltalake")
     def test_write_instances_to_lakehouse_tables_delta_error(
         self,
         mock_deltalake_write,
-        mock_token,
         expected_node_instance,
         test_data_modeling_replicator,
     ):
