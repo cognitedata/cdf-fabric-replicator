@@ -64,10 +64,6 @@ class CdfFabricExtractor(Extractor[Config]):
 
         self.logger.debug(f"Current Extractor Config: {self.config.extractor}")
 
-        if not self.config.source:
-            self.logger.error("No source path or directory provided")
-            return
-
         while not self.stop_event.is_set():
             token = self.azure_credential.get_token(
                 "https://storage.azure.com/.default"

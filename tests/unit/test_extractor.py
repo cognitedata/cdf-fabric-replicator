@@ -3,7 +3,7 @@ import pandas as pd
 from unittest.mock import patch, Mock
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
 from cognite.client.data_classes import TimeSeriesWrite
-from cognite.client.exceptions import CogniteNotFoundError
+from cognite.client.exceptions import CogniteNotFoundError, CogniteAPIError
 
 TEST_DATA_SET_ID = 123456789101112
 FILE_TIME = 1714798800
@@ -262,6 +262,25 @@ def test_write_time_series_to_cdf_timeseries_not_found(
     )
 
 
+def test_write_time_series_to_cdf_timeseries_retrieve_error(
+    test_extractor, mock_timeseries_data
+):
+    # Create dataframe from test data
+    df = pd.DataFrame(mock_timeseries_data)
+
+    test_extractor.state_store.get_state.return_value = (None,)
+    test_extractor.state_store.set_state.return_value = None
+    # Mock Cognite API to raise a CogniteAPIError
+    test_extractor.client.time_series.data.insert_dataframe.side_effect = [
+        CogniteAPIError(code=500, message="Test error")
+    ]
+    # Call the method under test
+    with pytest.raises(CogniteAPIError):
+        test_extractor.write_time_series_to_cdf(df)
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
+
+
 @pytest.mark.parametrize(
     "last_update_time, expected_upsert_call_count, expected_run_extraction_pipeline_call_count",
     [
@@ -298,6 +317,57 @@ def test_write_event_data_to_cdf(
     )
 
 
+def test_write_event_data_asset_ids_not_found(test_extractor, event_data, mocker):
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DeltaTable",
+        return_value=Mock(to_pandas=Mock(return_value=pd.DataFrame(data=event_data))),
+    )
+    test_extractor.state_store.get_state.return_value = (None,)
+    # Mock Cognite API to raise a CogniteNotFoundError
+    test_extractor.client.assets.retrieve.side_effect = [
+        CogniteNotFoundError(not_found=[{"externalId": "asset1"}])
+    ]
+    # Call the method under test
+    with pytest.raises(CogniteNotFoundError):
+        test_extractor.write_event_data_to_cdf("file_path", "token", "state_id")
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
+
+
+def test_write_event_data_asset_retrieve_error(test_extractor, event_data, mocker):
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DeltaTable",
+        return_value=Mock(to_pandas=Mock(return_value=pd.DataFrame(data=event_data))),
+    )
+    test_extractor.state_store.get_state.return_value = (None,)
+    # Mock Cognite API to raise a CogniteNotFoundError
+    test_extractor.client.assets.retrieve.side_effect = [
+        CogniteAPIError(code=500, message="Test error")
+    ]
+    # Call the method under test
+    with pytest.raises(CogniteAPIError):
+        test_extractor.write_event_data_to_cdf("file_path", "token", "state_id")
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
+
+
+def test_write_event_data_to_cdf_upsert_error(test_extractor, event_data, mocker):
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DeltaTable",
+        return_value=Mock(to_pandas=Mock(return_value=pd.DataFrame(data=event_data))),
+    )
+    test_extractor.state_store.get_state.return_value = (None,)
+    # Mock Cognite API to raise a CogniteAPIError
+    test_extractor.client.events.upsert.side_effect = [
+        CogniteAPIError(code=500, message="Test error")
+    ]
+    # Call the method under test
+    with pytest.raises(CogniteAPIError):
+        test_extractor.write_event_data_to_cdf("file_path", "token", "state_id")
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
+
+
 def test_upload_files_from_abfss(mock_service_client, test_extractor, mocker):
     url = "https://container@account.dfs.core.windows.net/Files"
     mocker.patch(
@@ -318,3 +388,49 @@ def test_upload_files_from_abfss(mock_service_client, test_extractor, mocker):
         source_modified_time=int(FILE_TIME * 1000),
         overwrite=True,
     )
+
+
+def test_upload_files_from_abfss_cognite_error(
+    mock_service_client, test_extractor, mocker
+):
+    url = "https://container@account.dfs.core.windows.net/Files"
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DataLakeServiceClient",
+        return_value=mock_service_client,
+    )
+    test_extractor.state_store.get_state.return_value = (None,)
+
+    # Mock Cognite API to raise a CogniteAPIError
+    test_extractor.cognite_client.files.upload_bytes.side_effect = [
+        CogniteAPIError(code=500, message="Test error")
+    ]
+    # Call the method under test
+    with pytest.raises(CogniteAPIError):
+        test_extractor.upload_files_from_abfss(url)
+
+    test_extractor.logger.error.assert_called_once()
+
+
+def test_convert_lakehouse_data_to_df_exception(test_extractor, mocker):
+    # Mock DeltaTable to raise exception from to_pandas
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DeltaTable",
+        return_value=Mock(to_pandas=Mock(side_effect=Exception("Test error"))),
+    )
+    # Assert Exception was raised by function
+    with pytest.raises(Exception):
+        test_extractor.convert_lakehouse_data_to_df("path", "token")
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
+
+
+def test_run_extraction_pipeline_cognite_error(test_extractor, mocker):
+    # Mock Cognite API to raise a CogniteAPIError
+    test_extractor.cognite_client.extraction_pipelines.runs.create.side_effect = [
+        CogniteAPIError(code=500, message="Test error")
+    ]
+    # Assert Exception was raised by function
+    with pytest.raises(CogniteAPIError):
+        test_extractor.run_extraction_pipeline(status="seen")
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
