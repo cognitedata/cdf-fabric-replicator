@@ -6,6 +6,7 @@ RUN mkdir -p /cdf_fabric_replicator
 COPY pyproject.toml /cdf_fabric_replicator
 COPY poetry.lock /cdf_fabric_replicator
 COPY cdf_fabric_replicator /cdf_fabric_replicator
+RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
 WORKDIR /cdf_fabric_replicator
 RUN poetry config virtualenvs.in-project true --local

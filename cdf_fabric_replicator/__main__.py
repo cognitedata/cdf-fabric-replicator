@@ -1,3 +1,6 @@
+import logging
+import threading
+
 from cognite.extractorutils.base import CancellationToken
 
 from cognite.extractorutils.metrics import safe_get
@@ -8,10 +11,11 @@ from cdf_fabric_replicator.extractor import CdfFabricExtractor
 from cdf_fabric_replicator.event import EventsReplicator
 
 from cdf_fabric_replicator.metrics import Metrics
-import threading
-
+from cdf_fabric_replicator.log_config import LOGGING_CONFIG
 
 def main() -> None:
+    logging.config.dictConfig(LOGGING_CONFIG)
+    logging.info("Starting CDF Fabric Replicator")
     stop_event = CancellationToken()
     worker_list = []
 
