@@ -63,15 +63,15 @@ def assert_helm_deployed(release_name):
     assert "STATUS: deployed" in status_output, "Helm chart deployment failed"
 
 
-@pytest.mark.skip(reason="Skipping as this test requires an AKS cluster.")
-@pytest.mark.parametrize("helm_setup_teardown", ["int-test-helm"], indirect=True)
-def test_helm_chart_deployment(helm_setup_teardown, retries=5, running_time=60):
+# @pytest.mark.skip(reason="Skipping as this test requires an AKS cluster.")
+@pytest.mark.parametrize("release_name", ["int-test-helm"], indirect=True)
+def test_helm_chart_deployment(release_name, retries=5, running_time=60):
     # Set the Helm chart name and release name
     chart_name = "cdf-fabric-replicator-chart"
     # Install the Helm chart
-    install_helm_chart(helm_setup_teardown, chart_name)
+    install_helm_chart(release_name, chart_name)
 
-    assert_helm_deployed(helm_setup_teardown)
+    assert_helm_deployed(release_name)
 
     wait_for_pod_to_start(retries)
 
