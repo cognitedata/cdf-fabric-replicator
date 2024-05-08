@@ -15,4 +15,3 @@ cognite:
 
     extraction-pipeline:
         external-id: ${COGNITE_EXTRACTION_PIPELINE}
-
