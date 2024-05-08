@@ -13,7 +13,6 @@ from cdf_fabric_replicator.event import EventsReplicator
 from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.log_config import LOGGING_CONFIG
 
-
 def main() -> None:
     logging.config.dictConfig(LOGGING_CONFIG)
     logging.info("Starting CDF Fabric Replicator")
