@@ -91,6 +91,17 @@ class CdfFabricExtractor(Extractor[Config]):
                     self.config.source.abfss_prefix + "/" + self.config.source.file_path
                 )
 
+            if self.config.source.raw_tables:
+                for path in self.config.source.raw_tables:
+                    state_id = f"{path}-state"
+                    self.write_raw_tables_to_cdf(
+                        self.config.source.abfss_prefix + "/" + path.raw_path,
+                        token=token,
+                        state_id=state_id,
+                        table_name=path.table_name,
+                        db_name=path.db_name,
+                    )
+
             self.logger.debug("Sleep for 5 seconds")
             self.stop_event.wait(5)
 
@@ -234,6 +245,27 @@ class CdfFabricExtractor(Extractor[Config]):
                 self.client.events.upsert(events)
             except CogniteAPIError as e:
                 self.logger.error(f"Error while writing event data to CDF: {e}")
+                raise e
+
+            self.run_extraction_pipeline(status="success")
+
+            self.set_state(state_id, str(len(df)))
+
+    def write_raw_tables_to_cdf(
+        self, file_path: str, token: str, state_id: str, table_name: str, db_name: str
+    ) -> None:
+        df = self.convert_lakehouse_data_to_df(file_path, token)
+
+        if str(self.state_store.get_state(state_id)[0]) != str(len(df)):
+            try:
+                self.client.raw.rows.insert_dataframe(
+                    db_name=db_name,
+                    table_name=table_name,
+                    dataframe=df,
+                    ensure_parent=True,
+                )
+            except CogniteAPIError as e:
+                self.logger.error(f"Error while writing raw data to CDF: {e}")
                 raise e
 
             self.run_extraction_pipeline(status="success")

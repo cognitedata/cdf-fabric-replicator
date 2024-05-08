@@ -14,7 +14,7 @@ cognite:
         scopes:
             - ${COGNITE_BASE_URL}/.default
     extraction-pipeline:
-        external-id: fabric-replicator
+        external-id: ${COGNITE_EXTRACTION_PIPELINE}
 
 #Extractor config
 extractor:
@@ -41,10 +41,14 @@ data_modeling:
 
 source:
     abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
-    event_path: ${EXTRACTOR_EVENT_PATH}
-    file_path: ${EXTRACTOR_FILE_PATH}
-    raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
+    #event_path: ${EXTRACTOR_EVENT_PATH}
+    #file_path: ${EXTRACTOR_FILE_PATH}
+    #raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
     data_set_id: ${EXTRACTOR_DATASET_ID}
+    raw_tables:
+        - raw_path: ${EXTRACTOR_RAW_TABLE_PATH}
+          table_name: ${EXTRACTOR_RAW_TABLE_NAME}
+          db_name: ${EXTRACTOR_RAW_DB_NAME}
 
 destination:
     type: ${EXTRACTOR_DESTINATION_TYPE}

@@ -33,12 +33,20 @@ class EventConfig:
 
 
 @dataclass
+class RawConfig:
+    table_name: str
+    db_name: str
+    raw_path: str
+
+
+@dataclass
 class SourceConfig:
     abfss_prefix: str
     data_set_id: str
     event_path: Optional[str] = None
     raw_time_series_path: Optional[str] = None
     file_path: Optional[str] = None
+    raw_tables: Optional[List[RawConfig]] = None
 
 
 @dataclass
