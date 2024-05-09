@@ -1,6 +1,6 @@
 # CDF Fabric replicator
 
-Application that utilizes the Cognite Data Fusion (CDF) APIs to replicate data to and from Microsoft Fabric.
+Application that utilizes the Cognite Data Fusion (CDF) APIs to replicate data to and from Microsoft Fabric (Fabric).
 
 ## Replicator Services
 The replicator consists of four services:
