@@ -1,6 +1,6 @@
 # CDF Fabric replicator
 
-Application that utilizes the CDF APIs to replicate data to and from Microsoft Fabric.
+Application that utilizes the Cognite Data Fusion (CDF) APIs to replicate data to and from Microsoft Fabric.
 
 ## Replicator Services
 The replicator consists of four services:
@@ -16,6 +16,7 @@ Follow these instructions for doing Local Development with CDF Fabric replicator
 1. Clone repo: `git clone https://github.com/cognitedata/cdf-fabric-replicator.git`
 2. Install Python (3.10, 3.11, or 3.12).
 3. Install [Poetry](https://python-poetry.org/docs/#installation).
+    > Note: Poetry should be installed in a virtual environment, see the [installation instructions](https://python-poetry.org/docs/#installation) for more details.
 4. Setup [environment variables](#environment-variables) and [Config file](#config-yaml) to point to your data source and destination.
 5. At this point, you need to install your project dependencies and run the application. You can either do that from the [command-line](#command-line) or from [Visual Studio Code](#visual-studio-code).
 
@@ -75,7 +76,7 @@ poetry install
 
 Finally, run the replicator:
 ```
-poetry run cdf_fabric_replicator config.yaml
+poetry run cdf_fabric_replicator <name of config file>
 ```
 
 ### Visual Studio Code
@@ -84,9 +85,10 @@ Alternatively, if you are using Visual Studio Code, just open the folder of the 
 
 You must still install Poetry as mentioned above in addition to the [Python Extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) for VSCode.
 
-The included ".vscode/launch.json" file will add "poetry install" and "poetry run" to your "Run and Debug" tab. They can be used in place of the manual command line statements above, and will attach the VSCode debugger.
+The included ".vscode/launch.json" file will add the following two launch actions to your debug menu:
 
-For more information see [Debugging in Visual Studio Code](https://code.visualstudio.com/Docs/editor/debugging).
+- poetry install - Run this the first time you start your code to install dependencies into the Poetry virtual environment
+- poetry run - Run this after the dependencies are installed. It will start your project with an attached debugger. For more information see [Debugging in Visual Studio Code](https://code.visualstudio.com/Docs/editor/debugging).
 
 ## Building and Deploying with Docker on AKS
 
