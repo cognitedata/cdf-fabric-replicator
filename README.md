@@ -261,6 +261,110 @@ env:
     az aks get-credentials --resource-group <RESOURCE GROUP> --name <ASK CLUSTER NAME> --overwrite-existing
     ```
 
+### Creating an AKS Cluster with Managed Identity
+
+Azure Kubernetes Service (AKS) can use Azure Managed Identities to interact with other Azure services. This eliminates the need to manage service principals and rotate credentials. The Fabric Replicator requires managed identity on AKS to be enabled to run.
+
+To create an AKS cluster with Managed Identity and an attached ACR, you can use the Azure CLI:
+
+```bash
+az aks create -g MyResourceGroup -n MyManagedCluster --generate-ssh-keys --attach-acr MyACR --enable-managed-identity
+```
+
+### Build Docker to Push to ACR
+
+Note: When you build the CDF Fabric Replicator from docker, the docker image is configured to use the config located in the Extraction Pipeline in CDF. You will need to configure the yaml file in the Extraction Pipeline in CDF.
+
+First, you should build your your docker image locally:
+
+```bash
+docker build -t <MyImageName> -f ./build/Dockerfile . 
+```
+
+Before you can push an image to your ACR, you need to tag it with the login server name of your ACR instance:
+
+```bash
+docker tag <MyImageName>:latest <myregistry>.azurecr.io/<MyImageName>:latest
+```
+
+Finally, push your image to your ACR instance:
+
+```bash
+docker push <myregistry>.azurecr.io/<MyImageName>:latest
+```
+
+Now, your Docker image is available in your ACR and can be pulled from your AKS cluster.
+
+## Use helm to deploy your container to AKS
+
+### Configure values.yaml
+
+The `values.yaml` file is a key part of your Helm chart as it allows you to set the default configuration values for the chart. These values can be overridden by users during installation or upgrade.
+
+Here's a step-by-step guide on how to configure your `values.yaml` file:
+
+1. Open the `values.yaml` file in your chart directory.
+
+2. Set the default values for your chart. 
+
+Some key values you need to fill out are:
+
+#### Image Repository
+
+```yaml
+image:
+  repository: <ACRREPOSITORYNAME>.azurecr.io/<IMAGENAME>
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+```
+
+#### Environment Variables
+The environmental variables should be filled in with values that correspond to your CDF and Lakehouse environment, these allow the CDF Fabric Replicator to run.
+
+```Yaml
+env:
+  COGNITE_TOKEN_URL: ""
+  COGNITE_CLIENT_ID: ""
+  COGNITE_CLIENT_SECRET: ""
+  COGNITE_TOKEN_SCOPES: ""
+  COGNITE_CLIENT_NAME: ""
+  COGNITE_PROJECT: ""
+  COGNITE_BASE_URL: ""
+  COGNITE_STATE_TABLE: ""
+  LAKEHOUSE_TIMESERIES_TABLE: TimeSeries
+  LAKEHOUSE_ABFSS_PREFIX: ""
+  EXTRACTOR_EVENT_PATH: "Tables/RawEvents"
+  EXTRACTOR_FILE_PATH: ""
+  EXTRACTOR_RAW_TS_PATH: "Tables/RawTS"
+  EXTRACTOR_DATASET_ID: ""
+  EXTRACTOR_TS_PREFIX: ""
+  EXTRACTOR_DESTINATION_TYPE: ""
+  EVENT_TABLE_NAME: ""
+  COGNITE_STATE_DB: ""
+  COGNITE_EXTRACTION_PIPELINE: ""
+  ```
+
+### Connect to your AKS cluster
+
+1. Login to your azure account:
+
+    ```bash
+    az login
+    ```
+
+2. Set the cluster subscription:
+
+    ```bash
+    az account set --subscription <Subscription ID>
+    ```
+
+3. Download cluster credentials
+
+    ```bash
+    az aks get-credentials --resource-group <RESOURCE GROUP> --name <ASK CLUSTER NAME> --overwrite-existing
+    ```
+
 ### Install Via Helm
 
 To deploy your application to your Kubernetes cluster run the following command:
@@ -269,8 +373,22 @@ To deploy your application to your Kubernetes cluster run the following command:
 helm install <MYAppName> ./cdf-fabric-replicator-chart
 ```
 
+### Install Via Helm
 To verify the status of your deployment run:
 
+To deploy your application to your Kubernetes cluster run the following command:
 ```bash
 kubectl get pods
 ```
+
+```bash
+helm install <MYAppName> ./cdf-fabric-replicator-chart
+```
+### Running test_helm_chart_deployment Test
+
+`test_helm_chart_deployment` test is skipped when running integration tests as it requires an AKS cluster, and an container in ACR. The test uses Helm to deploy the image to AKS and checks that the status is running and runs for 1 minute without crashing. To run the test:
+
+1. Remove `@pytest.mark.skip(reason="Skipping as this test requires an AKS cluster.")` from the top of the test.
+2. Ensure your Docker image is build and pushed to an ACR
+3. Ensure your AKS cluster is in and you are able to connect to it from your terminal.
+4. Run `poetry run pytest tests/integration/test_helm.py -s` to run the test_helm_chart_deployment test.
