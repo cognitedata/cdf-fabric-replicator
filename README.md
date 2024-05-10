@@ -33,7 +33,9 @@ All four services will run concurrently during the execution of the CDF Fabric R
   - [Best Practices for Adding Tests](#best-practices-for-adding-tests)
 
 ## Local Development with CDF Fabric replicator
+
 Follow these instructions for doing Local Development with CDF Fabric replicator:
+
 1. Clone repo: `git clone https://github.com/cognitedata/cdf-fabric-replicator.git`
 2. Install Python (3.10, 3.11, or 3.12).
 3. Install [Poetry](https://python-poetry.org/docs/#installation).
@@ -50,29 +52,42 @@ The time series replicator uses [data point subscriptions](https://cognite-sdk-p
 You can optionally copy the contents of `.env.example` to a `.env` file that will be used to set the values in a config yaml file:
 
 ### CDF Variables
-- `COGNITE_BASE_URL`: The base URL of the Cognite project, i.e. https://<cluster_name>.cognitedata.com.
+
+The CDF variables define the location of the project in Cognite Data Fusion. In addition, a state storage location in the raw storage of the project is used to keep track of what data has been synced.
+
+- `COGNITE_BASE_URL`: The base URL of the Cognite project, i.e. `https://<cluster_name>.cognitedata.com`.
 - `COGNITE_PROJECT`: The project ID of the Cognite project.
-- `COGNITE_TOKEN_URL`: The URL to obtain the authentication token for the Cognite project, i.e. https://login.microsoftonline.com/<tenant_id>/oauth2/v2.0/token.
+- `COGNITE_TOKEN_URL`: The URL to obtain the authentication token for the Cognite project, i.e. `https://login.microsoftonline.com/<tenant_id>/oauth2/v2.0/token`.
 - `COGNITE_CLIENT_ID`: The client ID for authentication with the Cognite project.
 - `COGNITE_CLIENT_SECRET`: The client secret for authentication with the Cognite project.
 - `COGNITE_STATE_DB`: The database in CDF raw storage where the replicator state should be stored.
 - `COGNITE_STATE_TABLE`: The table in CDF raw storage where the replicator state should be stored. The replicator will create the table if it does not exist.
 - `COGNITE_EXTRACTION_PIPELINE`: The extractor pipeline in CDF for the replicator. [Learn more about configuring extractors remotely](https://docs.cognite.com/cdf/integration/guides/interfaces/configure_integrations).
+- `COGNITE_TOKEN_SCOPES`: OAUTH access scope to be granted to the token. i.e. `${COGNITE_BASE_URL}/.default`.
 
 ### Fabric Variables
+
+Fabric Variables define where in Microsoft Fabric that contextualized data is written. Data is written in Delta format, which requires a Fabric Lakehouse. Tables will be created automatically.
+
 - `LAKEHOUSE_ABFSS_PREFIX`: The prefix for the Azure Blob File System Storage (ABFSS) path. Should match pattern `abfss://<workspace_id>@msit-onelake.dfs.fabric.microsoft.com/<lakehouse_id>`. Get this value by selecting "Properties" on your Lakehouse Tables location and copying "ABFSS path".
 - `DPS_TABLE_NAME`: The name of the table where data point values and timestamps should be stored in Fabric. The replicator will create the table if it does not exist.
 - `TS_TABLE_NAME`: The name of the table where time series metadata should be stored in Fabric. The replicator will create the table if it does not exist.
 - `EVENT_TABLE_NAME`: The name of the table where event data should be stored in Fabric. The replicator will create the table if it does not exist.
 
 ### Fabric Extractor Variables
-- `EXTRACTOR_EVENT_PATH`: The table path for the events table in a Fabric lakehouse. It's the relative path after the ABFSS prefix (e.g. "Tables/RawEvents").
-- `EXTRACTOR_FILE_PATH`: The single file path or directory of the files in a Fabric lakehouse. It's the relative path after the ABFSS prefix (e.g. "Files" or "Files/Tanks.png").
-- `EXTRACTOR_RAW_TS_PATH`: The file path for the raw timeseries table in a Fabric lakehouse. It's the relative path after the ABFSS prefix (e.g. "Tables/RawTS").
+
+Fabric Extractor Variables defines the Lakehouse and tables where raw data lands before being ingested into CDF.
+
+- `EXTRACTOR_EVENT_PATH`: The table path for the events table in a Fabric lakehouse. It's the relative path after the ABFSS prefix, i.e. `Tables/RawEvents`.
+- `EXTRACTOR_FILE_PATH`: The single file path or directory of the files in a Fabric lakehouse. It's the relative path after the ABFSS prefix, i.e. `Files` or `Files/Tanks.png`.
+- `EXTRACTOR_RAW_TS_PATH`: The file path for the raw timeseries table in a Fabric lakehouse. It's the relative path after the ABFSS prefix i.e. `Tables/RawTS`.
 - `EXTRACTOR_DATASET_ID`: Specifies the ID of the extractor dataset when the data lands in CDF.
 - `EXTRACTOR_TS_PREFIX`: Specifies the prefix for the extractor timeseries when the data lands in CDF.
 
 ### Integration Test Variables
+
+Integration Test Variables are only used for integration tests. See [Testing](#testing) for more information.
+
 - `TEST_CONFIG_PATH`: Specifies the path to the test configuration file with which test versions of the replicator are configured.
 
 ## Config YAML
@@ -81,7 +96,7 @@ The replicator reads its configuration from a YAML file specified in the run com
 `subscriptions` and `data_modeling` configurations are a list, so you can configure multiple data point subscriptions or data modeling spaces to replicate into Fabric.
 
 ### Remote config
-The [example_config.yaml](example_config.yaml) contains all configuration required to run the replicator. Alternatively [config_remote.yaml](build/config_remote.yaml) is provided to point to an Extraction Pipeline within a CDF project that contains the full configuration file. This allows a Docker image to be built and deployed with a minimal configuration, and lets you make changes to the full configuration without rebuilding the image.
+The [example_config.yaml](example_config.yaml) contains all configuration required to run the replicator. Alternatively [config_remote.yaml](build/config_remote.yaml) is provided to point to an Extraction Pipeline within a CDF project that contains the full configuration file. This allows a Docker image to be built and deployed with a minimal configuration, and lets you make changes to the full configuration without rebuilding the image. [Learn more about configuring extractors remotely](https://docs.cognite.com/cdf/integration/guides/interfaces/configure_integrations).
 
 ## Running with Poetry
 
@@ -115,6 +130,22 @@ The included ".vscode/launch.json" file will add the following two launch action
 - poetry run - Run this after the dependencies are installed. It will start your project with an attached debugger. For more information see [Debugging in Visual Studio Code](https://code.visualstudio.com/Docs/editor/debugging).
 
 ## Building and Deploying with Docker on AKS
+
+Building and deploying with Docker on **Azure Kubernetes Service** (AKS) is a popular choice for deploying applications to production for several reasons:
+
+1. Containerization: Docker allows developers to package their application and its dependencies into a container, ensuring consistency and portability across different environments. Containers provide isolation, making it easier to manage and deploy applications.
+
+2. Scalability: AKS is a managed Kubernetes service that provides automatic scaling of application instances based on demand. Kubernetes allows developers to define the desired state of their application and automatically scales the application based on resource utilization.
+
+3. Orchestration: Kubernetes provides powerful orchestration capabilities, allowing developers to manage and deploy containers at scale. It handles tasks such as load balancing, service discovery, and rolling updates, making it easier to manage and maintain production deployments.
+
+4. High Availability: AKS ensures high availability by distributing application instances across multiple nodes in a cluster. If a node fails, Kubernetes automatically reschedules the affected containers on other available nodes, ensuring that the application remains accessible and resilient.
+
+5. Infrastructure as Code: Docker and Kubernetes configurations can be defined as code using tools like Helm and Kubernetes manifests. This allows developers to version control and automate the deployment process, making it easier to reproduce and manage production deployments.
+
+6. Integration with Azure Services: AKS integrates seamlessly with other Azure services, such as Azure Container Registry (ACR) for storing and managing container images, Azure Monitor for monitoring and diagnostics, and Azure DevOps for CI/CD pipelines. This provides a comprehensive ecosystem for building, deploying, and managing applications in the Azure cloud.
+
+By leveraging Docker and AKS, developers can achieve a streamlined and efficient deployment process, ensuring their applications are scalable, reliable, and easily manageable in a production environment.
 
 ### Pre-requisites
 
