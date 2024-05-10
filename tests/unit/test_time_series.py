@@ -14,18 +14,24 @@ from cognite.client.data_classes import (
     filters as flt,
 )
 from cognite.client.data_classes.time_series import TimeSeriesProperty
+from cognite.client.exceptions import CogniteAPIError
 from cdf_fabric_replicator import subscription
+from deltalake.exceptions import DeltaError
 
 
 @pytest.fixture(scope="function")
 def test_timeseries_replicator():
-    replicator = TimeSeriesReplicator(metrics=Mock(), stop_event=Mock())
-    # These attributes must be mocked here as they don't exist until __enter__ is called in the base class
-    replicator.cognite_client = Mock()
-    replicator.state_store = Mock()
-    replicator.config = Mock()
-    replicator.logger = Mock()
-    return replicator
+    with patch(
+        "cdf_fabric_replicator.time_series.DefaultAzureCredential"
+    ) as mock_credential:
+        mock_credential.return_value.get_token.return_value = Mock(token="test_token")
+        replicator = TimeSeriesReplicator(metrics=Mock(), stop_event=Mock())
+        # These attributes must be mocked here as they don't exist until __enter__ is called in the base class
+        replicator.cognite_client = Mock()
+        replicator.state_store = Mock()
+        replicator.config = Mock()
+        replicator.logger = Mock()
+        yield replicator
 
 
 @pytest.fixture
@@ -164,6 +170,67 @@ class TestTimeSeriesReplicator:
         # Check that extraction_pipelines.runs.create is called
         test_timeseries_replicator.cognite_client.extraction_pipelines.runs.create.assert_called_once()
 
+    @patch(
+        "cdf_fabric_replicator.time_series.sub.autocreate_subscription",
+        return_value=None,
+    )
+    def test_run_autocreate_error(
+        self, mock_autocreate, mock_subscription, test_timeseries_replicator
+    ):
+        # Set the subscriptions and poll time in the config
+        test_timeseries_replicator.config = Mock(
+            subscriptions=[mock_subscription], extractor=Mock(poll_time=1)
+        )
+
+        # Set the return value of autocreate_subscription to raise an exception
+        test_timeseries_replicator.cognite_client.time_series.subscriptions.retrieve.side_effect = CogniteAPIError(
+            code=500, message="Test error"
+        )
+
+        # Call the run method
+        with pytest.raises(CogniteAPIError):
+            test_timeseries_replicator.run()
+
+        # Assert logger is called
+        test_timeseries_replicator.logger.error.assert_called_once()
+
+    @patch(
+        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.process_subscriptions"
+    )
+    @patch(
+        "cdf_fabric_replicator.time_series.sub.autocreate_subscription",
+        return_value=None,
+    )
+    def test_run_extraction_pipeline_error(
+        self,
+        mock_autocreate,
+        mock_process_subscriptions,
+        mock_subscription,
+        test_timeseries_replicator,
+    ):
+        # Set the subscriptions and poll time in the config
+        test_timeseries_replicator.config = Mock(
+            subscriptions=[mock_subscription], extractor=Mock(poll_time=1)
+        )
+
+        # Stop event
+        test_timeseries_replicator.stop_event.is_set.side_effect = [
+            False,
+            True,
+        ]
+
+        # Set the return value of autocreate_subscription to raise an exception
+        test_timeseries_replicator.cognite_client.extraction_pipelines.runs.create.side_effect = CogniteAPIError(
+            code=500, message="Test error"
+        )
+
+        # Call the run method
+        with pytest.raises(CogniteAPIError):
+            test_timeseries_replicator.run()
+
+        # Assert logger is called
+        test_timeseries_replicator.logger.error.assert_called_once()
+
     @patch("cdf_fabric_replicator.time_series.ThreadPoolExecutor", autospec=True)
     @patch("cdf_fabric_replicator.time_series.TimeSeriesReplicator.process_partition")
     def test_process_subscriptions(
@@ -244,6 +311,24 @@ class TestTimeSeriesReplicator:
 
         # Check that the return value is correct
         assert result == "test1_0 no more data at test_cursor"
+
+    @patch("cdf_fabric_replicator.time_series.TimeSeriesReplicator.send_to_lakehouse")
+    def test_process_partition_cognite_error(
+        self, mock_send_to_lakehouse, test_timeseries_replicator
+    ):
+        # Mock the return value of state_store.get_state
+        test_timeseries_replicator.state_store.get_state.return_value = [None, None]
+
+        # Mock the return value of cognite_client.time_series.subscriptions.iterate_data
+        test_timeseries_replicator.cognite_client.time_series.subscriptions.iterate_data.side_effect = CogniteAPIError(
+            code=500, message="Test error"
+        )
+
+        # Call process_partition
+        with pytest.raises(CogniteAPIError):
+            test_timeseries_replicator.process_partition(Mock(), 0)
+        # Assert logger is called
+        test_timeseries_replicator.logger.error.assert_called_once()
 
     @patch(
         "cdf_fabric_replicator.time_series.TimeSeriesReplicator.send_data_point_to_lakehouse_table"
@@ -398,8 +483,7 @@ class TestTimeSeriesReplicator:
     @patch(
         "cdf_fabric_replicator.time_series.TimeSeriesReplicator.write_pd_to_deltalake"
     )
-    @patch("cdf_fabric_replicator.time_series.logging")
-    def test_send_time_series_to_lakehouse_table_error(
+    def test_send_time_series_to_lakehouse_table_error_not_timeseries(
         self,
         mock_write_pd_to_deltalake,
         mock_subscription,
@@ -426,6 +510,25 @@ class TestTimeSeriesReplicator:
         # Check that an error message was logged
         test_timeseries_replicator.logger.error.assert_called_once()
 
+    def test_send_time_series_to_lakehouse_table_cognite_error(
+        self,
+        mock_subscription,
+        test_timeseries_replicator,
+    ):
+        # Raise CogniteAPIError when retrieving time series
+        test_timeseries_replicator.cognite_client.time_series.retrieve.side_effect = (
+            CogniteAPIError(code=500, message="Test error")
+        )
+
+        # Call send_time_series_to_lakehouse_table
+        with pytest.raises(CogniteAPIError):
+            test_timeseries_replicator.send_time_series_to_lakehouse_table(
+                mock_subscription, Mock()
+            )
+
+        # Check that an error message was logged
+        test_timeseries_replicator.logger.error.assert_called_once()
+
     def test_convert_updates_to_pandasdf_when_not_null(
         self, mock_datapoints_update, datapoints_dataframe, test_timeseries_replicator
     ):
@@ -443,13 +546,9 @@ class TestTimeSeriesReplicator:
         # Assert that the result is None
         assert df is None
 
-    @patch(
-        "cdf_fabric_replicator.time_series.TimeSeriesReplicator.get_token",
-        return_value="test_token",
-    )
     @patch("cdf_fabric_replicator.time_series.write_deltalake")
     def test_write_pd_to_deltalake(
-        self, mock_write_deltalake, mock_get_token, test_timeseries_replicator
+        self, mock_write_deltalake, test_timeseries_replicator
     ):
         # Create a mock DataFrame
         df = pd.DataFrame()
@@ -458,7 +557,7 @@ class TestTimeSeriesReplicator:
         test_timeseries_replicator.write_pd_to_deltalake("test_table", df)
 
         # Check that get_token was called
-        mock_get_token.assert_called_once()
+        test_timeseries_replicator.azure_credential.get_token.assert_called_once()
 
         # Check that write_deltalake was called with the correct arguments
         mock_write_deltalake.assert_called_once_with(
@@ -473,16 +572,22 @@ class TestTimeSeriesReplicator:
             },
         )
 
-    @patch(
-        "cdf_fabric_replicator.time_series.DefaultAzureCredential.get_token",
-        return_value=Mock(token="test_token"),
-    )
-    def test_get_token(self, mock_default_azure_credential, test_timeseries_replicator):
-        # Call the get_token method of test_timeseries_replicator
-        token = test_timeseries_replicator.get_token()
+    @patch("cdf_fabric_replicator.time_series.write_deltalake")
+    def test_write_pd_to_deltalake_error(
+        self, mock_write_deltalake, test_timeseries_replicator
+    ):
+        # Create a mock DataFrame
+        df = pd.DataFrame()
 
-        # Check that the returned token is equal to the token returned by mock_default_azure_credential
-        assert token == mock_default_azure_credential.return_value.token
+        # Set the return value of get_token to raise an exception
+        mock_write_deltalake.side_effect = DeltaError
+
+        # Call write_pd_to_deltalake
+        with pytest.raises(DeltaError):
+            test_timeseries_replicator.write_pd_to_deltalake("test_table", df)
+
+        # Assert logger is called
+        test_timeseries_replicator.logger.error.assert_called_once()
 
     def test_create_subscription(self, test_timeseries_replicator):
         num_partitions = 5
