@@ -1,8 +1,7 @@
 # CDF Fabric replicator
 
-Application that utilizes the Cognite Data Fusion (CDF) APIs to replicate data to and from Microsoft Fabric (Fabric).
+The **CDF Fabric replicator** utilizes the **Cognite Data Fusion** (CDF) APIs to replicate data to and from **Microsoft Fabric** (Fabric).
 
-## Replicator Services
 The replicator consists of four services:
 - **Time series replicator** - Copies time series data from CDF to Fabric.
 - **Data model replicator** - Copies data model nodes and edges from CDF to Fabric.
@@ -10,6 +9,28 @@ The replicator consists of four services:
 - **Fabric data extractor** - Copies time series, events, and files from Fabric to CDF.
 
 All four services will run concurrently during the execution of the CDF Fabric Replicator program. The services use one state store in CDF's raw storage to maintain checkpoints of when the latest data was copied, so the services can be started and stopped and will be able to pick back up where they left off.
+
+## Table of Contents
+- [Local Development with CDF Fabric replicator](#local-development-with-cdf-fabric-replicator)
+- [Setting up Data Point Subscriptions](#setting-up-data-point-subscriptions)
+- [Environment Variables](#environment-variables)
+  - [CDF Variables](#cdf-variables)
+  - [Fabric Variables](#fabric-variables)
+  - [Fabric Extractor Variables](#fabric-extractor-variables)
+  - [Integration Test Variables](#integration-test-variables)
+- [Config YAML](#config-yaml)
+  - [Remote config](#remote-config)
+- [Running with Poetry](#running-with-poetry)
+  - [Command-line](#command-line)
+  - [Visual Studio Code](#visual-studio-code)
+- [Building and Deploying with Docker on AKS](#building-and-deploying-with-docker-on-aks)
+  - [Pre-requisites](#pre-requisites)
+  - [Use helm to deploy your container to AKS](#use-helm-to-deploy-your-container-to-aks)
+  - [Running test_helm_chart_deployment Test](#running-test_helm_chart_deployment-test)
+- [Testing](#testing)
+  - [Setting Up Tests](#setting-up-tests)
+  - [Github Action](#github-action)
+  - [Best Practices for Adding Tests](#best-practices-for-adding-tests)
 
 ## Local Development with CDF Fabric replicator
 Follow these instructions for doing Local Development with CDF Fabric replicator:
@@ -59,7 +80,10 @@ The replicator reads its configuration from a YAML file specified in the run com
 
 `subscriptions` and `data_modeling` configurations are a list, so you can configure multiple data point subscriptions or data modeling spaces to replicate into Fabric.
 
-## Poetry
+### Remote config
+The [example_config.yaml](example_config.yaml) contains all configuration required to run the replicator. Alternatively [config_remote.yaml](build/config_remote.yaml) is provided to point to an Extraction Pipeline within a CDF project that contains the full configuration file. This allows a Docker image to be built and deployed with a minimal configuration, and lets you make changes to the full configuration without rebuilding the image.
+
+## Running with Poetry
 
 To run the `cdf_fabric_replicator` application, you can use Poetry, a dependency management and packaging tool for Python.
 
@@ -252,7 +276,9 @@ Set your test environment variables in a `.env` file.  The integration tests wil
 
 #### VS Code Test Explorer
 Tests can run using the test explorer in VS Code.  To set up the test explorer, ensure you have the Python extension installed in VS Code and follow the instructions under [configure tests](https://code.visualstudio.com/docs/python/testing#_configure-tests) in the VS Code docs, configuring tests using the Pytest framework.  Your test setup should look like this:
+
 ![VS Code Test Explorer](./images/testexplorer.png)
+
 Running tests using the explorer allows you to debug tests and easily manage which tests to run.  Ensure that the tests also run using `poetry` before pushing commits.
 #### Poetry
 `poetry` can be used to run the tests in addition to running the replicator itself.  Run all commands at the project root.  These are the important poetry commands to know:
@@ -274,6 +300,7 @@ fail_under = 90
 The Github action runs the unit tests for both Python 3.10 and 3.11 using `poetry`.  This action will run for every pull request created for the repo.  *As integration tests are not part of the pull request actions, please ensure that the integration tests of the service related to your code changes passes successfully locally before making a PR.*
 
 ***Note: Integration tests will not pass for non-members of the `cdf-fabric-replicator` repository due to repository secret access for environment variables.***
+
 ### Best Practices for Adding Tests
 - If a fixture can be shared across multiple tests, add it to the `conftest.py`.  Otherwise, keep fixtures that are specific to a single test in the test file.  For example, the Cognite SDK Client belongs in `conftest.py` as all the integration tests use it to seed test data.
 - Ensure that coverage is at least 90% after any code additions.  Focus especially on unit test coverage as that helps ensure that all code paths are covered and any breaking changes can be isolated to the function where they occurred.
