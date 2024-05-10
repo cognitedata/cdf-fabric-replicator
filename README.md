@@ -109,12 +109,12 @@ First, make sure you have Poetry installed on your system. If not, you can insta
 Once Poetry is installed, navigate to the root directory of your project in your terminal.
 
 Next, run the following command to install the project dependencies:
-```
+```bash
 poetry install
 ```
 
 Finally, run the replicator:
-```
+```bash
 poetry run cdf_fabric_replicator <name of config file>
 ```
 
@@ -153,7 +153,7 @@ By leveraging Docker and AKS, developers can achieve a streamlined and efficient
 
 If you are running the Docker Container on ARM Architecture, you will need to use platform emulation for the Docker run command. You can do this by running the following command:
 
-```
+```bash
 docker run -i -t <image-name> --platform linux/arm64 
 ```
 
@@ -224,7 +224,7 @@ image:
 ##### Environment Variables
 The environmental variables should be filled in with values that correspond to your CDF and Lakehouse environment, these allow the CDF Fabric Replicator to run.
 
-```Yaml
+```yaml
 env:
   COGNITE_TOKEN_URL: ""
   COGNITE_CLIENT_ID: ""
@@ -245,7 +245,7 @@ env:
   EVENT_TABLE_NAME: ""
   COGNITE_STATE_DB: ""
   COGNITE_EXTRACTION_PIPELINE: ""
-  ```
+```
 
 #### Connect to your AKS cluster
 
@@ -320,7 +320,8 @@ Running tests using the explorer allows you to debug tests and easily manage whi
 A combination of the test run and coverage report is available as a VS Code launch configuration under `poetry test coverage`.
 
 In the `pyproject.toml` file, there are configuration settings for the coverage, including the failure threshold and which files to exclude from coverage:
-```
+
+```toml
 [tool.coverage.run]
 omit = [".*", "*/tests/*"]
 [tool.coverage.report]
