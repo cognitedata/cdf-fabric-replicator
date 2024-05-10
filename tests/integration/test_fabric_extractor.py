@@ -4,6 +4,8 @@ import time
 import pandas as pd
 from unittest.mock import Mock
 from cognite.extractorutils.base import CancellationToken
+from cognite.extractorutils.metrics import safe_get
+from cdf_fabric_replicator.metrics import Metrics
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
 from tests.integration.integration_steps.time_series_generation import (
     generate_raw_timeseries_set,
@@ -36,7 +38,9 @@ CDF_RETRIES = 5
 @pytest.fixture(scope="session")
 def test_extractor():
     stop_event = CancellationToken()
-    extractor = CdfFabricExtractor(stop_event=stop_event, name="conftest")
+    extractor = CdfFabricExtractor(
+        metrics=safe_get(Metrics), stop_event=stop_event, name="conftest"
+    )
     extractor._initial_load_config(override_path=os.environ["TEST_CONFIG_PATH"])
     extractor.client = extractor.config.cognite.get_cognite_client(extractor.name)
     extractor.cognite_client = extractor.config.cognite.get_cognite_client(
