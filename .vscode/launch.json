@@ -25,6 +25,29 @@
                 "cdf_fabric_replicator",
                 "example_config.yaml"
             ],
+        },
+        {
+            "name": "poetry test coverage",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "poetry",
+            "args": [
+                "run",
+                "coverage",
+                "run",
+                "-m",
+                "pytest",
+                "${input:testPath}"
+            ],
+            "postDebugTask": "Generate Coverage Report"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "testPath",
+            "type": "pickString",
+            "options": ["tests/unit", "tests/integration", "tests"],
+            "description": "Select the test path"
         }
     ]
 }

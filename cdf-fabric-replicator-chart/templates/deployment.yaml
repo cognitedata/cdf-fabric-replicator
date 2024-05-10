@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cdf-fabric-replicator-chart.fullname" . }}
+  labels:
+    {{- include "cdf-fabric-replicator-chart.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "cdf-fabric-replicator-chart.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "cdf-fabric-replicator-chart.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: COGNITE_TOKEN_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_TOKEN_URL
+            - name: COGNITE_CLIENT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_CLIENT_ID
+            - name: COGNITE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: cdf-conn-secrets
+                  key: COGNITE_CLIENT_SECRET
+            - name: COGNITE_TOKEN_SCOPES
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_TOKEN_SCOPES
+            - name: COGNITE_CLIENT_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_CLIENT_NAME
+            - name: COGNITE_PROJECT
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_PROJECT
+            - name: COGNITE_BASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_BASE_URL
+            - name: COGNITE_STATE_TABLE
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_STATE_TABLE
+            - name: LAKEHOUSE_ABFSS_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: LAKEHOUSE_ABFSS_PREFIX
+            - name: EXTRACTOR_EVENT_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_EVENT_PATH
+            - name: EXTRACTOR_FILE_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_FILE_PATH
+            - name: EXTRACTOR_RAW_TS_PATH
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_RAW_TS_PATH
+            - name: EXTRACTOR_DATASET_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_DATASET_ID
+            - name: EXTRACTOR_TS_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_TS_PREFIX
+            - name: EXTRACTOR_DESTINATION_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EXTRACTOR_DESTINATION_TYPE
+            - name: EVENT_TABLE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: EVENT_TABLE_NAME
+            - name: LAKEHOUSE_TIMESERIES_TABLE
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: LAKEHOUSE_TIMESERIES_TABLE
+            - name: COGNITE_STATE_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_STATE_DB
+            - name: COGNITE_EXTRACTION_PIPELINE
+              valueFrom:
+                configMapKeyRef:
+                  name: cdf-conn-config
+                  key: COGNITE_EXTRACTION_PIPELINE
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

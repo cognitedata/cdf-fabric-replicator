@@ -14,7 +14,7 @@ cognite:
         scopes:
             - ${COGNITE_BASE_URL}/.default
     extraction-pipeline:
-        external-id: fabric-replicator
+        external-id: ${COGNITE_EXTRACTION_PIPELINE}
 
 #Extractor config
 extractor:
