@@ -439,6 +439,7 @@ def test_run_extraction_pipeline_cognite_error(test_extractor, mocker):
     # Assert error logger called
     test_extractor.logger.error.assert_called_once()
 
+
 def test_write_raw_tables_cdf(test_extractor, mocker):
     FILE_PATH = "test_file_path"
     TOKEN = "test_token"
