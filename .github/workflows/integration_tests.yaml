@@ -1,0 +1,49 @@
+name: integraton tests
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    environment: 
+      name: CI
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.11
+
+    - name: Install dependencies
+      run: |
+        python3 -m pip install --upgrade pip poetry
+        poetry config virtualenvs.create false
+        poetry lock
+        poetry install
+
+    - name: Run integration tests
+      env:
+        COGNITE_BASE_URL: ${{ vars.COGNITE_BASE_URL }}
+        COGNITE_PROJECT: ${{ vars.COGNITE_PROJECT }}
+        COGNITE_TOKEN_URL: ${{ vars.COGNITE_TOKEN_URL }}
+        COGNITE_CLIENT_ID: ${{ vars.COGNITE_CLIENT_ID }}
+        COGNITE_CLIENT_SECRET: ${{ secrets.COGNITE_CLIENT_SECRET }}
+        COGNITE_CLIENT_NAME: ${{ vars.COGNITE_CLIENT_NAME }}
+        COGNITE_EXTRACTION_PIPELINE: ${{ vars.COGNITE_EXTRACTION_PIPELINE }}
+        COGNITE_TOKEN_SCOPES: ${{ vars.COGNITE_TOKEN_SCOPES }}
+        LAKEHOUSE_ABFSS_PREFIX: ${{ vars.LAKEHOUSE_ABFSS_PREFIX }}
+        DPS_TABLE_NAME: ${{ vars.DPS_TABLE_NAME }}
+        TS_TABLE_NAME: ${{ vars.TS_TABLE_NAME }}
+        EVENT_TABLE_NAME: ${{ vars.EVENT_TABLE_NAME }}
+        AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        EXTRACTOR_RAW_TS_PATH: ${{ vars.EXTRACTOR_RAW_TS_PATH }}
+        TEST_CONFIG_PATH: tests/integration/test_config.yaml
+
+      run: poetry run pytest tests/integration --verbose
+      
