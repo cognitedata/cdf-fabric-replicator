@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cdf-conn-config
+data:
+  COGNITE_TOKEN_URL: {{ .Values.env.cognite.tokenUrl | quote }}
+  COGNITE_CLIENT_ID: {{ .Values.env.cognite.clientId | quote }}
+  COGNITE_TOKEN_SCOPES: {{ .Values.env.cognite.tokenScopes | quote }}
+  COGNITE_CLIENT_NAME: {{ .Values.env.cognite.clientName | quote }}
+  COGNITE_PROJECT: {{ .Values.env.cognite.project | quote }}
+  COGNITE_BASE_URL: {{ .Values.env.cognite.baseUrl | quote }}
+  COGNITE_STATE_TABLE: {{ .Values.env.cognite.stateTable | quote }}
+  LAKEHOUSE_ABFSS_PREFIX: {{ .Values.env.lakehouse.abfssPrefix | quote }}
+  EXTRACTOR_EVENT_PATH: {{ .Values.env.extractor.eventPath | quote }}
+  EXTRACTOR_FILE_PATH: {{ .Values.env.extractor.filePath | quote }}
+  EXTRACTOR_RAW_TS_PATH: {{ .Values.env.extractor.rawTsPath | quote }}
+  EXTRACTOR_DATASET_ID: {{ .Values.env.extractor.datasetId | quote }}
+  EXTRACTOR_TS_PREFIX: {{ .Values.env.extractor.tsPrefix | quote }}
+  EXTRACTOR_DESTINATION_TYPE: {{ .Values.env.extractor.destinationType | quote }}
+  EVENT_TABLE_NAME: {{ .Values.env.eventTableName | quote }}
+  LAKEHOUSE_TIMESERIES_TABLE: {{ .Values.env.lakehouse.timeseriesTable | quote }}
+  COGNITE_STATE_DB: {{ .Values.env.cognite.stateDb | quote }}
+  COGNITE_EXTRACTION_PIPELINE: {{ .Values.env.cognite.extractionPipeline | quote }}
+

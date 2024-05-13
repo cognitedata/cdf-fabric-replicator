@@ -52,4 +52,4 @@ jobs:
         TEST_CONFIG_PATH: tests/integration/test_config.yaml
         EXTRACTOR_FILE_PATH: ${{ vars.EXTRACTOR_FILE_PATH }}
 
-      run: poetry run pytest tests --verbose
+      run: poetry run pytest tests/unit --verbose

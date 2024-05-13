@@ -30,7 +30,9 @@ def main() -> None:
     ) as ts_replicator:
         worker_list.append(threading.Thread(target=ts_replicator.run))
 
-    with CdfFabricExtractor(stop_event=stop_event) as extractor:
+    with CdfFabricExtractor(
+        metrics=safe_get(Metrics), stop_event=stop_event
+    ) as extractor:
         worker_list.append(threading.Thread(target=extractor.run))
 
     with DataModelingReplicator(

@@ -1,28 +1,22 @@
-FROM --platform=linux/amd64 python:3.10-slim
+FROM python:3.10-slim as builder
 
-RUN set -ex && pip install --upgrade pip && pip install poetry pipx
-ENV PATH /root/.local/bin:$PATH
+RUN pip install poetry
+RUN mkdir -p /cdf_fabric_replicator
 
-RUN apt update
-RUN apt install -y curl
-RUN apt install -y less
+COPY pyproject.toml /cdf_fabric_replicator
+COPY poetry.lock /cdf_fabric_replicator
+COPY cdf_fabric_replicator /cdf_fabric_replicator
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
-RUN mkdir -p cdf_fabric_replicator 
-WORKDIR cdf_fabric_replicator
+WORKDIR /cdf_fabric_replicator
+RUN poetry config virtualenvs.in-project true --local
+RUN poetry install --without dev
 
-COPY pyproject.toml ./
-COPY poetry.lock ./
-COPY cdf_fabric_replicator cdf_fabric_replicator
-COPY build/entrypoint.sh /
-RUN chmod +x /entrypoint.sh
+FROM python:3.10-slim as base
 
-RUN pipx install .
-
-RUN mkdir -p /config
+COPY --from=builder /cdf_fabric_replicator/ /cdf_fabric_replicator
 COPY build/config_remote.yaml /config/config_remote.yaml
 
-WORKDIR cdf_fabric_replicator
-
-ENTRYPOINT [ "/entrypoint.sh" ]
-CMD ["/config/config_remote.yaml"]
+# WORKDIR /cdf_fabric_replicator
+ENV PATH="/cdf_fabric_replicator/.venv/bin:$PATH"
+CMD ["python", "-m", "cdf_fabric_replicator", "/config/config_remote.yaml"]
