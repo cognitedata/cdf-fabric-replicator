@@ -24,10 +24,10 @@ jobs:
 
     - id: parse_version
       name: Parse version
-      run: echo "::set-output name=cli_version::$(sed -n -e "/^__version__/p" cdf_fabric_replicator/__init__.py | cut -c 16- | sed -e 's/^"//' -e 's/"$//')"
+      run: echo "cli_version=$(sed -n -e "/^__version__/p" cdf_fabric_replicator/__init__.py | cut -c 16- | sed -e 's/^"//' -e 's/"$//')" >> $GITHUB_OUTPUT
 
     - name: Check package version
-      run: if [ "v${{ steps.metadata.parse_version.cli_version }}" != "${{ steps.metadata.outputs.github-tag }}" ]; then printf "\033[0;31mPackage version doesn't match tag name\033[0m\n"; exit 1; fi
+      run: if [ "v${{ steps.parse_version.outputs.cli_version }}" != "${{ steps.metadata.outputs.github-tag }}" ]; then printf "\033[0;31mPackage version doesn't match tag name\033[0m\n"; exit 1; fi
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
