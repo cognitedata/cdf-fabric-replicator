@@ -63,7 +63,7 @@ def assert_helm_deployed(release_name):
     assert "STATUS: deployed" in status_output, "Helm chart deployment failed"
 
 
-# @pytest.mark.skip(reason="Skipping as this test requires an AKS cluster.")
+@pytest.mark.skip(reason="Skipping as this test requires an AKS cluster.")
 @pytest.mark.parametrize("release_name", ["int-test-helm"], indirect=True)
 def test_helm_chart_deployment(release_name, retries=5, running_time=60):
     # Set the Helm chart name and release name
