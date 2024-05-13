@@ -96,16 +96,17 @@ def assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state
 
 
 @pytest.mark.parametrize(
-    "raw_time_series_path, event_path, file_path, expected_calls",
+    "raw_time_series_path, event_path, file_path, raw_tables, expected_calls",
     [
         (
             "table/timeseries_path",
             None,
             None,
+            None,
             {"convert_lakehouse_data_to_df": 1, "write_time_series_to_cdf": 1},
         ),
-        (None, "table/event_path", None, {"write_event_data_to_cdf": 1}),
-        (None, None, "files/file_path", {"upload_files_from_abfss": 1}),
+        (None, "table/event_path", None, None, {"write_event_data_to_cdf": 1}),
+        (None, None, "files/file_path", None, {"upload_files_from_abfss": 1}),
     ],
 )
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.upload_files_from_abfss")
@@ -129,6 +130,7 @@ def test_extractor_run(
     raw_time_series_path,
     event_path,
     file_path,
+    raw_tables,
     expected_calls,
 ):
     # Set up a config with source paths in order to trigger the various extractor methods
@@ -139,6 +141,7 @@ def test_extractor_run(
             raw_time_series_path=raw_time_series_path,
             event_path=event_path,
             file_path=file_path,
+            raw_tables=raw_tables,
         ),
         destination=Mock(time_series_prefix="test_prefix"),
     )
@@ -436,8 +439,7 @@ def test_run_extraction_pipeline_cognite_error(test_extractor, mocker):
     # Assert error logger called
     test_extractor.logger.error.assert_called_once()
 
-
-def test_write_raw_tables_cdf(extractor, mocker):
+def test_write_raw_tables_cdf(test_extractor, mocker):
     FILE_PATH = "test_file_path"
     TOKEN = "test_token"
     STATE_ID = "/table/path-state"
@@ -446,27 +448,31 @@ def test_write_raw_tables_cdf(extractor, mocker):
     DATAFRAME = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
 
     mocker.patch.object(
-        extractor, "convert_lakehouse_data_to_df", return_value=DATAFRAME
+        test_extractor, "convert_lakehouse_data_to_df", return_value=DATAFRAME
     )
-    mocker.patch.object(extractor.state_store, "get_state", return_value=(2,))
+    mocker.patch.object(test_extractor.state_store, "get_state", return_value=(2,))
     mocker.patch.object(
-        extractor.client.raw.rows, "insert_dataframe", return_value=None
+        test_extractor.client.raw.rows, "insert_dataframe", return_value=None
     )
-    mocker.patch.object(extractor, "run_extraction_pipeline", return_value=None)
-    mocker.patch.object(extractor, "set_state", return_value=None)
+    mocker.patch.object(test_extractor, "run_extraction_pipeline", return_value=None)
+    mocker.patch.object(test_extractor, "set_state", return_value=None)
 
-    extractor.write_raw_tables_to_cdf(FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME)
+    test_extractor.write_raw_tables_to_cdf(
+        FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME
+    )
 
-    extractor.convert_lakehouse_data_to_df.assert_called_once_with(FILE_PATH, TOKEN)
-    extractor.state_store.get_state.assert_called_once_with(STATE_ID)
-    extractor.client.raw.rows.insert_dataframe.assert_called_once_with(
+    test_extractor.convert_lakehouse_data_to_df.assert_called_once_with(
+        FILE_PATH, TOKEN
+    )
+    test_extractor.state_store.get_state.assert_called_once_with(STATE_ID)
+    test_extractor.client.raw.rows.insert_dataframe.assert_called_once_with(
         db_name=DB_NAME, table_name=TABLE_NAME, dataframe=DATAFRAME, ensure_parent=True
     )
-    extractor.run_extraction_pipeline.assert_called_once_with(status="success")
-    extractor.set_state.assert_called_once_with(STATE_ID, str(len(DATAFRAME)))
+    test_extractor.run_extraction_pipeline.assert_called_once_with(status="success")
+    test_extractor.set_state.assert_called_once_with(STATE_ID, str(len(DATAFRAME)))
 
 
-def test_write_raw_tables_no_change_cdf(extractor, mocker):
+def test_write_raw_tables_no_change_cdf(test_extractor, mocker):
     FILE_PATH = "test_file_path"
     TOKEN = "test_token"
     STATE_ID = "/table/path-state"
@@ -475,13 +481,17 @@ def test_write_raw_tables_no_change_cdf(extractor, mocker):
     DATAFRAME = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
 
     mocker.patch.object(
-        extractor, "convert_lakehouse_data_to_df", return_value=DATAFRAME
+        test_extractor, "convert_lakehouse_data_to_df", return_value=DATAFRAME
     )
-    mocker.patch.object(extractor.state_store, "get_state", return_value=(3,))
-    mocker.patch.object(extractor, "run_extraction_pipeline", return_value=None)
-    mocker.patch.object(extractor, "set_state", return_value=None)
+    mocker.patch.object(test_extractor.state_store, "get_state", return_value=(3,))
+    mocker.patch.object(test_extractor, "run_extraction_pipeline", return_value=None)
+    mocker.patch.object(test_extractor, "set_state", return_value=None)
 
-    extractor.write_raw_tables_to_cdf(FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME)
+    test_extractor.write_raw_tables_to_cdf(
+        FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME
+    )
 
-    extractor.convert_lakehouse_data_to_df.assert_called_once_with(FILE_PATH, TOKEN)
-    extractor.state_store.get_state.assert_called_once_with(STATE_ID)
+    test_extractor.convert_lakehouse_data_to_df.assert_called_once_with(
+        FILE_PATH, TOKEN
+    )
+    test_extractor.state_store.get_state.assert_called_once_with(STATE_ID)
