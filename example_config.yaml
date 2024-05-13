@@ -45,6 +45,10 @@ source:
     file_path: ${EXTRACTOR_FILE_PATH}
     raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
     data_set_id: ${EXTRACTOR_DATASET_ID}
+    raw_tables:
+        - raw_path: ${EXTRACTOR_RAW_TABLE_PATH}
+          table_name: ${EXTRACTOR_RAW_TABLE_NAME}
+          db_name: ${EXTRACTOR_RAW_DB_NAME}
 
 destination:
     type: ${EXTRACTOR_DESTINATION_TYPE}

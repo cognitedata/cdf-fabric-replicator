@@ -83,6 +83,10 @@ Fabric Extractor Variables defines the Lakehouse and tables where raw data lands
 - `EXTRACTOR_RAW_TS_PATH`: The file path for the raw timeseries table in a Fabric lakehouse. It's the relative path after the ABFSS prefix i.e. `Tables/RawTS`.
 - `EXTRACTOR_DATASET_ID`: Specifies the ID of the extractor dataset when the data lands in CDF.
 - `EXTRACTOR_TS_PREFIX`: Specifies the prefix for the extractor timeseries when the data lands in CDF.
+- `EXTRACTOR_RAW_TABLE_PATH`: Specifies the table path a table in Fabric lakehouse which should written into CDF RAW. Default config supports one table, multiple are needed the `example_config.yaml` needs to be modified to add more tables.
+- `EXTRACTOR_RAW_TABLE_NAME`: Name of the table in CDF RAW to write to.
+- `EXTRACTOR_RAW_DB_NAME`: Name of the database in CDF RAW to write to.
+
 
 ### Integration Test Variables
 
@@ -94,6 +98,7 @@ Integration Test Variables are only used for integration tests. See [Testing](#t
 The replicator reads its configuration from a YAML file specified in the run command. You can configure your own YAML file based on the one in [example_config.yaml](example_config.yaml) in the repo. That configuration file uses the environment variables in `.env`, the configuration can also be set using hard-coded values.
 
 `subscriptions` and `data_modeling` configurations are a list, so you can configure multiple data point subscriptions or data modeling spaces to replicate into Fabric.
+`raw_tables` is also a list, to be able configure multiple tables in Fabric to replicate into CDF RAW.
 
 ### Remote config
 The [example_config.yaml](example_config.yaml) contains all configuration required to run the replicator. Alternatively [config_remote.yaml](build/config_remote.yaml) is provided to point to an Extraction Pipeline within a CDF project that contains the full configuration file. This allows a Docker image to be built and deployed with a minimal configuration, and lets you make changes to the full configuration without rebuilding the image. [Learn more about configuring extractors remotely](https://docs.cognite.com/cdf/integration/guides/interfaces/configure_integrations).

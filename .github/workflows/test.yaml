@@ -50,5 +50,6 @@ jobs:
         AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
         EXTRACTOR_RAW_TS_PATH: ${{ vars.EXTRACTOR_RAW_TS_PATH }}
         TEST_CONFIG_PATH: tests/integration/test_config.yaml
+        EXTRACTOR_FILE_PATH: ${{ vars.EXTRACTOR_FILE_PATH }}
 
       run: poetry run pytest tests/unit --verbose
