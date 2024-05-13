@@ -273,11 +273,14 @@ class CdfFabricExtractor(Extractor[Config]):
                 )
             except CogniteAPIError as e:
                 self.logger.error(f"Error while writing raw data to CDF: {e}")
+                self.run_extraction_pipeline(status="failure")
+
                 raise e
 
             self.run_extraction_pipeline(status="success")
-
             self.set_state(state_id, str(len(df)))
+        else:
+            self.run_extraction_pipeline(status="seen")
 
     def set_state(self, state_id: str, value: str) -> None:
         self.state_store.set_state(state_id, value)

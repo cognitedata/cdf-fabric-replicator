@@ -496,3 +496,40 @@ def test_write_raw_tables_no_change_cdf(test_extractor, mocker):
         FILE_PATH, TOKEN
     )
     test_extractor.state_store.get_state.assert_called_once_with(STATE_ID)
+    test_extractor.run_extraction_pipeline.assert_called_once_with(status="seen")
+
+
+def test_write_raw_tables_error_on_insert(test_extractor, mocker):
+    FILE_PATH = "test_file_path"
+    TOKEN = "test_token"
+    STATE_ID = "/table/path-state"
+    DB_NAME = "test_db"
+    TABLE_NAME = "test_table"
+    DATAFRAME = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+
+    mocker.patch.object(
+        test_extractor, "convert_lakehouse_data_to_df", return_value=DATAFRAME
+    )
+    mocker.patch.object(test_extractor.state_store, "get_state", return_value=(2,))
+    mocker.patch.object(test_extractor, "run_extraction_pipeline", return_value=None)
+    mocker.patch.object(
+        test_extractor.client.raw.rows, "insert_dataframe", return_value=None
+    )
+    # Mock Cognite API to raise a CogniteAPIError
+    test_extractor.client.raw.rows.insert_dataframe.side_effect = [
+        CogniteAPIError(code=503, message="Test error")
+    ]
+    # Call the method under test
+    with pytest.raises(CogniteAPIError):
+        test_extractor.write_raw_tables_to_cdf(
+            FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME
+        )
+
+    test_extractor.convert_lakehouse_data_to_df.assert_called_once_with(
+        FILE_PATH, TOKEN
+    )
+
+    test_extractor.client.raw.rows.insert_dataframe.assert_called_once_with(
+        db_name=DB_NAME, table_name=TABLE_NAME, dataframe=DATAFRAME, ensure_parent=True
+    )
+    test_extractor.run_extraction_pipeline.assert_called_once_with(status="failure")
