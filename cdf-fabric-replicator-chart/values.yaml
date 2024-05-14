@@ -53,24 +53,24 @@ streams:
 
 env:
   cognite:
-    baseUrl: ""
+    tokenUrl: ""
     clientId: ""
-    clientName: ""
     clientSecret: ""
+    tokenScopes: ""
+    clientName: ""
     project: ""
+    baseUrl: ""
     stateDb: ""
     stateTable: ""
-    tokenScopes: ""
-    tokenUrl: ""
     extractionPipeline: ""
+  lakehouse:
+    timeseriesTable: ""
+    abfssPrefix: ""
   extractor:
-    datasetId: ""
-    destinationType: ""
     eventPath: ""
     filePath: ""
     rawTsPath: ""
+    datasetId: ""
     tsPrefix: ""
-  lakehouse:
-    abfssPrefix: ""
-    timeseriesTable: ""
-  eventTableName: ""
+    destinationType: ""
+    eventTableName: ""
