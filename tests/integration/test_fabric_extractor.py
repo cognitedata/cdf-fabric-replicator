@@ -21,7 +21,6 @@ from tests.integration.integration_steps.cdf_steps import (
     assert_file_in_cdf,
     remove_file_from_cdf,
 )
-from tests.integration.integration_steps.service_steps import run_extractor
 from tests.integration.integration_steps.fabric_steps import (
     write_timeseries_data_to_fabric,
     remove_time_series_data_from_fabric,
@@ -36,7 +35,7 @@ CDF_RETRIES = 5
 
 
 @pytest.fixture(scope="session")
-def test_extractor():
+def test_extractor(request):
     stop_event = CancellationToken()
     extractor = CdfFabricExtractor(
         metrics=safe_get(Metrics), stop_event=stop_event, name="conftest"
@@ -46,6 +45,7 @@ def test_extractor():
     extractor.cognite_client = extractor.config.cognite.get_cognite_client(
         extractor.name
     )
+    extractor.config.source.read_batch_size = request.param
     extractor._load_state_store()
     extractor.logger = Mock()
     extractor.data_set_id = None
@@ -127,12 +127,22 @@ def test_csv_file_path(test_extractor, azure_credential, cognite_client):
 # Test for Timeseries Extractor service between CDF and Fabric
 @pytest.mark.parametrize(
     "raw_time_series",
-    [TimeSeriesGeneratorArgs(["int_test_fabcd_hist:mtu:39tic1092.pv"], 10)],
+    [TimeSeriesGeneratorArgs(["int_test_fabcd_hist:mtu:39tic1092.pv"], 100)],
     indirect=True,
 )
-def test_extractor_timeseries_service(cognite_client, raw_time_series, test_extractor):
+@pytest.mark.parametrize(
+    "test_extractor",
+    [1000, 10],
+    indirect=True,
+)  # Batch size for the extractor - 1000 yields all records in one batch, 10 yields 10 batches
+def test_extractor_timeseries_service(
+    cognite_client, raw_time_series, test_extractor, test_config
+):
     # Run replicator to pick up new timeseries data points in Lakehouse
-    run_extractor(test_extractor, raw_time_series)
+    test_extractor.extract_time_series_data(
+        test_extractor.config.source.abfss_prefix,
+        test_extractor.config.source.raw_time_series_path,
+    )
 
     # Sleep for 30 seconds to allow replicator to process the data
     time.sleep(10)
@@ -147,6 +157,11 @@ def test_extractor_timeseries_service(cognite_client, raw_time_series, test_extr
         assert_data_points_df_in_cdf(external_id, group, cognite_client)
 
 
+@pytest.mark.parametrize(
+    "test_extractor",
+    [1000],
+    indirect=True,
+)  # Batch size for the extractor
 def test_extractor_abfss_file_upload(
     cognite_client, test_csv_file_path, test_extractor, azure_credential
 ):

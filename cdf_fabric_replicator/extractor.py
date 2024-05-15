@@ -19,7 +19,7 @@ from cognite.extractorutils import Extractor
 from cognite.extractorutils.base import CancellationToken
 from deltalake import DeltaTable
 from pandas import DataFrame
-from typing import Any, Literal
+from typing import Any, Literal, Generator
 import pandas as pd
 
 from cdf_fabric_replicator import __version__
@@ -75,13 +75,10 @@ class CdfFabricExtractor(Extractor[Config]):
                 self.config.source.raw_time_series_path
                 and self.config.destination.time_series_prefix
             ):
-                time_series_data = self.convert_lakehouse_data_to_df(
-                    self.config.source.abfss_prefix
-                    + "/"
-                    + self.config.source.raw_time_series_path,
-                    token=token,
+                self.extract_time_series_data(
+                    self.config.source.abfss_prefix,
+                    self.config.source.raw_time_series_path,
                 )
-                self.write_time_series_to_cdf(time_series_data)
 
             if self.config.source.event_path:
                 state_id = f"{self.config.source.event_path}-state"
@@ -193,6 +190,18 @@ class CdfFabricExtractor(Extractor[Config]):
         except CogniteAPIError as e:
             self.logger.error(f"Error while uploading file to CDF: {e}")
             raise e
+
+    def extract_time_series_data(
+        self, abfss_prefix: str, raw_time_series_path: str
+    ) -> None:
+        token = self.azure_credential.get_token(
+            "https://storage.azure.com/.default"
+        ).token
+        for time_series_data in self.convert_lakehouse_data_to_df_batch(
+            abfss_prefix + "/" + raw_time_series_path,
+            token=token,
+        ):
+            self.write_time_series_to_cdf(time_series_data)
 
     def write_time_series_to_cdf(self, data_frame: DataFrame) -> None:
         external_ids = data_frame["externalId"].unique()
@@ -311,6 +320,26 @@ class CdfFabricExtractor(Extractor[Config]):
                 storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
             )
             return dt.to_pandas()
+        except Exception as e:
+            self.logger.error(
+                f"Error while converting lakehouse data to DataFrame: {e}"
+            )
+            raise e
+
+    def convert_lakehouse_data_to_df_batch(
+        self, file_path: str, token: str
+    ) -> Generator[DataFrame, None, None]:
+        try:
+            dt = DeltaTable(
+                file_path,
+                storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
+            )
+            dataset = dt.to_pyarrow_dataset()
+            batch_set = dataset.to_batches(
+                batch_size=self.config.source.read_batch_size
+            )
+            for batch in batch_set:
+                yield batch.to_pandas()
         except Exception as e:
             self.logger.error(
                 f"Error while converting lakehouse data to DataFrame: {e}"

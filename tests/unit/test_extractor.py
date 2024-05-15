@@ -17,7 +17,7 @@ def test_extractor():
         mock_credential.return_value.get_token.return_value = Mock(token="token")
         extractor = CdfFabricExtractor(stop_event=Mock(), metrics=Mock())
         extractor.config = Mock(
-            source=Mock(raw_time_series_path="/table/path"),
+            source=Mock(raw_time_series_path="/table/path", read_batch_size=1000),
             destination=Mock(time_series_prefix="test_prefix"),
         )
         # These need to be mocked as they are not set in the constructor
@@ -103,7 +103,7 @@ def assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state
             None,
             None,
             None,
-            {"convert_lakehouse_data_to_df": 1, "write_time_series_to_cdf": 1},
+            {"convert_lakehouse_data_to_df_batch": 1, "write_time_series_to_cdf": 1},
         ),
         (None, "table/event_path", None, None, {"write_event_data_to_cdf": 1}),
         (None, None, "files/file_path", None, {"upload_files_from_abfss": 1}),
@@ -115,6 +115,10 @@ def assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state
 @patch(
     "cdf_fabric_replicator.extractor.CdfFabricExtractor.convert_lakehouse_data_to_df"
 )
+@patch(
+    "cdf_fabric_replicator.extractor.CdfFabricExtractor.convert_lakehouse_data_to_df_batch",
+    return_value=iter([pd.DataFrame()]),
+)
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.run_extraction_pipeline")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_statestore")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_config")
@@ -122,6 +126,7 @@ def test_extractor_run(
     mock_get_current_config,
     mock_get_current_statestore,
     mock_run_extraction_pipeline,
+    mock_convert_lakehouse_data_to_df_batch,
     mock_convert_lakehouse_data_to_df,
     mock_write_time_series_to_cdf,
     mock_write_event_data_to_cdf,
@@ -158,6 +163,9 @@ def test_extractor_run(
     # Assert extractor methods were called
     assert mock_convert_lakehouse_data_to_df.call_count == expected_calls.get(
         "convert_lakehouse_data_to_df", 0
+    )
+    assert mock_convert_lakehouse_data_to_df_batch.call_count == expected_calls.get(
+        "convert_lakehouse_data_to_df_batch", 0
     )
     assert mock_write_time_series_to_cdf.call_count == expected_calls.get(
         "write_time_series_to_cdf", 0
@@ -424,6 +432,30 @@ def test_convert_lakehouse_data_to_df_exception(test_extractor, mocker):
     # Assert Exception was raised by function
     with pytest.raises(Exception):
         test_extractor.convert_lakehouse_data_to_df("path", "token")
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
+
+
+def test_convert_lakehouse_data_to_df_batch_exception(test_extractor, mocker):
+    # Mock DeltaTable to raise exception from to_pandas
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DeltaTable",
+        return_value=Mock(
+            to_pyarrow_dataset=Mock(
+                return_value=Mock(
+                    to_batches=Mock(
+                        return_value=iter(
+                            [Mock(to_pandas=Mock(side_effect=Exception("Test error")))]
+                        )
+                    )
+                )
+            )
+        ),
+    )
+    # Assert Exception was raised by function
+    with pytest.raises(Exception):
+        for x in test_extractor.convert_lakehouse_data_to_df_batch("path", "token"):
+            pass
     # Assert error logger called
     test_extractor.logger.error.assert_called_once()
 
