@@ -65,7 +65,6 @@ env:
     extractionPipeline: ""
   extractor:
     datasetId: ""
-    destinationType: ""
     eventPath: ""
     filePath: ""
     rawTsPath: ""

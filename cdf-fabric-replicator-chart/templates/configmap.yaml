@@ -16,7 +16,6 @@ data:
   EXTRACTOR_RAW_TS_PATH: {{ .Values.env.extractor.rawTsPath | quote }}
   EXTRACTOR_DATASET_ID: {{ .Values.env.extractor.datasetId | quote }}
   EXTRACTOR_TS_PREFIX: {{ .Values.env.extractor.tsPrefix | quote }}
-  EXTRACTOR_DESTINATION_TYPE: {{ .Values.env.extractor.destinationType | quote }}
   EVENT_TABLE_NAME: {{ .Values.env.eventTableName | quote }}
   LAKEHOUSE_TIMESERIES_TABLE: {{ .Values.env.lakehouse.timeseriesTable | quote }}
   COGNITE_STATE_DB: {{ .Values.env.cognite.stateDb | quote }}

@@ -42,7 +42,6 @@ def config_raw():
         data_set_id: "123456"
 
     destination:
-        type: test_events
         time_series_prefix: test_ts_
 
     #Event Replicator config
