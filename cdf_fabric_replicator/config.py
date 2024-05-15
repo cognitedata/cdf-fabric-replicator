@@ -9,6 +9,7 @@ class ExtractorConfig:
     state_store: StateStoreConfig
     subscription_batch_size: int = 10_000
     ingest_batch_size: int = 100_000
+    fabric_ingest_batch_size: int = 1_000
     poll_time: int = 3600
 
 
@@ -40,6 +41,13 @@ class RawConfig:
 
 
 @dataclass
+class RawConfigSource:
+    table_name: str
+    db_name: str
+    lakehouse_abfss_path_raw: str
+
+
+@dataclass
 class SourceConfig:
     abfss_prefix: str
     data_set_id: str
@@ -63,3 +71,4 @@ class Config(BaseConfig):
     subscriptions: Optional[List[SubscriptionsConfig]]
     data_modeling: Optional[List[DataModelingConfig]]
     event: Optional[EventConfig]
+    raw_tables: Optional[List[RawConfigSource]]
