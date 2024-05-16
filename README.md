@@ -10,6 +10,8 @@ The replicator consists of four services:
 
 All four services will run concurrently during the execution of the CDF Fabric Replicator program. The services use one state store in CDF's raw storage to maintain checkpoints of when the latest data was copied, so the services can be started and stopped and will be able to pick back up where they left off.
 
+This documentation describes two different ways to run the replicator. The first scenario supports [local development](#local-development-with-cdf-fabric-replicator) and describes how you would run the replicator on the command line or via **Visual Studio Code** (VSCode) to test or modify the code. The second scenario is [production](#building-and-deploying-with-docker-on-aks) that describes how you would build and deploy to **Azure Kubernetes Service** to support the data replication in production.
+
 ## Table of Contents
 - [Local Development with CDF Fabric replicator](#local-development-with-cdf-fabric-replicator)
 - [Setting up Data Point Subscriptions](#setting-up-data-point-subscriptions)
