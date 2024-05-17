@@ -79,8 +79,9 @@ class CdfFabricExtractor(Extractor[Config]):
                 and self.config.destination.time_series_prefix
             ):
                 self.extract_time_series_data(
-                    self.config.source.abfss_prefix,
-                    self.config.source.raw_time_series_path,
+                    self.config.source.abfss_prefix
+                    + "/"
+                    + self.config.source.raw_time_series_path,
                 )
 
             if self.config.source.event_path:
@@ -194,19 +195,15 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error(f"Error while uploading file to CDF: {e}")
             raise e
 
-    def extract_time_series_data(
-        self, abfss_prefix: str, raw_time_series_path: str
-    ) -> None:
+    def extract_time_series_data(self, file_path: str) -> None:
         token = self.azure_credential.get_token(
             "https://storage.azure.com/.default"
         ).token
-        external_ids = self.experimental_function(
-            abfss_prefix + "/" + raw_time_series_path, token=token
-        )
+        external_ids = self.retrieve_external_ids_from_lakehouse(file_path, token=token)
         latest_timestamps = self.get_timeseries_latest_timestamps(external_ids)
         for external_id, timestamp in latest_timestamps.items():
             for time_series_data in self.convert_lakehouse_data_to_df_batch(
-                abfss_prefix + "/" + raw_time_series_path,
+                file_path,
                 external_id,
                 timestamp,
                 token=token,
@@ -315,7 +312,9 @@ class CdfFabricExtractor(Extractor[Config]):
             events.append(new_event)
         return events
 
-    def experimental_function(self, file_path: str, token: str) -> list[str]:
+    def retrieve_external_ids_from_lakehouse(
+        self, file_path: str, token: str
+    ) -> list[str]:
         try:
             dt = DeltaTable(
                 file_path,

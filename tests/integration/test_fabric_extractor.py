@@ -144,8 +144,9 @@ def test_csv_file_path(test_extractor, azure_credential, cognite_client):
 def test_extractor_timeseries_service(cognite_client, raw_time_series, test_extractor):
     # Run replicator to pick up new timeseries data points in Lakehouse
     test_extractor.extract_time_series_data(
-        test_extractor.config.source.abfss_prefix,
-        test_extractor.config.source.raw_time_series_path,
+        test_extractor.config.source.abfss_prefix
+        + "/"
+        + test_extractor.config.source.raw_time_series_path,
     )
 
     # Sleep for 30 seconds to allow replicator to process the data
@@ -186,8 +187,9 @@ def test_extractor_timeseries_service_with_state(
 
     # Run replicator to pick up new timeseries data points in Lakehouse
     test_extractor.extract_time_series_data(
-        test_extractor.config.source.abfss_prefix,
-        test_extractor.config.source.raw_time_series_path,
+        test_extractor.config.source.abfss_prefix
+        + "/"
+        + test_extractor.config.source.raw_time_series_path
     )
 
     # Sleep for 30 seconds to allow replicator to process the data
