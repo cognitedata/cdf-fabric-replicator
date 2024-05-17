@@ -199,7 +199,9 @@ class CdfFabricExtractor(Extractor[Config]):
         token = self.azure_credential.get_token(
             "https://storage.azure.com/.default"
         ).token
+        self.logger.debug(f"Extracting time series data from {file_path}")
         external_ids = self.retrieve_external_ids_from_lakehouse(file_path, token=token)
+        self.logger.debug(f"External IDs found: {external_ids}")
         latest_timestamps = self.get_timeseries_latest_timestamps(external_ids)
         for external_id, timestamp in latest_timestamps.items():
             for time_series_data in self.convert_lakehouse_data_to_df_batch(
@@ -218,6 +220,7 @@ class CdfFabricExtractor(Extractor[Config]):
         return latest_timestamps
 
     def write_time_series_to_cdf(self, external_id: str, data_frame: DataFrame) -> None:
+        self.logger.info(f"Writing time series data to CDF for {external_id}")
         state_id = f"{self.config.source.raw_time_series_path}-{external_id}-state"
         latest_process_time = data_frame["timestamp"].max()
         data_frame.loc[:, "externalId"] = data_frame.apply(
@@ -230,6 +233,8 @@ class CdfFabricExtractor(Extractor[Config]):
         data_frame.index = pd.to_datetime(data_frame.index)
         try:
             self.client.time_series.data.insert_dataframe(data_frame)
+            self.logger.debug(f"Time series data written to CDF for {external_id}")
+            self.set_state(state_id, str(latest_process_time))
         except CogniteNotFoundError as notFound:
             missing_xids = notFound.not_found
             for new_timeserie in missing_xids:
@@ -245,8 +250,6 @@ class CdfFabricExtractor(Extractor[Config]):
         except CogniteAPIError as e:
             self.logger.error(f"Error while writing time series data to CDF: {e}")
             raise e
-
-        self.set_state(state_id, str(latest_process_time))
 
     def write_event_data_to_cdf(
         self, file_path: str, token: str, state_id: str
@@ -359,6 +362,7 @@ class CdfFabricExtractor(Extractor[Config]):
                 filter=condition, batch_size=self.config.source.read_batch_size
             )
             for batch in batch_set:
+                self.logger.debug(f"Retrieved batch with {len(batch)} rows")
                 yield batch.to_pandas()
         except Exception as e:
             self.logger.error(
