@@ -94,6 +94,16 @@ Integration Test Variables are only used for integration tests. See [Testing](#t
 
 - `TEST_CONFIG_PATH`: Specifies the path to the test configuration file with which test versions of the replicator are configured.
 
+
+### Additional Config Values
+
+There are additional configuration values that are defined in `example_config.yaml` but do not have environment variables associated with them:
+- `extractor: subscription-batch-size` - Sets the batch size for the amount of data points to retrieve at a time from the CDF subscription in the Time Series Replicator.
+- `extractor: ingest-batch-size` - Sets the batch size for the amount of data points to write at a time to the Fabric Lakehouse in the Time Series Replicator.
+- `source: read_batch_size` - Sets the batch size for the number of rows to retrieve at a time from the Fabric Lakehouse in the Fabric Extractor.
+- `event: batch_size` - Sets the batch size for the number of events to retrieve at a time from CDF in the Events Replicator.
+
+
 ## Config YAML
 The replicator reads its configuration from a YAML file specified in the run command. You can configure your own YAML file based on the one in [example_config.yaml](example_config.yaml) in the repo. That configuration file uses the environment variables in `.env`, the configuration can also be set using hard-coded values.
 

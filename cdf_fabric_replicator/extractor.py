@@ -319,10 +319,7 @@ class CdfFabricExtractor(Extractor[Config]):
         self, file_path: str, token: str
     ) -> list[str]:
         try:
-            dt = DeltaTable(
-                file_path,
-                storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
-            )
+            dt = DeltaTable(file_path, storage_options={"bearer_token": token})
             table = dt.to_pyarrow_table(columns=["externalId"])
             return pc.unique(table.column("externalId")).to_pylist()
 
@@ -334,10 +331,7 @@ class CdfFabricExtractor(Extractor[Config]):
 
     def convert_lakehouse_data_to_df(self, file_path: str, token: str) -> DataFrame:
         try:
-            dt = DeltaTable(
-                file_path,
-                storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
-            )
+            dt = DeltaTable(file_path, storage_options={"bearer_token": token})
             return dt.to_pandas()
         except Exception as e:
             self.logger.error(
@@ -349,10 +343,7 @@ class CdfFabricExtractor(Extractor[Config]):
         self, file_path: str, external_id: str, timestamp: str, token: str
     ) -> Generator[DataFrame, None, None]:
         try:
-            dt = DeltaTable(
-                file_path,
-                storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
-            )
+            dt = DeltaTable(file_path, storage_options={"bearer_token": token})
             dataset = dt.to_pyarrow_dataset()
             condition = ds.field("externalId") == external_id
             if timestamp:
