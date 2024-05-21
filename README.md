@@ -108,6 +108,7 @@ Fabric Extractor Variables defines the Lakehouse and tables where raw data lands
 Integration Test Variables are only used for integration tests. See [Testing](#testing) for more information.
 
 - `TEST_CONFIG_PATH`: Specifies the path to the test configuration file with which test versions of the replicator are configured.
+- `COGNITE_CLIENT_NAME`: The reported to the CogniteClient in the integration tests
 
 ## Config YAML
 The replicator reads its configuration from a YAML file specified in the run command. You can configure your own YAML file based on the one in [example_config.yaml](example_config.yaml) in the repo. That configuration file uses the environment variables in `.env`, the configuration can also be set using hard-coded values.
@@ -266,7 +267,6 @@ env:
     rawTsPath: ""
     datasetId: ""
     tsPrefix: ""
-    destinationType: ""
     eventTableName: ""
 ```
 

@@ -71,5 +71,4 @@ env:
     rawTsPath: ""
     datasetId: ""
     tsPrefix: ""
-    destinationType: ""
     eventTableName: ""
