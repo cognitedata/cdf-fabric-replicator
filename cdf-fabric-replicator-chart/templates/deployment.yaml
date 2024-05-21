@@ -99,11 +99,6 @@ spec:
                 configMapKeyRef:
                   name: cdf-conn-config
                   key: EXTRACTOR_TS_PREFIX
-            - name: EXTRACTOR_DESTINATION_TYPE
-              valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
-                  key: EXTRACTOR_DESTINATION_TYPE
             - name: EVENT_TABLE_NAME
               valueFrom:
                 configMapKeyRef:
