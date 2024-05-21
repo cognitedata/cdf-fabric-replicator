@@ -11,26 +11,39 @@ The replicator consists of four services:
 All four services will run concurrently during the execution of the CDF Fabric Replicator program. The services use one state store in CDF's raw storage to maintain checkpoints of when the latest data was copied, so the services can be started and stopped and will be able to pick back up where they left off.
 
 ## Table of Contents
-- [Local Development with CDF Fabric replicator](#local-development-with-cdf-fabric-replicator)
-- [Setting up Data Point Subscriptions](#setting-up-data-point-subscriptions)
-- [Environment Variables](#environment-variables)
-  - [CDF Variables](#cdf-variables)
-  - [Fabric Variables](#fabric-variables)
-  - [Fabric Extractor Variables](#fabric-extractor-variables)
-  - [Integration Test Variables](#integration-test-variables)
-- [Config YAML](#config-yaml)
-  - [Remote config](#remote-config)
-- [Running with Poetry](#running-with-poetry)
-  - [Command-line](#command-line)
-  - [Visual Studio Code](#visual-studio-code)
-- [Building and Deploying with Docker on AKS](#building-and-deploying-with-docker-on-aks)
-  - [Pre-requisites](#pre-requisites)
-  - [Use helm to deploy your container to AKS](#use-helm-to-deploy-your-container-to-aks)
-  - [Running test_helm_chart_deployment Test](#running-test_helm_chart_deployment-test)
-- [Testing](#testing)
-  - [Setting Up Tests](#setting-up-tests)
-  - [Github Action](#github-action)
-  - [Best Practices for Adding Tests](#best-practices-for-adding-tests)
+- [CDF Fabric replicator](#cdf-fabric-replicator)
+  - [Table of Contents](#table-of-contents)
+  - [Local Development with CDF Fabric replicator](#local-development-with-cdf-fabric-replicator)
+  - [Setting up Data Point Subscriptions](#setting-up-data-point-subscriptions)
+  - [Environment Variables](#environment-variables)
+    - [CDF Variables](#cdf-variables)
+    - [Fabric Variables](#fabric-variables)
+    - [Fabric Extractor Variables](#fabric-extractor-variables)
+    - [Integration Test Variables](#integration-test-variables)
+  - [Config YAML](#config-yaml)
+    - [Remote config](#remote-config)
+  - [Running with Poetry](#running-with-poetry)
+    - [Command-line](#command-line)
+    - [Visual Studio Code](#visual-studio-code)
+  - [Building and Deploying with Docker on AKS](#building-and-deploying-with-docker-on-aks)
+    - [Pre-requisites](#pre-requisites)
+      - [Set Target Platform Architecture](#set-target-platform-architecture)
+      - [Creating an AKS Cluster with Managed Identity](#creating-an-aks-cluster-with-managed-identity)
+      - [Build Docker to Push to ACR](#build-docker-to-push-to-acr)
+    - [Use helm to deploy your container to AKS](#use-helm-to-deploy-your-container-to-aks)
+      - [Configure values.yaml](#configure-valuesyaml)
+        - [Image Repository](#image-repository)
+        - [Environment Variables](#environment-variables-1)
+      - [Connect to your AKS cluster](#connect-to-your-aks-cluster)
+      - [Install Via Helm](#install-via-helm)
+    - [Running test\_helm\_chart\_deployment Test](#running-test_helm_chart_deployment-test)
+  - [Testing](#testing)
+    - [Setting Up Tests](#setting-up-tests)
+      - [Environment Variables](#environment-variables-2)
+      - [VS Code Test Explorer](#vs-code-test-explorer)
+      - [Poetry](#poetry)
+    - [Github Action](#github-action)
+    - [Best Practices for Adding Tests](#best-practices-for-adding-tests)
 
 ## Local Development with CDF Fabric replicator
 
@@ -231,25 +244,28 @@ The environmental variables should be filled in with values that correspond to y
 
 ```yaml
 env:
-  COGNITE_TOKEN_URL: ""
-  COGNITE_CLIENT_ID: ""
-  COGNITE_CLIENT_SECRET: ""
-  COGNITE_TOKEN_SCOPES: ""
-  COGNITE_CLIENT_NAME: ""
-  COGNITE_PROJECT: ""
-  COGNITE_BASE_URL: ""
-  COGNITE_STATE_TABLE: ""
-  LAKEHOUSE_TIMESERIES_TABLE: TimeSeries
-  LAKEHOUSE_ABFSS_PREFIX: ""
-  EXTRACTOR_EVENT_PATH: "Tables/RawEvents"
-  EXTRACTOR_FILE_PATH: ""
-  EXTRACTOR_RAW_TS_PATH: "Tables/RawTS"
-  EXTRACTOR_DATASET_ID: ""
-  EXTRACTOR_TS_PREFIX: ""
-  EXTRACTOR_DESTINATION_TYPE: ""
-  EVENT_TABLE_NAME: ""
-  COGNITE_STATE_DB: ""
-  COGNITE_EXTRACTION_PIPELINE: ""
+  cognite:
+    tokenUrl: ""
+    clientId: ""
+    clientSecret: ""
+    tokenScopes: ""
+    clientName: ""
+    project: ""
+    baseUrl: ""
+    stateDb: ""
+    stateTable: ""
+    extractionPipeline: ""
+  lakehouse:
+    timeseriesTable: ""
+    abfssPrefix: ""
+  extractor:
+    eventPath: ""
+    filePath: ""
+    rawTsPath: ""
+    datasetId: ""
+    tsPrefix: ""
+    destinationType: ""
+    eventTableName: ""
 ```
 
 #### Connect to your AKS cluster
