@@ -2,7 +2,7 @@ name: Build extractor
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, murads/build_executables ]
   workflow_call:
     outputs:
       release-version:
