@@ -115,15 +115,16 @@ class EventsReplicator(Extractor):
 
         self.logger.info(f"Writing {len(events)} to '{abfss_path}' table...")
         data = pa.Table.from_pylist(events)
+        storage_options = {
+            "bearer_token": token.token,
+            "use_fabric_endpoint": "true",
+        }
 
         try:
             try:
                 dt = DeltaTable(
                     abfss_path,
-                    storage_options={
-                        "bearer_token": token.token,
-                        "user_fabric_endpoint": "true",
-                    },
+                    storage_options=storage_options,
                 )
 
                 (
@@ -144,10 +145,7 @@ class EventsReplicator(Extractor):
                     mode="append",
                     engine="rust",
                     schema_mode="merge",
-                    storage_options={
-                        "bearer_token": token.token,
-                        "use_fabric_endpoint": "true",
-                    },
+                    storage_options=storage_options,
                 )
 
         except DeltaError as e:

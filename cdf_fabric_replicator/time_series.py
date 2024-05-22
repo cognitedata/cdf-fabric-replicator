@@ -283,7 +283,6 @@ class TimeSeriesReplicator(Extractor):
 
         try:
             try:
-                # data = pa.Table.from_pandas(df)
                 dt = DeltaTable(table, storage_options=storage_options)
                 (
                     dt.merge(
