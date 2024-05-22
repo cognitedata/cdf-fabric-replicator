@@ -26,9 +26,9 @@ from cdf_fabric_replicator.metrics import Metrics
 
 
 # Should be the same as product_short_name in installer/setup-config.json
-service_name = "FileExtractor"
-service_display_name = "Cognite File Extractor"
-service_description = "Extract files from different sources into the CDF Files API"
+service_name = "FabricConnector"
+service_display_name = "Cognite Fabric Connector"
+service_description = "Connector to Fabric and exchange data with CDF"
 
 
 class WindowsService(win32serviceutil.ServiceFramework):
