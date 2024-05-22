@@ -11,11 +11,6 @@ on:
       should-release:
         description: Checks if release would occur
         value: ${{ jobs.should-release.outputs.should-release }}
-    secrets:
-      ARTIFACTORY_READONLY_TOKEN:
-        required: true
-      ARTIFACTORY_READONLY_TOKEN_USER:
-        required: true
 
 jobs:
   should-release:
