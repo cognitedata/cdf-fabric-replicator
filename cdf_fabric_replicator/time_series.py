@@ -5,8 +5,8 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Literal
 
 from azure.identity import DefaultAzureCredential
-from deltalake.exceptions import DeltaError
-from deltalake.writer import write_deltalake
+from deltalake.exceptions import DeltaError, TableNotFoundError
+from deltalake.writer import write_deltalake, DeltaTable
 import pandas as pd
 import numpy as np
 
@@ -276,17 +276,35 @@ class TimeSeriesReplicator(Extractor):
         df: pd.DataFrame,
         mode: Literal["error", "append", "overwrite", "ignore"] = "append",
     ) -> None:
-        token = self.get_token()
+        storage_options = {
+            "bearer_token": self.get_token(),
+            "use_fabric_endpoint": "true",
+        }
 
         try:
-            write_deltalake(
-                table_or_uri=table,
-                data=df,
-                mode=mode,
-                engine="rust",
-                schema_mode="merge",
-                storage_options={"bearer_token": token, "use_fabric_endpoint": "true"},
-            )
+            try:
+                # data = pa.Table.from_pandas(df)
+                dt = DeltaTable(table, storage_options=storage_options)
+                (
+                    dt.merge(
+                        source=df,
+                        predicate="s.externalId = t.externalId AND s.timestamp = t.timestamp",
+                        source_alias="s",
+                        target_alias="t",
+                    )
+                    .when_matched_update_all()
+                    .when_not_matched_insert_all()
+                    .execute()
+                )
+            except TableNotFoundError:
+                write_deltalake(
+                    table_or_uri=table,
+                    data=df,
+                    mode=mode,
+                    engine="rust",
+                    schema_mode="merge",
+                    storage_options=storage_options,
+                )
         except DeltaError as e:
             self.logger.error(f"Error writing to {table}: {e}")
             raise e

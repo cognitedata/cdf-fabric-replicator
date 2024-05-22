@@ -4,8 +4,8 @@ from typing import Iterator, List, Dict, Any
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.base import Extractor
 from azure.identity import DefaultAzureCredential
-from deltalake import write_deltalake
-from deltalake.exceptions import DeltaError
+from deltalake import write_deltalake, DeltaTable
+from deltalake.exceptions import DeltaError, TableNotFoundError
 import pyarrow as pa
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
@@ -115,18 +115,41 @@ class EventsReplicator(Extractor):
 
         self.logger.info(f"Writing {len(events)} to '{abfss_path}' table...")
         data = pa.Table.from_pylist(events)
+
         try:
-            write_deltalake(
-                abfss_path,
-                data,
-                mode="append",
-                engine="rust",
-                schema_mode="merge",
-                storage_options={
-                    "bearer_token": token.token,
-                    "use_fabric_endpoint": "true",
-                },
-            )
+            try:
+                dt = DeltaTable(
+                    abfss_path,
+                    storage_options={
+                        "bearer_token": token.token,
+                        "user_fabric_endpoint": "true",
+                    },
+                )
+
+                (
+                    dt.merge(
+                        source=data,
+                        predicate="s.id = t.id",
+                        source_alias="s",
+                        target_alias="t",
+                    )
+                    .when_matched_update_all()
+                    .when_not_matched_insert_all()
+                    .execute()
+                )
+            except TableNotFoundError:
+                write_deltalake(
+                    abfss_path,
+                    data,
+                    mode="append",
+                    engine="rust",
+                    schema_mode="merge",
+                    storage_options={
+                        "bearer_token": token.token,
+                        "use_fabric_endpoint": "true",
+                    },
+                )
+
         except DeltaError as e:
             self.logger.error(f"Error writing events to lakehouse tables: {e}")
             raise e
