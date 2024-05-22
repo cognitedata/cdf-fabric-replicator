@@ -30,7 +30,6 @@ service_name = "FabricConnector"
 service_display_name = "Cognite Fabric Connector"
 service_description = "Connector to Fabric and exchange data with CDF"
 
-
 class WindowsService(win32serviceutil.ServiceFramework):
     _svc_name_ = service_name
     _svc_display_name_ = service_display_name
