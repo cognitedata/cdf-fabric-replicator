@@ -1,0 +1,307 @@
+name: Build extractor
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_call:
+    outputs:
+      release-version:
+        description: Release version
+        value: ${{ jobs.create-version.outputs.version }}
+      should-release:
+        description: Checks if release would occur
+        value: ${{ jobs.should-release.outputs.should-release }}
+
+jobs:
+  should-release:
+    needs:
+      - create-version
+    runs-on: ubuntu-latest
+    outputs:
+      should-release: ${{ steps.confirm-release.outputs.test }}
+    steps:
+      - name: checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: confirm release
+        id: confirm-release
+        run: echo "test=$(git tag --list 'v${{ needs.create-version.outputs.version }}' | wc -l | sed s/\ //g)" >> $GITHUB_OUTPUT
+
+  message:
+    runs-on: ubuntu-latest
+    needs:
+      - should-release
+      - create-version
+    steps:
+      - name: Message about build
+        uses: actions/github-script@v7
+        with:
+          script: |
+            if (${{ needs.should-release.outputs.should-release }} == 0) {
+              core.notice('Will release version ${{ needs.create-version.outputs.version }}...')
+            } else {
+              core.warning('Will not create release for version ${{ needs.create-version.outputs.version }} because it already exists.')
+            }
+
+  current-branch:
+    needs:
+      - should-release
+    runs-on: ubuntu-latest
+    outputs:
+      current-branch: ${{ steps.current-branch.outputs.branch }}
+    steps:
+      - name: Get branch name
+        id: current-branch
+        run: echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> "$GITHUB_OUTPUT"
+
+  get-time:
+    runs-on: ubuntu-latest
+    outputs:
+      time: ${{ steps.get-time.outputs.time }}
+    steps:
+      - name: checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.events.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: get-time
+        id: get-time
+        run: echo "time=$(git log -1 --format=%ai)" >> "$GITHUB_OUTPUT"
+
+      - name: debug time
+        run: echo ${{ steps.get-time.outputs.time }}
+
+  create-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+    steps:
+      - name: checkout branch
+        uses: actions/checkout@v4
+
+      - name: update pip
+        run: pip install --upgrade pip
+
+      - name: install shyaml
+        run: pip install shyaml
+
+      - name: fetch-version
+        id: fetch-version
+        run: echo "latest_version=$(cat manifest.yml | shyaml keys-0 versions | xargs -0 | cut -d\  -f1)" >> $GITHUB_OUTPUT
+
+      - name: debug-version
+        run: echo ${{ steps.fetch-version.outputs.latest_version }}
+
+      - name: get-version
+        id: get-version
+        run: echo "version=${{ steps.fetch-version.outputs.latest_version }}" >> $GITHUB_OUTPUT
+
+  generate-sbom:
+    needs:
+      - create-version
+    runs-on: ubuntu-latest
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - name: checkout branch
+        uses: actions/checkout@v4
+
+      - name: ensure curl
+        run: sudo apt-get -qq install curl dotnet-sdk-7.0
+
+      - name: install sbom tool
+        run: dotnet tool install --global microsoft.sbom.dotnettool
+
+      - name: Install poetry
+        run: pip install poetry
+
+      - name: Isolate target binary files
+        run: cp -r fabric_connector sbom
+
+      - name: Remove unnecessary files
+        run: find sbom -iname __pycache__ -type d -exec rm -r {} +
+
+      - name: Include requirements
+        run: poetry export -f requirements.txt --output sbom/requirements.txt
+
+      - name: Generate sbom
+        run: sbom-tool generate -b sbom -bc sbom -pn fabric-connector -pv ${{ needs.create-version.outputs.version }} -ps Cognite -nsb https://sbom.cognite.com
+
+      - name: Move generated json
+        run: mv sbom/_manifest/spdx_2.2/* .
+
+      - name: Delete isolation
+        run: rm -rf sbom
+
+      - name: Upload artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom artefacts
+          path: manifest.spdx.json*
+
+  build-windows:
+    runs-on: windows-2022
+    environment: ${{ needs.current-branch.outputs.current-branch == 'main' && 'CD' || 'CI' }}
+    needs:
+      - generate-sbom
+      - create-version
+      - get-time
+      - current-branch
+      - should-release
+
+    steps:
+      - name: checkout branch
+        uses: actions/checkout@v4
+
+      - name: Install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install poetry and cogex
+        run: pip install --no-cache-dir poetry==1.6.1 cognite-extractor-manager==1.*
+
+      - name: install requirements
+        run: |
+          poetry export --without-hashes -f requirements.txt -o requirements.txt
+          pip install -r requirements.txt
+
+      - name: Dowload sbom artefact
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom artefacts
+          path: ./
+
+      - name: Ensure sbom artefacts
+        run: ls manifest.spdx.json*
+
+      - name: Build example configs
+        run: cd config_examples && bash build_examples.sh
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.3
+
+      - name: build windows exe
+        run: cogex build --spec fabric_connector.spec win_service.spec
+        env:
+          PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+
+      - name: Sign executable
+        if: ${{ needs.current-branch.outputs.current-branch == 'main' }}
+        env:
+          CERTIFICATE_HOST: ${{ secrets.CODE_SIGNING_CERT_HOST }}
+          CERTIFICATE_HOST_API_KEY: ${{ secrets.CODE_SIGNING_CERT_HOST_API_KEY }}
+          CERTIFICATE_SHA1_HASH: ${{ secrets.CODE_SIGNING_CERT_SHA1_HASH }}
+          CLIENT_CERTIFICATE: ${{ secrets.CODE_SIGNING_CLIENT_CERT }}
+          CLIENT_CERTIFICATE_PASSWORD: ${{ secrets.CODE_SIGNING_CLIENT_CERT_PASSWORD }}
+        uses: cognitedata/code-sign-action/@v2
+        with:
+          path-to-binary: '.\dist'
+
+      - name: prepare output directory
+        run: mkdir -p uploads
+
+      - name: create buildoutput for msi
+        run: mkdir buildoutput
+        working-directory: ./installer
+
+      - name: copy sboms to buildoutput
+        run: cp .\manifest.spdx.json* .\installer\buildoutput\
+
+      - name: copy artifacts to buildoutput
+        run: |
+          cp ..\dist\fabric-connector-standalone-${{ needs.create-version.outputs.version }}-win32.exe buildoutput\fabric-connector.exe
+          cp ..\dist\fabric-connector-winservice-${{ needs.create-version.outputs.version }}-win32.exe buildoutput\fabric-connector-winservice.exe
+        working-directory: ./installer
+
+      - name: build msi
+        run: .\build.ps1 ${{ needs.create-version.outputs.version }} -b "msbuild" -d "${{ needs.get-time.outputs.time }}" -c ".\setup-config.json"
+        working-directory: installer
+
+      - name: move msi
+        run: mv .\installer\bin\Release\FabricConnectorSetup.msi .\uploads\fabric-connector-${{ needs.create-version.outputs.version }}.msi
+
+      - name: Sign msi
+        if: ${{ needs.current-branch.outputs.current-branch == 'main' }}
+        env:
+          CERTIFICATE_HOST: ${{ secrets.CODE_SIGNING_CERT_HOST }}
+          CERTIFICATE_HOST_API_KEY: ${{ secrets.CODE_SIGNING_CERT_HOST_API_KEY }}
+          CERTIFICATE_SHA1_HASH: ${{ secrets.CODE_SIGNING_CERT_SHA1_HASH }}
+          CLIENT_CERTIFICATE: ${{ secrets.CODE_SIGNING_CLIENT_CERT }}
+          CLIENT_CERTIFICATE_PASSWORD: ${{ secrets.CODE_SIGNING_CLIENT_CERT_PASSWORD }}
+        uses: cognitedata/code-sign-action/@v2
+        with:
+          path-to-binary: .\fabric-connector-${{ needs.create-version.outputs.version }}.msi
+
+      - name: Zip it up
+        run: |
+          7z a .\uploads\fabric-connector-standalone-${{ needs.create-version.outputs.version }}-win32.zip .\dist\fabric-connector-standalone-${{ needs.create-version.outputs.version }}-win32.exe manifest.spdx.json manifest.spdx.json.sha256 .\config_examples\example-*.yaml
+          7z a .\uploads\fabric-connector-winservice-${{ needs.create-version.outputs.version }}-win32.zip .\dist\fabric-connector-winservice-${{ needs.create-version.outputs.version }}-win32.exe manifest.spdx.json manifest.spdx.json.sha256 .\config_examples\example-*.yaml
+
+      - name: Upload artifacts
+        if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0}}
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: .\uploads\
+
+  build-linux:
+    runs-on: ubuntu-latest
+    environment: ${{ needs.current-branch.outputs.current-branch == 'main' && 'CD' || 'CI' }}
+    needs:
+      - generate-sbom
+      - create-version
+      - get-time
+      - current-branch
+      - should-release
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libkrb5-dev
+
+      - name: Install poetry and cogex
+        run: pip install --no-cache-dir poetry==1.6.1 cognite-extractor-manager==1.*
+
+      - name: install requirements
+        run: |
+          poetry export --without-hashes -f requirements.txt -o requirements.txt
+          pip install -r requirements.txt
+
+      - name: Build example configs
+        run: cd config_examples && bash build_examples.sh
+
+      - name: Build linux executable
+        run: cogex build --spec fabric_connector.spec
+
+      - name: Download sbom artefacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom artefacts
+          path: .
+
+      - name: Ensure sbom artefacts
+        run: ls manifest.spdx.json*
+
+      - name: Zip it up
+        run: |
+          mv dist/fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux .
+          zip -r fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux.zip fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux config_examples/example-*.yaml manifest.spdx.json*
+
+      - name: Upload artifacts
+        if: ${{ needs.current-branch.outputs.current-branch == 'main' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux.zip

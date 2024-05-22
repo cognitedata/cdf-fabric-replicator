@@ -2,7 +2,7 @@ import json
 import logging
 import time
 
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, Optional
 from cognite.extractorutils.base import CancellationToken
 
 from cognite.client.data_classes.data_modeling.ids import ViewId
@@ -29,7 +29,12 @@ from cdf_fabric_replicator.metrics import Metrics
 
 
 class DataModelingReplicator(Extractor):
-    def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
+    def __init__(
+        self,
+        metrics: Metrics,
+        stop_event: CancellationToken,
+        override_config_path: Optional[str] = None,
+    ) -> None:
         super().__init__(
             name="cdf_fabric_replicator_data_modeling",
             description="CDF Fabric Replicator",
@@ -38,6 +43,7 @@ class DataModelingReplicator(Extractor):
             use_default_state_store=False,
             version=__version__,
             cancellation_token=stop_event,
+            config_file_path=override_config_path,
         )
         self.metrics: Metrics
         self.stop_event = stop_event

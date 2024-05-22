@@ -1,7 +1,7 @@
 
 [tool.poetry]
 name = "cdf_fabric_replicator"
-version = "1.0.0b1"
+version = "0.1.0"
 description = "Stream data from CDF to Fabric/Onelake"
 authors = ["Murad Saeter <murad.sater@cognite.com>"]
 
@@ -30,6 +30,7 @@ azure-identity = "^1.15.0"
 azure-storage-file-datalake = "^12.14.0"
 deltalake = "^0.16.0"
 pandas = "^2.2.1"
+pywin32 = {version = "306", platform = "win32"}
 
 
 [tool.poetry.dev-dependencies]

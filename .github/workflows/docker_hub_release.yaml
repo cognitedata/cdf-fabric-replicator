@@ -1,0 +1,56 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*' # Run workflow on version tags, e.g. v1.0.0.
+
+jobs:
+  release-to-dockerhub:
+    runs-on: ubuntu-latest
+    environment: 
+      name: CD
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Get plugin metadata
+      id: metadata
+      run: |
+        echo "github-tag=${GITHUB_REF#refs/*/}" >> $GITHUB_OUTPUT
+
+    - id: parse_version
+      name: Parse version
+      run: echo "cli_version=$(sed -n -e "/^__version__/p" cdf_fabric_replicator/__init__.py | cut -c 16- | sed -e 's/^"//' -e 's/"$//')" >> $GITHUB_OUTPUT
+
+    - name: Check package version
+      run: if [ "v${{ steps.parse_version.outputs.cli_version }}" != "${{ steps.metadata.outputs.github-tag }}" ]; then printf "\033[0;31mPackage version doesn't match tag name\033[0m\n"; exit 1; fi
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        install: true
+
+    - name: Log in to the Container registry
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USER }}
+        password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+
+    - name: Echo version
+      run: echo ${{ steps.parse_version.outputs.cli_version }}
+
+    - name: Install dependencies
+      run: |
+        python3 -m pip install --upgrade pip cognite-extractor-manager poetry
+
+    - name: Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        file: ./build/Dockerfile
+        tags: cognite/cdf-fabric-replicator:${{ steps.parse_version.outputs.cli_version }}

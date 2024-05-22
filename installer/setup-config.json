@@ -1,0 +1,10 @@
+{
+	"product_name": "Cognite Fabric Connector",
+	"product_short_name": "FabricConnector",
+	"exe_name": "fabric-connector.exe",
+	"service_exe_name": "fabric-connector-winservice.exe",
+	"config_dir": "../config_examples",
+	"service": "true",
+	"upgrade_guid": "AC21D165-7E88-4EA9-93D4-20CD7952D52E",
+	"output_name": "FabricConnectorSetup"
+}
