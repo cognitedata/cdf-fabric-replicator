@@ -120,7 +120,7 @@ jobs:
         run: pip install poetry
 
       - name: Isolate target binary files
-        run: cp -r fabric_connector sbom
+        run: cp -r cdf_fabric_replicator sbom
 
       - name: Remove unnecessary files
         run: find sbom -iname __pycache__ -type d -exec rm -r {} +
