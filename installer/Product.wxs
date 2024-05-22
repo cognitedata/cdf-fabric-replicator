@@ -102,10 +102,7 @@
     <ComponentGroup Id="ConfigFilesComponentGroup">
       <!-- Add more config files here in a similar manner -->
       <Component Id="base_config_yaml" Guid="*" Directory="ConfigFolder">
-        <File Id="base_config.yaml" Name="base-config.yaml" Source="$(var.config_dir)\base_example.yaml" />
-      </Component>
-      <Component Id="local_yaml" Guid="*" Directory="ConfigFolder">
-        <File Id="local.yaml" Name="local.yaml" Source="$(var.config_dir)\local.yaml" />
+        <File Id="example_config.yaml" Name="example_config.yaml" Source="$(var.config_dir)\example_config.yaml" />
       </Component>
     </ComponentGroup>
     <ComponentGroup Id="ManifestComponentGroup">
