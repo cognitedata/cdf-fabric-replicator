@@ -1,0 +1,57 @@
+# The list of artifacts to be deployed with each release.
+# {version} is substituted with the version being released in path and name.
+artifacts:
+  - name: fabric-connector-standalone-{version}.zip
+    path: fabric-connector-standalone-{version}-win32.zip
+    platform: windows
+    displayName: "Windows executable"
+  - name: fabric-connector-winservice-{version}.zip
+    path: fabric-connector-winservice-{version}-win32.zip
+    platform: windows
+    displayName: "Windows service"
+  - name: fabric-connector-{version}.msi
+    path: fabric-connector-{version}.msi
+    platform: windows
+    displayName: "Windows installer"
+  - name: fabric-connector-linux-{version}.zip
+    path: fabric-connector-standalone-{version}-linux.zip
+    platform: linux
+    displayName: "Linux executable"
+
+# A list of releases, when running the release script only the entry matching the
+# provided version is used.
+versions:
+  "0.1.0":
+    description: "First release candidate of Microsoft Fabric connector"
+    changelog:
+      added:
+        - "First release"
+
+# Extractor definition
+extractor:
+  externalId: fabric-connector
+  name: Cognite Fabric Connector
+  description: Connect to Microsoft Fabric and exchange data with Cognite Data Fusion.
+  documentation: |
+    The Cognite Fabric Connector is a generic connector that can connect to Microsoft Fabric and exchange data with Cognite Data Fusion.
+
+    The replicator consists of four services:
+      * Time series replicator - Copies time series data from CDF to Fabric.
+      * Data model replicator - Copies data model nodes and edges from CDF to Fabric.
+      * Event replicator - Copies event data from CDF to Fabric.
+      * RAW replicator - Copies RAW tables from CDF to Fabric
+      * Fabric data extractor - Copies time series, events, and files from Fabric to CDF.
+
+  type: global # Filterable type
+  tags:
+    - fabric
+  image: assets/fabric.svg
+
+
+documentation:
+  includeLeafNodes: false
+  preamble:
+    - docs/yaml.md
+    - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/318d74db49536baabb707b2587e1244037e9cc07/schema/docs/remote_tip.md
+    - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/318d74db49536baabb707b2587e1244037e9cc07/schema/docs/envsub.md
+    - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/318d74db49536baabb707b2587e1244037e9cc07/schema/docs/keyvault.md
