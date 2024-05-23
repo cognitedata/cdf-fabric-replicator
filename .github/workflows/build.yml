@@ -305,3 +305,41 @@ jobs:
         with:
           name: linux
           path: fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux.zip
+
+  build-docker-image:
+    runs-on: ubuntu-latest
+    environment: 
+      name: ${{ needs.current-branch.outputs.current-branch == 'main' && 'CD' || 'CI' }}
+    needs:
+      - generate-sbom
+      - create-version
+      - get-time
+      - current-branch
+      - should-release
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        install: true
+
+    - name: Install dependencies
+      run: |
+        python3 -m pip install --upgrade pip cognite-extractor-manager poetry
+
+    - name: Build Docker image
+      run: docker build -t cognite/fabric-connector:${{ needs.create-version.outputs.version }} -f build/Dockerfile .
+
+    - name: export docker image
+      run: docker save -o fabric-connector.tar cognite/fabric-connector:${{ needs.create-version.outputs.version }}
+
+    - name: upload artifact
+      if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0 }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: docker image
+        path: ./fabric-connector.tar
