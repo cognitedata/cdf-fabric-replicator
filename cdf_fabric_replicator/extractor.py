@@ -213,10 +213,12 @@ class CdfFabricExtractor(Extractor[Config]):
                 self.write_time_series_to_cdf(external_id, time_series_data)
 
     def get_timeseries_latest_timestamps(self, external_ids: list[str]) -> dict:
-        latest_timestamps = {}
-        for external_id in external_ids:
-            state_id = f"{self.config.source.raw_time_series_path}-{external_id}-state"
-            latest_timestamps[external_id] = self.state_store.get_state(state_id)[0]
+        state_ids = [
+            f"{self.config.source.raw_time_series_path}-{external_id}-state"
+            for external_id in external_ids
+        ]
+        states = self.state_store.get_state(state_ids)
+        latest_timestamps = dict(zip(external_ids, [state[0] for state in states]))
         return latest_timestamps
 
     def write_time_series_to_cdf(self, external_id: str, data_frame: DataFrame) -> None:
@@ -247,6 +249,13 @@ class CdfFabricExtractor(Extractor[Config]):
                         data_set_id=self.data_set_id,
                     )
                 )
+            try:
+                self.client.time_series.data.insert_dataframe(data_frame)
+                self.logger.debug(f"Time series data written to CDF for {external_id}")
+                self.set_state(state_id, str(latest_process_time))
+            except CogniteAPIError as e:
+                self.logger.error(f"Error while writing time series data to CDF: {e}")
+                raise e
         except CogniteAPIError as e:
             self.logger.error(f"Error while writing time series data to CDF: {e}")
             raise e

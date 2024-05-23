@@ -205,8 +205,11 @@ def test_extract_time_series_data(
 
 
 def test_get_timeseries_latest_timestamps(test_extractor):
-    test_extractor.state_store.get_state.return_value = (1,)
-    assert test_extractor.get_timeseries_latest_timestamps(["id1"]) == {"id1": 1}
+    test_extractor.state_store.get_state.return_value = [(1,), (2,)]
+    assert test_extractor.get_timeseries_latest_timestamps(["id1", "id2"]) == {
+        "id1": 1,
+        "id2": 2,
+    }
 
 
 def test_write_time_series_to_cdf(test_extractor, mock_timeseries_data):
@@ -239,13 +242,16 @@ def test_write_time_series_to_cdf_timeseries_not_found(
     test_extractor.state_store.set_state.return_value = None
     # Mock Cognite API to raise a CogniteNotFoundError
     test_extractor.client.time_series.data.insert_dataframe.side_effect = [
-        CogniteNotFoundError(not_found=[{"externalId": "id1"}])
+        CogniteNotFoundError(not_found=[{"externalId": "id1"}]),
+        None,
     ]
 
     test_extractor.write_time_series_to_cdf("id1", df)
 
     # Assert time series write was called for the missing time series
-    assert test_extractor.client.time_series.data.insert_dataframe.call_count == 1
+    assert (
+        test_extractor.client.time_series.data.insert_dataframe.call_count == 2
+    )  # First call for first try, second call after timeseries creation
     test_extractor.client.time_series.create.assert_called_once_with(
         TimeSeriesWrite(
             external_id="id1",
@@ -254,6 +260,25 @@ def test_write_time_series_to_cdf_timeseries_not_found(
             data_set_id=TEST_DATA_SET_ID,
         )
     )
+
+
+def test_write_time_series_to_cdf_timeseries_not_found_error(
+    test_extractor, mock_timeseries_data
+):
+    # Create dataframe from test data
+    df = pd.DataFrame(mock_timeseries_data)
+
+    test_extractor.state_store.get_state.return_value = (None,)
+    test_extractor.state_store.set_state.return_value = None
+    # Mock Cognite API to raise a CogniteNotFoundError then a CogniteAPIError
+    test_extractor.client.time_series.data.insert_dataframe.side_effect = [
+        CogniteNotFoundError(not_found=[{"externalId": "id1"}]),
+        CogniteAPIError(code=500, message="Test error"),
+    ]
+    with pytest.raises(CogniteAPIError):
+        test_extractor.write_time_series_to_cdf("id1", df)
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
 
 
 def test_write_time_series_to_cdf_timeseries_retrieve_error(
@@ -407,7 +432,7 @@ def test_upload_files_from_abfss_cognite_error(
 
 def test_retrieve_external_ids_from_lakehouse(test_extractor, mocker):
     # Mock DeltaTable to return a pyarrow table with the externalId column
-    df = pd.DataFrame({"externalId": ["id1", "id2", "id1", "id1"]})
+    df = pd.DataFrame({"externalId": ["id1", "id2", "id1"]})
     table = pa.Table.from_pandas(df)
     mocker.patch(
         "cdf_fabric_replicator.extractor.DeltaTable",
