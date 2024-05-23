@@ -19,7 +19,7 @@ from cognite.extractorutils import Extractor
 from cognite.extractorutils.base import CancellationToken
 from deltalake import DeltaTable
 from pandas import DataFrame
-from typing import Any, Literal, Generator
+from typing import Any, Literal, Optional, Generator
 import pandas as pd
 import pyarrow.compute as pc
 import pyarrow.dataset as ds
@@ -36,6 +36,7 @@ class CdfFabricExtractor(Extractor[Config]):
         metrics: Metrics,
         stop_event: CancellationToken,
         name: str = "cdf_fabric_extractor",
+        override_config_path: Optional[str] = None,
     ) -> None:
         super().__init__(
             name=name,
@@ -43,6 +44,7 @@ class CdfFabricExtractor(Extractor[Config]):
             config_class=Config,
             metrics=metrics,
             version=__version__,
+            config_file_path=override_config_path,
         )
         self.metrics = metrics
         self.azure_credential = DefaultAzureCredential()

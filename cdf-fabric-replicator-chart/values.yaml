@@ -9,7 +9,6 @@ image:
   tag: "1.0.0"
 
 replicaCount: 1
-imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
@@ -53,24 +52,23 @@ streams:
 
 env:
   cognite:
-    baseUrl: ""
+    tokenUrl: ""
     clientId: ""
-    clientName: ""
     clientSecret: ""
+    tokenScopes: ""
+    clientName: ""
     project: ""
+    baseUrl: ""
     stateDb: ""
     stateTable: ""
-    tokenScopes: ""
-    tokenUrl: ""
     extractionPipeline: ""
+  lakehouse:
+    timeseriesTable: ""
+    abfssPrefix: ""
   extractor:
-    datasetId: ""
-    destinationType: ""
     eventPath: ""
     filePath: ""
     rawTsPath: ""
+    datasetId: ""
     tsPrefix: ""
-  lakehouse:
-    abfssPrefix: ""
-    timeseriesTable: ""
-  eventTableName: ""
+    eventTableName: ""
