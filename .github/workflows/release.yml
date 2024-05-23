@@ -10,10 +10,15 @@ jobs:
     uses: ./.github/workflows/build.yml
     secrets: inherit
 
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yml
+    secrets: inherit
+
   publish-docker:
     runs-on: ubuntu-latest
     needs:
       - builds
+      - integration-tests
     if: ${{ needs.build.outputs.should-release == 0 }}
     environment: CD
 
