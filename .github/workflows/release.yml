@@ -34,7 +34,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
 
       - name: Docker push to hub
-        run: docker push cognite/fabric-connector:${{ needs.build.outputs.release-version }}
+        run: docker push cognite/fabric-connector:${{ needs.builds.outputs.release-version }}
 
   publish-binaries:
     runs-on: ubuntu-latest
@@ -83,10 +83,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            file-extractor-standalone-${{ needs.builds.outputs.release-version }}-win32.zip
-            file-extractor-winservice-${{ needs.builds.outputs.release-version }}-win32.zip
-            file-extractor-${{ needs.builds.outputs.release-version }}.msi
-            file-extractor-standalone-${{ needs.builds.outputs.release-version }}-linux.zip
+            fabric-connector-${{ needs.builds.outputs.release-version }}-win32.zip
+            fabric-connector-winservice-${{ needs.builds.outputs.release-version }}-win32.zip
+            fabric-connector-${{ needs.builds.outputs.release-version }}.msi
+            fabric-connector-standalone-${{ needs.builds.outputs.release-version }}-linux.zip
           tag_name: v${{ needs.builds.outputs.release-version }}
           name: Release version ${{ needs.builds.outputs.release-version }}
           draft: false
