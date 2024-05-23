@@ -332,7 +332,7 @@ jobs:
         python3 -m pip install --upgrade pip cognite-extractor-manager poetry
 
     - name: Build Docker image
-      run: docker build -t cognite/fabric-connector:${{ needs.create-version.outputs.version }} -f build/Dockerfile .
+      run: docker build -t cognite/fabric-connector:${{ needs.create-version.outputs.version }} -f build/Dockerfile --load .
 
     - name: export docker image
       run: docker save -o fabric-connector.tar cognite/fabric-connector:${{ needs.create-version.outputs.version }}
