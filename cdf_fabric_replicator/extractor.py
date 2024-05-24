@@ -19,8 +19,11 @@ from cognite.extractorutils import Extractor
 from cognite.extractorutils.base import CancellationToken
 from deltalake import DeltaTable
 from pandas import DataFrame
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Generator
 import pandas as pd
+import pyarrow.compute as pc
+import pyarrow.dataset as ds
+from datetime import datetime
 
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
@@ -77,13 +80,11 @@ class CdfFabricExtractor(Extractor[Config]):
                 self.config.source.raw_time_series_path
                 and self.config.destination.time_series_prefix
             ):
-                time_series_data = self.convert_lakehouse_data_to_df(
+                self.extract_time_series_data(
                     self.config.source.abfss_prefix
                     + "/"
                     + self.config.source.raw_time_series_path,
-                    token=token,
                 )
-                self.write_time_series_to_cdf(time_series_data)
 
             if self.config.source.event_path:
                 state_id = f"{self.config.source.event_path}-state"
@@ -196,51 +197,70 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error(f"Error while uploading file to CDF: {e}")
             raise e
 
-    def write_time_series_to_cdf(self, data_frame: DataFrame) -> None:
-        external_ids = data_frame["externalId"].unique()
-        for external_id in external_ids:
-            df = data_frame[data_frame["externalId"] == external_id]
-            state_id = f"{self.config.source.raw_time_series_path}-{external_id}-state"
-            df_to_be_written = None
-            if self.state_store.get_state(state_id)[0] is None:
-                df_to_be_written = df
-            else:
-                latest_written_time = self.state_store.get_state(state_id)[0]
-                df_to_be_written = df[df["timestamp"] > latest_written_time]
+    def extract_time_series_data(self, file_path: str) -> None:
+        token = self.azure_credential.get_token(
+            "https://storage.azure.com/.default"
+        ).token
+        self.logger.debug(f"Extracting time series data from {file_path}")
+        external_ids = self.retrieve_external_ids_from_lakehouse(file_path, token=token)
+        self.logger.debug(f"External IDs found: {external_ids}")
+        latest_timestamps = self.get_timeseries_latest_timestamps(external_ids)
+        for external_id, timestamp in latest_timestamps.items():
+            for time_series_data in self.convert_lakehouse_data_to_df_batch(
+                file_path,
+                external_id,
+                timestamp,
+                token=token,
+            ):
+                self.write_time_series_to_cdf(external_id, time_series_data)
 
-            if len(df_to_be_written) > 0:
-                latest_process_time = df_to_be_written["timestamp"].max()
+    def get_timeseries_latest_timestamps(self, external_ids: list[str]) -> dict:
+        state_ids = [
+            f"{self.config.source.raw_time_series_path}-{external_id}-state"
+            for external_id in external_ids
+        ]
+        states = self.state_store.get_state(state_ids)
+        latest_timestamps = dict(zip(external_ids, [state[0] for state in states]))
+        return latest_timestamps
 
-                df_to_be_written.loc[:, "externalId"] = df_to_be_written.apply(
-                    lambda row: self.config.destination.time_series_prefix
-                    + row["externalId"],
-                    axis=1,
-                )
-                df_to_be_written = df_to_be_written.pivot(
-                    index="timestamp", columns="externalId", values="value"
-                )
-                df_to_be_written.index = pd.to_datetime(df_to_be_written.index)
-                try:
-                    self.client.time_series.data.insert_dataframe(df_to_be_written)
-                except CogniteNotFoundError as notFound:
-                    missing_xids = notFound.not_found
-                    for new_timeserie in missing_xids:
-                        # Create the missing time series
-                        self.client.time_series.create(
-                            TimeSeriesWrite(
-                                name=new_timeserie["externalId"],
-                                external_id=new_timeserie["externalId"],
-                                is_string=True,
-                                data_set_id=self.data_set_id,
-                            )
-                        )
-                except CogniteAPIError as e:
-                    self.logger.error(
-                        f"Error while writing time series data to CDF: {e}"
+    def write_time_series_to_cdf(self, external_id: str, data_frame: DataFrame) -> None:
+        self.logger.info(f"Writing time series data to CDF for {external_id}")
+        state_id = f"{self.config.source.raw_time_series_path}-{external_id}-state"
+        latest_process_time = data_frame["timestamp"].max()
+        data_frame.loc[:, "externalId"] = data_frame.apply(
+            lambda row: self.config.destination.time_series_prefix + row["externalId"],
+            axis=1,
+        )
+        data_frame = data_frame.pivot(
+            index="timestamp", columns="externalId", values="value"
+        )
+        data_frame.index = pd.to_datetime(data_frame.index)
+        try:
+            self.client.time_series.data.insert_dataframe(data_frame)
+            self.logger.debug(f"Time series data written to CDF for {external_id}")
+            self.set_state(state_id, str(latest_process_time))
+        except CogniteNotFoundError as notFound:
+            missing_xids = notFound.not_found
+            for new_timeserie in missing_xids:
+                # Create the missing time series
+                self.client.time_series.create(
+                    TimeSeriesWrite(
+                        name=new_timeserie["externalId"],
+                        external_id=new_timeserie["externalId"],
+                        is_string=True,
+                        data_set_id=self.data_set_id,
                     )
-                    raise e
-
+                )
+            try:
+                self.client.time_series.data.insert_dataframe(data_frame)
+                self.logger.debug(f"Time series data written to CDF for {external_id}")
                 self.set_state(state_id, str(latest_process_time))
+            except CogniteAPIError as e:
+                self.logger.error(f"Error while writing time series data to CDF: {e}")
+                raise e
+        except CogniteAPIError as e:
+            self.logger.error(f"Error while writing time series data to CDF: {e}")
+            raise e
 
     def write_event_data_to_cdf(
         self, file_path: str, token: str, state_id: str
@@ -306,13 +326,46 @@ class CdfFabricExtractor(Extractor[Config]):
             events.append(new_event)
         return events
 
+    def retrieve_external_ids_from_lakehouse(
+        self, file_path: str, token: str
+    ) -> list[str]:
+        try:
+            dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+            table = dt.to_pyarrow_table(columns=["externalId"])
+            return pc.unique(table.column("externalId")).to_pylist()
+
+        except Exception as e:
+            self.logger.error(
+                f"Error while converting lakehouse data to DataFrame: {e}"
+            )
+            raise e
+
     def convert_lakehouse_data_to_df(self, file_path: str, token: str) -> DataFrame:
         try:
-            dt = DeltaTable(
-                file_path,
-                storage_options={"bearer_token": token, "user_fabric_endpoint": "true"},
-            )
+            dt = DeltaTable(file_path, storage_options={"bearer_token": token})
             return dt.to_pandas()
+        except Exception as e:
+            self.logger.error(
+                f"Error while converting lakehouse data to DataFrame: {e}"
+            )
+            raise e
+
+    def convert_lakehouse_data_to_df_batch(
+        self, file_path: str, external_id: str, timestamp: str, token: str
+    ) -> Generator[DataFrame, None, None]:
+        try:
+            dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+            dataset = dt.to_pyarrow_dataset()
+            condition = ds.field("externalId") == external_id
+            if timestamp:
+                timestamp_obj = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f%z")
+                condition = condition & (ds.field("timestamp") > timestamp_obj)
+            batch_set = dataset.to_batches(
+                filter=condition, batch_size=self.config.source.read_batch_size
+            )
+            for batch in batch_set:
+                self.logger.debug(f"Retrieved batch with {len(batch)} rows")
+                yield batch.to_pandas()
         except Exception as e:
             self.logger.error(
                 f"Error while converting lakehouse data to DataFrame: {e}"
