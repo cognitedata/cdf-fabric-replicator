@@ -44,7 +44,6 @@ source:
     event_path: ${EXTRACTOR_EVENT_PATH}
     file_path: ${EXTRACTOR_FILE_PATH}
     raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
-    read_batch_size: 1000
     data_set_id: ${EXTRACTOR_DATASET_ID}
     raw_tables:
         - raw_path: ${EXTRACTOR_RAW_TABLE_PATH}

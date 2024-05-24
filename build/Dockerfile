@@ -1,4 +1,4 @@
-FROM python:3.10-slim as builder
+FROM python:3.11-slim as builder
 
 RUN pip install poetry
 RUN mkdir -p /cdf_fabric_replicator

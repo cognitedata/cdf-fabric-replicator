@@ -2,7 +2,7 @@ import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 from azure.identity import DefaultAzureCredential
 from deltalake.exceptions import DeltaError, TableNotFoundError
@@ -26,7 +26,12 @@ from cdf_fabric_replicator.metrics import Metrics
 
 
 class TimeSeriesReplicator(Extractor):
-    def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
+    def __init__(
+        self,
+        metrics: Metrics,
+        stop_event: CancellationToken,
+        override_config_path: Optional[str] = None,
+    ) -> None:
         super().__init__(
             name="cdf_fabric_replicator_ts",
             description="CDF Fabric Replicator",
@@ -35,6 +40,7 @@ class TimeSeriesReplicator(Extractor):
             use_default_state_store=False,
             version=__version__,
             cancellation_token=stop_event,
+            config_file_path=override_config_path,
         )
         self.metrics: Metrics
         self.stop_event = stop_event

@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Iterator, List, Dict, Any
+from typing import Iterator, List, Dict, Any, Optional
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.base import Extractor
 from azure.identity import DefaultAzureCredential
@@ -15,7 +15,12 @@ from datetime import datetime
 
 
 class EventsReplicator(Extractor):
-    def __init__(self, metrics: Metrics, stop_event: CancellationToken) -> None:
+    def __init__(
+        self,
+        metrics: Metrics,
+        stop_event: CancellationToken,
+        override_config_path: Optional[str] = None,
+    ) -> None:
         super().__init__(
             name="cdf_fabric_replicator_events",
             description="CDF Fabric Replicator",
@@ -24,6 +29,7 @@ class EventsReplicator(Extractor):
             use_default_state_store=False,
             version=__version__,
             cancellation_token=stop_event,
+            config_file_path=override_config_path,
         )
         self.azure_credential = DefaultAzureCredential()
         self.event_state_key = "event_state"

@@ -1,5 +1,6 @@
 import pytest
 import pandas as pd
+import pyarrow as pa
 from unittest.mock import patch, Mock
 from cdf_fabric_replicator.extractor import CdfFabricExtractor
 from cognite.client.data_classes import TimeSeriesWrite
@@ -17,7 +18,7 @@ def test_extractor():
         mock_credential.return_value.get_token.return_value = Mock(token="token")
         extractor = CdfFabricExtractor(stop_event=Mock(), metrics=Mock())
         extractor.config = Mock(
-            source=Mock(raw_time_series_path="/table/path"),
+            source=Mock(raw_time_series_path="/table/path", read_batch_size=1000),
             destination=Mock(time_series_prefix="test_prefix"),
         )
         # These need to be mocked as they are not set in the constructor
@@ -103,7 +104,7 @@ def assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state
             None,
             None,
             None,
-            {"convert_lakehouse_data_to_df": 1, "write_time_series_to_cdf": 1},
+            {"extract_time_series_data": 1},
         ),
         (None, "table/event_path", None, None, {"write_event_data_to_cdf": 1}),
         (None, None, "files/file_path", None, {"upload_files_from_abfss": 1}),
@@ -111,10 +112,7 @@ def assert_state_store_calls(test_extractor, df, mock_timeseries_data, set_state
 )
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.upload_files_from_abfss")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.write_event_data_to_cdf")
-@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.write_time_series_to_cdf")
-@patch(
-    "cdf_fabric_replicator.extractor.CdfFabricExtractor.convert_lakehouse_data_to_df"
-)
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.extract_time_series_data")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.run_extraction_pipeline")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_statestore")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.get_current_config")
@@ -122,8 +120,7 @@ def test_extractor_run(
     mock_get_current_config,
     mock_get_current_statestore,
     mock_run_extraction_pipeline,
-    mock_convert_lakehouse_data_to_df,
-    mock_write_time_series_to_cdf,
+    mock_extract_time_series_data,
     mock_write_event_data_to_cdf,
     mock_upload_files_from_abfss,
     test_extractor,
@@ -156,11 +153,8 @@ def test_extractor_run(
     mock_run_extraction_pipeline.assert_called_once_with(status="seen")
 
     # Assert extractor methods were called
-    assert mock_convert_lakehouse_data_to_df.call_count == expected_calls.get(
-        "convert_lakehouse_data_to_df", 0
-    )
-    assert mock_write_time_series_to_cdf.call_count == expected_calls.get(
-        "write_time_series_to_cdf", 0
+    assert mock_extract_time_series_data.call_count == expected_calls.get(
+        "extract_time_series_data", 0
     )
     assert mock_write_event_data_to_cdf.call_count == expected_calls.get(
         "write_event_data_to_cdf", 0
@@ -183,57 +177,58 @@ def test_run_no_config_source(mock_config, mock_get_statestore, test_extractor):
     )
 
 
-@pytest.mark.parametrize(
-    "last_update_time_index, expected_insert_dataframe_call_count, expected_set_state_call_count, expected_create_call_count",
-    [
-        (None, 1, 1, 0),  # test_write_time_series_to_cdf_all_new_data_points
-        (1, 1, 1, 0),  # test_write_time_series_to_cdf_filter_old_data_points
-        (-1, 0, 0, 0),  # test_write_time_series_to_cdf_no_new_data_points
-    ],
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.write_time_series_to_cdf")
+@patch(
+    "cdf_fabric_replicator.extractor.CdfFabricExtractor.convert_lakehouse_data_to_df_batch",
+    return_value=iter([pd.DataFrame()]),
 )
-def test_write_time_series_to_cdf(
+@patch(
+    "cdf_fabric_replicator.extractor.CdfFabricExtractor.get_timeseries_latest_timestamps",
+    return_value={"id1": None},
+)
+@patch(
+    "cdf_fabric_replicator.extractor.CdfFabricExtractor.retrieve_external_ids_from_lakehouse",
+    return_value=["id1"],
+)
+def test_extract_time_series_data(
+    mock_retrieve_external_ids,
+    mock_get_latest_timestamps,
+    mock_lakehouse_to_batch,
+    mock_write_ts,
     test_extractor,
-    mock_timeseries_data,
-    last_update_time_index,
-    expected_insert_dataframe_call_count,
-    expected_set_state_call_count,
-    expected_create_call_count,
 ):
+    test_extractor.extract_time_series_data("path")
+    mock_retrieve_external_ids.assert_called_once()
+    mock_get_latest_timestamps.assert_called_once_with(["id1"])
+    mock_lakehouse_to_batch.assert_called_once()
+    mock_write_ts.assert_called_once()
+
+
+def test_get_timeseries_latest_timestamps(test_extractor):
+    test_extractor.state_store.get_state.return_value = [(1,), (2,)]
+    assert test_extractor.get_timeseries_latest_timestamps(["id1", "id2"]) == {
+        "id1": 1,
+        "id2": 2,
+    }
+
+
+def test_write_time_series_to_cdf(test_extractor, mock_timeseries_data):
     # Create dataframe from test data
     df = pd.DataFrame(mock_timeseries_data)
 
     # Determine last update time based on the index
-    last_update_time = (
-        mock_timeseries_data["timestamp"][last_update_time_index]
-        if last_update_time_index is not None
-        else None
-    )
-
-    test_extractor.state_store.get_state.return_value = (last_update_time,)
+    last_update_time = df["timestamp"].max()
     test_extractor.state_store.set_state.return_value = None
     test_extractor.client.time_series.data.insert_dataframe.return_value = None
 
     # Call the method under test
-    test_extractor.write_time_series_to_cdf(df)
-
-    # Assert state store calls
-    assert_state_store_calls(
-        test_extractor,
-        df,
-        mock_timeseries_data,
-        set_state=expected_set_state_call_count > 0,
-    )
+    test_extractor.write_time_series_to_cdf("id1", df)
 
     # Assert that the time series write was called the expected number of times
-    assert (
-        test_extractor.client.time_series.data.insert_dataframe.call_count
-        == expected_insert_dataframe_call_count
-    )
+    test_extractor.client.time_series.data.insert_dataframe.assert_called_once()
 
-    # Assert that the time series create was called the expected number of times
-    assert (
-        test_extractor.client.time_series.create.call_count
-        == expected_create_call_count
+    test_extractor.state_store.set_state.assert_called_once_with(
+        "/table/path-id1-state", last_update_time
     )
 
 
@@ -247,15 +242,16 @@ def test_write_time_series_to_cdf_timeseries_not_found(
     test_extractor.state_store.set_state.return_value = None
     # Mock Cognite API to raise a CogniteNotFoundError
     test_extractor.client.time_series.data.insert_dataframe.side_effect = [
-        CogniteNotFoundError(not_found=[{"externalId": "id1"}])
+        CogniteNotFoundError(not_found=[{"externalId": "id1"}]),
+        None,
     ]
 
-    test_extractor.write_time_series_to_cdf(df)
-
-    assert_state_store_calls(test_extractor, df, mock_timeseries_data)
+    test_extractor.write_time_series_to_cdf("id1", df)
 
     # Assert time series write was called for the missing time series
-    assert test_extractor.client.time_series.data.insert_dataframe.call_count == 1
+    assert (
+        test_extractor.client.time_series.data.insert_dataframe.call_count == 2
+    )  # First call for first try, second call after timeseries creation
     test_extractor.client.time_series.create.assert_called_once_with(
         TimeSeriesWrite(
             external_id="id1",
@@ -264,6 +260,25 @@ def test_write_time_series_to_cdf_timeseries_not_found(
             data_set_id=TEST_DATA_SET_ID,
         )
     )
+
+
+def test_write_time_series_to_cdf_timeseries_not_found_error(
+    test_extractor, mock_timeseries_data
+):
+    # Create dataframe from test data
+    df = pd.DataFrame(mock_timeseries_data)
+
+    test_extractor.state_store.get_state.return_value = (None,)
+    test_extractor.state_store.set_state.return_value = None
+    # Mock Cognite API to raise a CogniteNotFoundError then a CogniteAPIError
+    test_extractor.client.time_series.data.insert_dataframe.side_effect = [
+        CogniteNotFoundError(not_found=[{"externalId": "id1"}]),
+        CogniteAPIError(code=500, message="Test error"),
+    ]
+    with pytest.raises(CogniteAPIError):
+        test_extractor.write_time_series_to_cdf("id1", df)
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
 
 
 def test_write_time_series_to_cdf_timeseries_retrieve_error(
@@ -280,7 +295,7 @@ def test_write_time_series_to_cdf_timeseries_retrieve_error(
     ]
     # Call the method under test
     with pytest.raises(CogniteAPIError):
-        test_extractor.write_time_series_to_cdf(df)
+        test_extractor.write_time_series_to_cdf("id1", df)
     # Assert error logger called
     test_extractor.logger.error.assert_called_once()
 
@@ -415,6 +430,33 @@ def test_upload_files_from_abfss_cognite_error(
     test_extractor.logger.error.assert_called_once()
 
 
+def test_retrieve_external_ids_from_lakehouse(test_extractor, mocker):
+    # Mock DeltaTable to return a pyarrow table with the externalId column
+    df = pd.DataFrame({"externalId": ["id1", "id2", "id1"]})
+    table = pa.Table.from_pandas(df)
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DeltaTable",
+        return_value=Mock(to_pyarrow_table=Mock(return_value=table)),
+    )
+    # Call the method under test
+    external_ids = test_extractor.retrieve_external_ids_from_lakehouse("path", "token")
+    # Assert that the externalId was retrieved from the dataframe
+    assert external_ids == ["id1", "id2"]
+
+
+def test_retrieve_external_ids_from_lakehouse_exception(test_extractor, mocker):
+    # Mock DeltaTable to raise exception from to_pyarrow_table
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DeltaTable",
+        return_value=Mock(to_pyarrow_table=Mock(side_effect=Exception("Test error"))),
+    )
+    # Assert Exception was raised by function
+    with pytest.raises(Exception):
+        test_extractor.retrieve_external_ids_from_lakehouse("path", "token")
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
+
+
 def test_convert_lakehouse_data_to_df_exception(test_extractor, mocker):
     # Mock DeltaTable to raise exception from to_pandas
     mocker.patch(
@@ -424,6 +466,32 @@ def test_convert_lakehouse_data_to_df_exception(test_extractor, mocker):
     # Assert Exception was raised by function
     with pytest.raises(Exception):
         test_extractor.convert_lakehouse_data_to_df("path", "token")
+    # Assert error logger called
+    test_extractor.logger.error.assert_called_once()
+
+
+def test_convert_lakehouse_data_to_df_batch_exception(test_extractor, mocker):
+    # Mock DeltaTable to raise exception from to_pandas
+    mocker.patch(
+        "cdf_fabric_replicator.extractor.DeltaTable",
+        return_value=Mock(
+            to_pyarrow_dataset=Mock(
+                return_value=Mock(
+                    to_batches=Mock(
+                        return_value=iter(
+                            [Mock(to_pandas=Mock(side_effect=Exception("Test error")))]
+                        )
+                    )
+                )
+            )
+        ),
+    )
+    # Assert Exception was raised by function
+    with pytest.raises(Exception):
+        for x in test_extractor.convert_lakehouse_data_to_df_batch(
+            "path", "id1", "2022-02-07 16:01:27.420368+00:00", "token"
+        ):
+            pass
     # Assert error logger called
     test_extractor.logger.error.assert_called_once()
 
