@@ -270,6 +270,36 @@ class TimeSeriesReplicator(Extractor):
             return None
         return pd.DataFrame(data=rows, columns=["externalId", "timestamp", "value"])
 
+    def write_or_merge_to_lakehouse_table(
+        self,
+        table: str,
+        df: pd.DataFrame,
+        mode: Literal["error", "append", "overwrite", "ignore"] = "append",
+        storage_options: Dict[str, str] = {},
+    ) -> None:
+        try:
+            dt = DeltaTable(table, storage_options=storage_options)
+            (
+                dt.merge(
+                    source=df,
+                    predicate="s.externalId = t.externalId AND s.timestamp = t.timestamp",
+                    source_alias="s",
+                    target_alias="t",
+                )
+                .when_matched_update_all()
+                .when_not_matched_insert_all()
+                .execute()
+            )
+        except TableNotFoundError:
+            write_deltalake(
+                table_or_uri=table,
+                data=df,
+                mode=mode,
+                engine="rust",
+                schema_mode="merge",
+                storage_options=storage_options,
+            )
+
     def write_pd_to_deltalake(
         self,
         table: str,
@@ -282,28 +312,12 @@ class TimeSeriesReplicator(Extractor):
         }
 
         try:
-            try:
-                dt = DeltaTable(table, storage_options=storage_options)
-                (
-                    dt.merge(
-                        source=df,
-                        predicate="s.externalId = t.externalId AND s.timestamp = t.timestamp",
-                        source_alias="s",
-                        target_alias="t",
-                    )
-                    .when_matched_update_all()
-                    .when_not_matched_insert_all()
-                    .execute()
-                )
-            except TableNotFoundError:
-                write_deltalake(
-                    table_or_uri=table,
-                    data=df,
-                    mode=mode,
-                    engine="rust",
-                    schema_mode="merge",
-                    storage_options=storage_options,
-                )
+            self.write_or_merge_to_lakehouse_table(
+                table=table,
+                df=df,
+                mode=mode,
+                storage_options=storage_options,
+            )
         except DeltaError as e:
             self.logger.error(f"Error writing to {table}: {e}")
             raise e

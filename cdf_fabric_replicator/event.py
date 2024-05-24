@@ -108,6 +108,36 @@ class EventsReplicator(Extractor):
         self.state_store.synchronize()
         self.logger.debug(f"Event state set: {created_time}")
 
+    def write_or_merge_to_lakehouse_table(
+        self, abfss_path: str, storage_options: Dict[str, str], data: pa.Table
+    ) -> None:
+        try:
+            dt = DeltaTable(
+                abfss_path,
+                storage_options=storage_options,
+            )
+
+            (
+                dt.merge(
+                    source=data,
+                    predicate="s.id = t.id",
+                    source_alias="s",
+                    target_alias="t",
+                )
+                .when_matched_update_all()
+                .when_not_matched_insert_all()
+                .execute()
+            )
+        except TableNotFoundError:
+            write_deltalake(
+                abfss_path,
+                data,
+                mode="append",
+                engine="rust",
+                schema_mode="merge",
+                storage_options=storage_options,
+            )
+
     def write_events_to_lakehouse_tables(
         self, events: List[Dict[str, Any]], abfss_path: str
     ) -> None:
@@ -121,33 +151,7 @@ class EventsReplicator(Extractor):
         }
 
         try:
-            try:
-                dt = DeltaTable(
-                    abfss_path,
-                    storage_options=storage_options,
-                )
-
-                (
-                    dt.merge(
-                        source=data,
-                        predicate="s.id = t.id",
-                        source_alias="s",
-                        target_alias="t",
-                    )
-                    .when_matched_update_all()
-                    .when_not_matched_insert_all()
-                    .execute()
-                )
-            except TableNotFoundError:
-                write_deltalake(
-                    abfss_path,
-                    data,
-                    mode="append",
-                    engine="rust",
-                    schema_mode="merge",
-                    storage_options=storage_options,
-                )
-
+            self.write_or_merge_to_lakehouse_table(abfss_path, storage_options, data)
         except DeltaError as e:
             self.logger.error(f"Error writing events to lakehouse tables: {e}")
             raise e
