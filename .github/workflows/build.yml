@@ -300,7 +300,7 @@ jobs:
           zip -r fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux.zip fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux config_examples/example-*.yaml manifest.spdx.json*
 
       - name: Upload artifacts
-        if: ${{ needs.current-branch.outputs.current-branch == 'main' }}
+        if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0}}
         uses: actions/upload-artifact@v4
         with:
           name: linux
