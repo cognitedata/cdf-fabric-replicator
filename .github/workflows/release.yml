@@ -1,0 +1,99 @@
+name: Release extractor
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  builds:
+    uses: ./.github/workflows/build.yml
+    secrets: inherit
+
+  integration-tests:
+    uses: ./.github/workflows/integration_tests.yml
+    secrets: inherit
+
+  publish-docker:
+    runs-on: ubuntu-latest
+    needs:
+      - builds
+      - integration-tests
+    if: ${{ needs.build.outputs.should-release == 0 }}
+    environment: CD
+
+    steps:
+      - name: download-artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker image
+          path: ./
+
+      - name: load image
+        run: docker load -i fabric-connector.tar
+
+      - name: Login to docker hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+
+      - name: Docker push to hub
+        run: docker push cognite/fabric-connector:${{ needs.builds.outputs.release-version }}
+
+  publish-binaries:
+    runs-on: ubuntu-latest
+    needs:
+      - builds
+      - integration-tests
+    environment: CD
+    if: ${{ needs.builds.outputs.should-release == 0}}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Download Windows artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: windows
+          path: ./
+
+      - name: Download Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: linux
+          path: ./
+
+      - name: Debug
+        run: |
+          ls -l
+          ls -l ./
+
+      - name: create release
+        uses: actions/create-release@v1
+        id: github-release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          tag_name: v${{ needs.builds.outputs.release-version }}
+          release_name: Cognite File Extractor version ${{ needs.builds.outputs.release-version }}
+
+          draft: false
+          prerelease: false
+
+      - name: Upload to github releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            fabric-connector-standalone-${{ needs.builds.outputs.release-version }}-win32.zip
+            fabric-connector-winservice-${{ needs.builds.outputs.release-version }}-win32.zip
+            fabric-connector-${{ needs.builds.outputs.release-version }}.msi
+            fabric-connector-standalone-${{ needs.builds.outputs.release-version }}-linux.zip
+          tag_name: v${{ needs.builds.outputs.release-version }}
+          name: Release version ${{ needs.builds.outputs.release-version }}
+          draft: false
+          prerelease: false

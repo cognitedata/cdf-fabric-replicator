@@ -44,6 +44,7 @@ source:
     event_path: ${EXTRACTOR_EVENT_PATH}
     file_path: ${EXTRACTOR_FILE_PATH}
     raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
+    read_batch_size: 1000
     data_set_id: ${EXTRACTOR_DATASET_ID}
     raw_tables:
         - raw_path: ${EXTRACTOR_RAW_TABLE_PATH}
@@ -51,7 +52,6 @@ source:
           db_name: ${EXTRACTOR_RAW_DB_NAME}
 
 destination:
-    type: ${EXTRACTOR_DESTINATION_TYPE}
     time_series_prefix: ${EXTRACTOR_TS_PREFIX}
 
 # sync events

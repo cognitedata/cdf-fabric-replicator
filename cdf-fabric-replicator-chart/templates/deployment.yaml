@@ -20,10 +20,6 @@ spec:
       labels:
         {{- include "cdf-fabric-replicator-chart.selectorLabels" . | nindent 8 }}
     spec:
-      {{- with .Values.imagePullSecrets }}
-      imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -103,11 +99,6 @@ spec:
                 configMapKeyRef:
                   name: cdf-conn-config
                   key: EXTRACTOR_TS_PREFIX
-            - name: EXTRACTOR_DESTINATION_TYPE
-              valueFrom:
-                configMapKeyRef:
-                  name: cdf-conn-config
-                  key: EXTRACTOR_DESTINATION_TYPE
             - name: EVENT_TABLE_NAME
               valueFrom:
                 configMapKeyRef:

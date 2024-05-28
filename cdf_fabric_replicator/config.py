@@ -53,13 +53,13 @@ class SourceConfig:
     data_set_id: str
     event_path: Optional[str] = None
     raw_time_series_path: Optional[str] = None
+    read_batch_size: int = 1000
     file_path: Optional[str] = None
     raw_tables: Optional[List[RawConfig]] = None
 
 
 @dataclass
 class DestinationConfig:
-    type: str
     time_series_prefix: Optional[str] = None
 
 
