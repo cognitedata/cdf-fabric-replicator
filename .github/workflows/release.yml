@@ -45,6 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - builds
+      - integration-tests
     environment: CD
     if: ${{ needs.builds.outputs.should-release == 0}}
     steps:
@@ -88,7 +89,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            fabric-connector-${{ needs.builds.outputs.release-version }}-win32.zip
+            fabric-connector-standalone-${{ needs.builds.outputs.release-version }}-win32.zip
             fabric-connector-winservice-${{ needs.builds.outputs.release-version }}-win32.zip
             fabric-connector-${{ needs.builds.outputs.release-version }}.msi
             fabric-connector-standalone-${{ needs.builds.outputs.release-version }}-linux.zip
