@@ -83,9 +83,6 @@ class RawTableReplicator(Extractor):
                         )
                         last_row = rows[-1]
                         self.set_state(state_id, last_row.last_updated_time)
-                        if last_updated_time == last_row.last_updated_time:
-                            feedRows = False
-                        last_updated_time = last_row.last_updated_time
                     except DeltaError as e:
                         self.logger.error(
                             f"Error writing raw rows to lakehouse tables: {e}"

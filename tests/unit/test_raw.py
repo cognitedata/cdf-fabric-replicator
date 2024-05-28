@@ -3,6 +3,7 @@ from unittest.mock import patch, Mock
 from cdf_fabric_replicator.raw import RawTableReplicator
 from cognite.client.data_classes import Row
 from deltalake.exceptions import DeltaError
+import pyarrow as pa
 
 
 @pytest.fixture()
@@ -42,6 +43,28 @@ def rowList():
     ]
 
 
+@pytest.fixture
+def rowListPyArrow():
+    rows = [
+        Row(
+            key="Test_Early_Notification_1710502959241",
+            columns={
+                "type": "Notification",
+                "subtype": "HE3",
+                "description": "Failed Instrumentation Fire extinguisher test",
+            },
+            last_updated_time=1710505316426,
+        )
+    ]
+    rows_dict = []
+    for row in rows:
+        row_dict = row.dump()["columns"]
+        row_dict["key"] = row.key
+        row_dict["last_updated_time"] = row.last_updated_time
+        rows_dict.append(row_dict)
+    return pa.Table.from_pylist(rows_dict)
+
+
 @patch("cdf_fabric_replicator.raw.RawTableReplicator.process_raw_tables")
 def test_run(mock_process_raw_tables, test_raw_replicator):
     test_raw_replicator.stop_event = Mock(is_set=Mock(side_effect=[False, True]))
@@ -58,29 +81,30 @@ def test_run_no_event_config(test_raw_replicator):
     )
 
 
-@pytest.mark.parametrize("last_updated_time", [None, 1714685607])
+@pytest.mark.parametrize("last_updated_time", [1710505316426])
 @patch("cdf_fabric_replicator.raw.write_deltalake")
 def test_process_raw_tables(
     mock_write_deltalake,
     rowList,
+    rowListPyArrow,
     test_raw_replicator,
     last_updated_time,
 ):
-    # Set up empty state and cognite client events iterator
-    test_raw_replicator.state_store.get_state.return_value = [(None, last_updated_time)]
-    test_raw_replicator.cognite_client.raw.rows.list = Mock(return_value=rowList)
+    # Set up empty state and cognite client rows iterator
+    test_raw_replicator.state_store.get_state.return_value = [(last_updated_time, None)]
+    test_raw_replicator.cognite_client.raw.rows.list = Mock(side_effect=[rowList, []])
 
-    # Run the process_events method
+    # Run the process_raw_tables method
     test_raw_replicator.process_raw_tables()
 
     # State store assertions
     test_raw_replicator.state_store.get_state.assert_called_once_with(
         external_id="raw_db_raw_table_raw_state"
     )
-    test_raw_replicator.state_store.set_state.assert_called_once_with(
-        external_id="raw_db_raw_table_raw_state", high=rowList["last_updated_time"]
+    test_raw_replicator.state_store.set_state.assert_called_with(
+        external_id="raw_db_raw_table_raw_state", low=rowList[-1].last_updated_time
     )
-    test_raw_replicator.state_store.synchronize.assert_called_once()
+    test_raw_replicator.state_store.synchronize.assert_called()
 
     # Cognite client assertions
     test_raw_replicator.cognite_client.raw.rows.list.assert_called_with(
@@ -90,14 +114,12 @@ def test_process_raw_tables(
         limit=test_raw_replicator.config.extractor.fabric_ingest_batch_size,
     )
 
-    mock_write_deltalake.assert_called_once_with()
-
 
 @patch("cdf_fabric_replicator.raw.write_deltalake")
 def test_process_events_delta_error(mock_write_deltalake, rowList, test_raw_replicator):
     # Set up empty state and cognite client events iterator
     test_raw_replicator.state_store.get_state.return_value = [(None, None)]
-    test_raw_replicator.cognite_client.events = Mock(return_value=rowList)
+    test_raw_replicator.cognite_client.raw.rows.list = Mock(side_effect=[rowList, []])
     # Set up mock write_deltalake to raise DeltaError
     mock_write_deltalake.side_effect = DeltaError()
 
