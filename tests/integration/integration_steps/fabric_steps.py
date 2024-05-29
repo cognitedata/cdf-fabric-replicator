@@ -51,10 +51,7 @@ def prepare_lakehouse_dataframe_for_comparison(
     dataframe: pd.DataFrame, external_id: str
 ) -> pd.DataFrame:
     dataframe = dataframe.loc[dataframe["externalId"] == external_id]
-    dataframe[TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
-    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round(
-        "s"
-    )  # round to seconds to avoid microsecond differences
+    dataframe = dataframe.sort_values(by=[TIMESTAMP_COLUMN]).reset_index(drop=True)
     return dataframe
 
 
@@ -88,10 +85,8 @@ def remove_time_series_data_from_fabric(
 
 
 def prepare_test_dataframe_for_comparison(dataframe: pd.DataFrame) -> pd.DataFrame:
+    dataframe = dataframe.sort_values(by=[TIMESTAMP_COLUMN]).reset_index(drop=True)
     dataframe[TIMESTAMP_COLUMN] = pd.to_datetime(dataframe[TIMESTAMP_COLUMN])
-    dataframe[TIMESTAMP_COLUMN] = dataframe[TIMESTAMP_COLUMN].dt.round(
-        "s"
-    )  # round to seconds to avoid microsecond differences
     return dataframe
 
 

@@ -19,6 +19,7 @@ def generate_datapoints(
     current_time = datetime.now(timezone.utc) - timedelta(
         days=days_ago_for_time_range_start
     )
+    current_time = current_time.replace(microsecond=0)
 
     for _ in range(num_points):
         timestamp = current_time

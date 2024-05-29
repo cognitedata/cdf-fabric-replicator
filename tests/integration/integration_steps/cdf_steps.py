@@ -200,7 +200,6 @@ def assert_data_points_in_cdf(
     result.reset_index(inplace=True)
     result.rename(columns={"index": "timestamp", external_id: "value"}, inplace=True)
     result[TIMESTAMP_COLUMN] = pd.to_datetime(result[TIMESTAMP_COLUMN], utc=True)
-    result[TIMESTAMP_COLUMN] = result[TIMESTAMP_COLUMN].dt.round("s")
 
     assert cdf_datapoints_contain_expected_datapoints(
         expected_data_points,
