@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import patch, Mock
 from cdf_fabric_replicator.raw import RawTableReplicator
 from cognite.client.data_classes import Row
-from deltalake.exceptions import DeltaError
+from deltalake.exceptions import DeltaError, TableNotFoundError
 import pyarrow as pa
 
 
@@ -83,7 +83,9 @@ def test_run_no_event_config(test_raw_replicator):
 
 @pytest.mark.parametrize("last_updated_time", [1710505316426])
 @patch("cdf_fabric_replicator.raw.write_deltalake")
+@patch("cdf_fabric_replicator.raw.DeltaTable")
 def test_process_raw_tables(
+    mock_deltatable,
     mock_write_deltalake,
     rowList,
     rowListPyArrow,
@@ -93,6 +95,7 @@ def test_process_raw_tables(
     # Set up empty state and cognite client rows iterator
     test_raw_replicator.state_store.get_state.return_value = [(last_updated_time, None)]
     test_raw_replicator.cognite_client.raw.rows.list = Mock(side_effect=[rowList, []])
+    mock_deltatable.side_effect = TableNotFoundError
 
     # Run the process_raw_tables method
     test_raw_replicator.process_raw_tables()
@@ -114,14 +117,30 @@ def test_process_raw_tables(
         limit=test_raw_replicator.config.extractor.fabric_ingest_batch_size,
     )
 
+    mock_write_deltalake.assert_called_with(
+        test_raw_replicator.config.raw_tables[0].lakehouse_abfss_path_raw,
+        rowListPyArrow,
+        mode="append",
+        engine="rust",
+        schema_mode="merge",
+        storage_options={
+            "bearer_token": "token",
+            "use_fabric_endpoint": "true",
+        },
+    )
+
 
 @patch("cdf_fabric_replicator.raw.write_deltalake")
-def test_process_events_delta_error(mock_write_deltalake, rowList, test_raw_replicator):
+@patch("cdf_fabric_replicator.raw.DeltaTable")
+def test_process_events_delta_error(
+    mock_deltatable, mock_write_deltalake, rowList, test_raw_replicator
+):
     # Set up empty state and cognite client events iterator
     test_raw_replicator.state_store.get_state.return_value = [(None, None)]
     test_raw_replicator.cognite_client.raw.rows.list = Mock(side_effect=[rowList, []])
     # Set up mock write_deltalake to raise DeltaError
     mock_write_deltalake.side_effect = DeltaError()
+    mock_deltatable.side_effect = TableNotFoundError
 
     # Run the process_events method
     with pytest.raises(DeltaError):

@@ -1,10 +1,12 @@
 import logging
 import time
+from typing import Dict
+
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.base import Extractor
 from azure.identity import DefaultAzureCredential
-from deltalake import write_deltalake
-from deltalake.exceptions import DeltaError
+from deltalake import write_deltalake, DeltaTable
+from deltalake.exceptions import DeltaError, TableNotFoundError
 import pyarrow as pa
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
@@ -117,20 +119,47 @@ class RawTableReplicator(Extractor):
         if len(rows_dict) > 0:
             self.logger.info(f"Writing {len(rows)} rows to '{abfss_path}' table...")
             data = pa.Table.from_pylist(rows_dict)
+            storage_options = {
+                "bearer_token": token.token,
+                "use_fabric_endpoint": "true",
+            }
+
             try:
-                write_deltalake(
-                    abfss_path,
-                    data,
-                    mode="append",
-                    engine="rust",
-                    schema_mode="merge",
-                    storage_options={
-                        "bearer_token": token.token,
-                        "use_fabric_endpoint": "true",
-                    },
+                self.write_or_merge_to_lakehouse_table(
+                    abfss_path, storage_options, data
                 )
             except DeltaError as e:
-                self.logger.error(f"Error writing events to lakehouse tables: {e}")
+                self.logger.error(f"Error writing rows to lakehouse tables: {e}")
                 raise e
 
             self.logger.info("Done.")
+
+    def write_or_merge_to_lakehouse_table(
+        self, abfss_path: str, storage_options: Dict[str, str], data: pa.Table
+    ) -> None:
+        try:
+            dt = DeltaTable(
+                abfss_path,
+                storage_options=storage_options,
+            )
+
+            (
+                dt.merge(
+                    source=data,
+                    predicate="s.id = t.id",
+                    source_alias="s",
+                    target_alias="t",
+                )
+                .when_matched_update_all()
+                .when_not_matched_insert_all()
+                .execute()
+            )
+        except TableNotFoundError:
+            write_deltalake(
+                abfss_path,
+                data,
+                mode="append",
+                engine="rust",
+                schema_mode="merge",
+                storage_options=storage_options,
+            )
