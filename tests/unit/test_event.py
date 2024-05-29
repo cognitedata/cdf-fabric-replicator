@@ -1,9 +1,10 @@
 import pytest
+import pandas as pd
 from unittest.mock import patch, Mock
 from cdf_fabric_replicator.event import EventsReplicator
 from cognite.client.data_classes import Event
 import pyarrow as pa
-from deltalake.exceptions import DeltaError
+from deltalake.exceptions import DeltaError, TableNotFoundError
 
 EVENT_BATCH_SIZE = 1
 
@@ -70,7 +71,9 @@ def test_run_no_event_config(test_event_replicator):
     "last_created_time, event_query_time", [(None, 1), (1714685606, 1714685607)]
 )
 @patch("cdf_fabric_replicator.event.write_deltalake")
-def test_process_events(
+@patch("cdf_fabric_replicator.event.DeltaTable")
+def test_process_events_new_table(
+    mock_deltatable,
     mock_write_deltalake,
     event,
     test_event_replicator,
@@ -84,6 +87,9 @@ def test_process_events(
     test_event_replicator.cognite_client.events = Mock(
         return_value=iter([Event(**event)])
     )
+
+    # Set the return value of get_token to raise an exception
+    mock_deltatable.side_effect = TableNotFoundError
 
     # Run the process_events method
     test_event_replicator.process_events()
@@ -117,18 +123,57 @@ def test_process_events(
     )
 
 
-@patch("cdf_fabric_replicator.event.write_deltalake")
-def test_process_events_delta_error(mock_write_deltalake, event, test_event_replicator):
+@patch("cdf_fabric_replicator.event.DeltaTable")
+def test_process_events_delta_error(mock_deltatable, event, test_event_replicator):
     # Set up empty state and cognite client events iterator
     test_event_replicator.state_store.get_state.return_value = [(None, None)]
     test_event_replicator.cognite_client.events = Mock(
         return_value=iter([Event(**event)])
     )
     # Set up mock write_deltalake to raise DeltaError
-    mock_write_deltalake.side_effect = DeltaError()
+    mock_deltatable.side_effect = DeltaError()
 
     # Run the process_events method
     with pytest.raises(DeltaError):
         test_event_replicator.process_events()
     # Assert logger call
     test_event_replicator.logger.error.call_count == 2
+
+
+@patch("cdf_fabric_replicator.event.pa.Table")
+@patch("cdf_fabric_replicator.event.DeltaTable")
+def test_write_events_to_lakehouse_tables_merge(
+    mock_deltatable, mock_pa_table, test_event_replicator
+):
+    # Create a mock DeltaTable
+    mock_delta_table = Mock()
+
+    # Set the return value of DeltaTable to return Mock table
+    mock_deltatable.return_value = mock_delta_table
+
+    # Set the return value of pa.Table.from_pylist to return None
+    empty_df = pd.DataFrame()
+    mock_pa_table.from_pylist.return_value = empty_df
+
+    # Set the abfss path
+    abfss_path = "abfss://path/to/events"
+
+    # Call the write_events_to_lakehouse_tables method
+    test_event_replicator.write_events_to_lakehouse_tables([], abfss_path)
+
+    # Check that DeltaTable was called with the correct arguments
+    mock_deltatable.assert_called_once_with(
+        abfss_path,
+        storage_options={
+            "bearer_token": "token",
+            "use_fabric_endpoint": "true",
+        },
+    )
+
+    # Check that the merge method was called with the correct arguments
+    mock_delta_table.merge.assert_called_once_with(
+        source=empty_df,
+        predicate="s.id = t.id",
+        source_alias="s",
+        target_alias="t",
+    )

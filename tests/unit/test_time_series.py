@@ -16,7 +16,7 @@ from cognite.client.data_classes import (
 from cognite.client.data_classes.time_series import TimeSeriesProperty
 from cognite.client.exceptions import CogniteAPIError
 from cdf_fabric_replicator import subscription
-from deltalake.exceptions import DeltaError
+from deltalake.exceptions import DeltaError, TableNotFoundError
 
 
 @pytest.fixture(scope="function")
@@ -547,11 +547,15 @@ class TestTimeSeriesReplicator:
         assert df is None
 
     @patch("cdf_fabric_replicator.time_series.write_deltalake")
-    def test_write_pd_to_deltalake(
-        self, mock_write_deltalake, test_timeseries_replicator
+    @patch("cdf_fabric_replicator.time_series.DeltaTable")
+    def test_write_pd_to_deltalake_new_table(
+        self, mock_deltatable, mock_write_deltalake, test_timeseries_replicator
     ):
         # Create a mock DataFrame
         df = pd.DataFrame()
+
+        # Set the return value of get_token to raise an exception
+        mock_deltatable.side_effect = TableNotFoundError
 
         # Call write_pd_to_deltalake
         test_timeseries_replicator.write_pd_to_deltalake("test_table", df)
@@ -572,15 +576,15 @@ class TestTimeSeriesReplicator:
             },
         )
 
-    @patch("cdf_fabric_replicator.time_series.write_deltalake")
+    @patch("cdf_fabric_replicator.time_series.DeltaTable")
     def test_write_pd_to_deltalake_error(
-        self, mock_write_deltalake, test_timeseries_replicator
+        self, mock_deltatable, test_timeseries_replicator
     ):
         # Create a mock DataFrame
         df = pd.DataFrame()
 
         # Set the return value of get_token to raise an exception
-        mock_write_deltalake.side_effect = DeltaError
+        mock_deltatable.side_effect = DeltaError
 
         # Call write_pd_to_deltalake
         with pytest.raises(DeltaError):
@@ -614,3 +618,36 @@ class TestTimeSeriesReplicator:
                     filter=flt.Exists(TimeSeriesProperty.external_id),
                 )
             )
+
+    @patch("cdf_fabric_replicator.time_series.DeltaTable")
+    def test_write_pd_to_deltalake_merge_table(
+        self, mock_delta_table_class, test_timeseries_replicator
+    ):
+        # Create a mock DeltaTable
+        mock_delta_table = Mock()
+
+        # Set the return value of DeltaTable to return Mock table
+        mock_delta_table_class.return_value = mock_delta_table
+
+        # Create an empty DataFrame
+        df = pd.DataFrame()
+
+        # Call the write_pd_to_deltalake method
+        test_timeseries_replicator.write_pd_to_deltalake("test_table", df)
+
+        # Check that DeltaTable was called with the correct arguments
+        mock_delta_table_class.assert_called_once_with(
+            "test_table",
+            storage_options={
+                "bearer_token": test_timeseries_replicator.get_token(),
+                "use_fabric_endpoint": "true",
+            },
+        )
+
+        # Check that the merge method was called with the correct arguments
+        mock_delta_table.merge.assert_called_once_with(
+            source=df,
+            predicate="s.externalId = t.externalId AND s.timestamp = t.timestamp",
+            source_alias="s",
+            target_alias="t",
+        )
