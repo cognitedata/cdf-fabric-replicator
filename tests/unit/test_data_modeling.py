@@ -316,6 +316,7 @@ def replicator_config(mock_data_modeling_config):
         extractor=None,
         subscriptions=None,
         event=None,
+        raw_tables=None,
         data_modeling=mock_data_modeling_config,
         source=None,
         destination=None,

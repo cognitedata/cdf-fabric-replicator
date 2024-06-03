@@ -59,3 +59,8 @@ event:
     lakehouse_abfss_path_events: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${EVENT_TABLE_NAME}
     batch_size: 5
 
+# sync raw tables from CDF to Fabric
+raw_tables:
+    - table_name: ${EXTRACTOR_RAW_SOURCE_TABLE_NAME}
+      db_name: ${EXTRACTOR_RAW_SOURCE_DB_NAME}
+      lakehouse_abfss_path_raw: ${LAKEHOUSE_ABFSS_PREFIX}/${EXTRACTOR_RAW_TABLE_DESTINATION_PATH}
