@@ -38,6 +38,7 @@ class RawConfig:
     table_name: str
     db_name: str
     raw_path: str
+    incremental_field: str
 
 
 @dataclass
@@ -52,6 +53,7 @@ class SourceConfig:
     abfss_prefix: str
     data_set_id: str
     event_path: Optional[str] = None
+    event_path_incremental_field: Optional[str] = None
     raw_time_series_path: Optional[str] = None
     read_batch_size: int = 1000
     file_path: Optional[str] = None

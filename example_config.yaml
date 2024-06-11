@@ -42,6 +42,7 @@ data_modeling:
 source:
     abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
     event_path: ${EXTRACTOR_EVENT_PATH}
+    event_path_incremental_field: ${EXTRACTOR_EVENT_INCREMENTAL_FIELD}
     file_path: ${EXTRACTOR_FILE_PATH}
     raw_time_series_path: ${EXTRACTOR_RAW_TS_PATH}
     read_batch_size: 1000
@@ -50,6 +51,7 @@ source:
         - raw_path: ${EXTRACTOR_RAW_TABLE_PATH}
           table_name: ${EXTRACTOR_RAW_TABLE_NAME}
           db_name: ${EXTRACTOR_RAW_DB_NAME}
+          incremental_field: ${EXTRACTOR_RAW_INCREMENTAL_FIELD}
 
 destination:
     time_series_prefix: ${EXTRACTOR_TS_PREFIX}

@@ -94,6 +94,7 @@ class CdfFabricExtractor(Extractor[Config]):
                     + self.config.source.event_path,
                     token=token,
                     state_id=state_id,
+                    incremental_field=self.config.source.event_path_incremental_field,
                 )
 
             if self.config.source.file_path:
@@ -110,6 +111,7 @@ class CdfFabricExtractor(Extractor[Config]):
                         state_id=state_id,
                         table_name=path.table_name,
                         db_name=path.db_name,
+                        incremental_field=path.incremental_field,
                     )
 
             self.logger.debug("Sleep for 5 seconds")
@@ -263,46 +265,62 @@ class CdfFabricExtractor(Extractor[Config]):
             raise e
 
     def write_event_data_to_cdf(
-        self, file_path: str, token: str, state_id: str
+        self,
+        file_path: str,
+        token: str,
+        state_id: str,
+        incremental_field: str | None = None,
     ) -> None:
-        df = self.convert_lakehouse_data_to_df(file_path, token)
+        state = str(self.state_store.get_state(state_id)[0])
+        for df in self.convert_lakehouse_data_to_df_batch_filtered(
+            file_path, token, state, incremental_field
+        ):
+            if len(df) > 0:
+                events = self.get_events(df)
 
-        if str(self.state_store.get_state(state_id)[0]) != str(len(df)):
-            events = self.get_events(df)
+                try:
+                    self.client.events.upsert(events)
+                except CogniteAPIError as e:
+                    self.logger.error(f"Error while writing event data to CDF: {e}")
+                    raise e
 
-            try:
-                self.client.events.upsert(events)
-            except CogniteAPIError as e:
-                self.logger.error(f"Error while writing event data to CDF: {e}")
-                raise e
+                self.run_extraction_pipeline(status="success")
 
-            self.run_extraction_pipeline(status="success")
-
-            self.set_state(state_id, str(len(df)))
+                self.set_state(state_id, str(df[incremental_field].max()))
+            else:
+                self.run_extraction_pipeline(status="seen")
 
     def write_raw_tables_to_cdf(
-        self, file_path: str, token: str, state_id: str, table_name: str, db_name: str
+        self,
+        file_path: str,
+        token: str,
+        state_id: str,
+        table_name: str,
+        db_name: str,
+        incremental_field: str,
     ) -> None:
-        df = self.convert_lakehouse_data_to_df(file_path, token)
+        state = str(self.state_store.get_state(state_id)[0])
+        for df in self.convert_lakehouse_data_to_df_batch_filtered(
+            file_path, token, state, incremental_field
+        ):
+            if len(df) > 0:
+                try:
+                    self.client.raw.rows.insert_dataframe(
+                        db_name=db_name,
+                        table_name=table_name,
+                        dataframe=df,
+                        ensure_parent=True,
+                    )
+                except CogniteAPIError as e:
+                    self.logger.error(f"Error while writing raw data to CDF: {e}")
+                    self.run_extraction_pipeline(status="failure")
 
-        if str(self.state_store.get_state(state_id)[0]) != str(len(df)):
-            try:
-                self.client.raw.rows.insert_dataframe(
-                    db_name=db_name,
-                    table_name=table_name,
-                    dataframe=df,
-                    ensure_parent=True,
-                )
-            except CogniteAPIError as e:
-                self.logger.error(f"Error while writing raw data to CDF: {e}")
-                self.run_extraction_pipeline(status="failure")
+                    raise e
 
-                raise e
-
-            self.run_extraction_pipeline(status="success")
-            self.set_state(state_id, str(len(df)))
-        else:
-            self.run_extraction_pipeline(status="seen")
+                self.run_extraction_pipeline(status="success")
+                self.set_state(state_id, str(df[incremental_field].max()))
+            else:
+                self.run_extraction_pipeline(status="seen")
 
     def set_state(self, state_id: str, value: str) -> None:
         self.state_store.set_state(state_id, value)
@@ -314,13 +332,15 @@ class CdfFabricExtractor(Extractor[Config]):
             new_event = EventWrite(
                 external_id=row[1]["externalId"],
                 start_time=row[1]["startTime"],
-                end_time=row[1]["endTime"],
-                type=row[1]["type"],
-                subtype=row[1]["subtype"],
-                metadata=row[1]["metadata"],
-                description=row[1]["description"],
-                asset_ids=self.get_asset_ids(row[1]["assetExternalIds"]),
-                data_set_id=self.data_set_id,
+                end_time=row[1]["endTime"] if "endTime" in row[1] else None,
+                type=row[1]["type"] if "type" in row[1] else None,
+                subtype=row[1]["subtype"] if "subtype" in row[1] else None,
+                metadata=row[1]["metadata"] if "metadata" in row[1] else None,
+                description=row[1]["description"] if "description" in row[1] else None,
+                asset_ids=self.get_asset_ids(row[1]["assetExternalIds"])
+                if "assetExternalIds" in row[1]
+                else None,
+                data_set_id=self.data_set_id if self.data_set_id else None,
             )
 
             events.append(new_event)
@@ -340,10 +360,35 @@ class CdfFabricExtractor(Extractor[Config]):
             )
             raise e
 
-    def convert_lakehouse_data_to_df(self, file_path: str, token: str) -> DataFrame:
+    def convert_lakehouse_data_to_df_batch_filtered(
+        self, file_path: str, token: str, state: str, incremental_field: str | None
+    ) -> Generator[DataFrame, None, None]:
         try:
-            dt = DeltaTable(file_path, storage_options={"bearer_token": token})
-            return dt.to_pandas()
+            if state and incremental_field:
+                dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+                dataset = dt.to_pyarrow_dataset()
+                condition = ds.field(incremental_field) > int(state)
+                batch_set = dataset.sort_by(incremental_field).to_batches(
+                    filter=condition, batch_size=self.config.source.read_batch_size
+                )
+
+            elif incremental_field:
+                dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+                batch_set = (
+                    dt.to_pyarrow_dataset()
+                    .sort_by(incremental_field)
+                    .to_batches(batch_size=self.config.source.read_batch_size)
+                )
+            else:
+                dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+                batch_set = dt.to_pyarrow_dataset().to_batches(
+                    batch_size=self.config.source.read_batch_size
+                )
+
+            for batch in batch_set:
+                self.logger.debug(f"Retrieved batch with {len(batch)} rows")
+                yield batch.to_pandas()
+
         except Exception as e:
             self.logger.error(
                 f"Error while converting lakehouse data to DataFrame: {e}"
