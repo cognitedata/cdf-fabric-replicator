@@ -81,6 +81,7 @@ def event_data():
         "metadata": [{"key1": "value1"}, {"key2": "value2"}],
         "description": ["description1", "description2"],
         "assetExternalIds": [["asset1", "asset2"], ["asset3", "asset4"]],
+        "lastUpdatedTime": [1633027200000, 1633113600000],
     }
 
 
@@ -300,6 +301,11 @@ def test_write_time_series_to_cdf_timeseries_retrieve_error(
     test_extractor.logger.error.assert_called_once()
 
 
+@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.run_extraction_pipeline")
+@patch(
+    "cdf_fabric_replicator.extractor.CdfFabricExtractor.convert_lakehouse_data_to_df_batch",
+    return_value=iter([pd.DataFrame()]),
+)
 @pytest.mark.parametrize(
     "last_update_time, expected_upsert_call_count, expected_run_extraction_pipeline_call_count",
     [
@@ -307,7 +313,6 @@ def test_write_time_series_to_cdf_timeseries_retrieve_error(
         (2, 0, 0),  # test_write_event_data_to_cdf_no_new_events
     ],
 )
-@patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.run_extraction_pipeline")
 def test_write_event_data_to_cdf(
     mock_run_extraction_pipeline,
     event_data,
@@ -317,14 +322,25 @@ def test_write_event_data_to_cdf(
     expected_upsert_call_count,
     expected_run_extraction_pipeline_call_count,
 ):
+    df = pd.DataFrame(event_data)
+    table = pa.Table.from_pandas(df)
     mocker.patch(
         "cdf_fabric_replicator.extractor.DeltaTable",
-        return_value=Mock(to_pandas=Mock(return_value=pd.DataFrame(data=event_data))),
+        return_value=Mock(
+            to_pyarrow_dataset=Mock(
+                return_value=Mock(to_batches=Mock(return_value=iter([table])))
+            )
+        ),
     )
+
     test_extractor.state_store.get_state.return_value = (last_update_time,)
 
     # Call the method under test
-    test_extractor.write_event_data_to_cdf("file_path", "token", "state_id")
+    test_extractor.write_event_data_to_cdf(
+        "file_path",
+        "token",
+        "state_id",
+    )
 
     # Assert that the upsert method was called the expected number of times
     assert test_extractor.client.events.upsert.call_count == expected_upsert_call_count
@@ -337,9 +353,15 @@ def test_write_event_data_to_cdf(
 
 
 def test_write_event_data_asset_ids_not_found(test_extractor, event_data, mocker):
+    df = pd.DataFrame(event_data)
+    table = pa.Table.from_pandas(df)
     mocker.patch(
         "cdf_fabric_replicator.extractor.DeltaTable",
-        return_value=Mock(to_pandas=Mock(return_value=pd.DataFrame(data=event_data))),
+        return_value=Mock(
+            to_pyarrow_dataset=Mock(
+                return_value=Mock(to_batches=Mock(return_value=iter([table])))
+            )
+        ),
     )
     test_extractor.state_store.get_state.return_value = (None,)
     # Mock Cognite API to raise a CogniteNotFoundError
@@ -354,9 +376,15 @@ def test_write_event_data_asset_ids_not_found(test_extractor, event_data, mocker
 
 
 def test_write_event_data_asset_retrieve_error(test_extractor, event_data, mocker):
+    df = pd.DataFrame(event_data)
+    table = pa.Table.from_pandas(df)
     mocker.patch(
         "cdf_fabric_replicator.extractor.DeltaTable",
-        return_value=Mock(to_pandas=Mock(return_value=pd.DataFrame(data=event_data))),
+        return_value=Mock(
+            to_pyarrow_dataset=Mock(
+                return_value=Mock(to_batches=Mock(return_value=iter([table])))
+            )
+        ),
     )
     test_extractor.state_store.get_state.return_value = (None,)
     # Mock Cognite API to raise a CogniteNotFoundError
@@ -371,10 +399,17 @@ def test_write_event_data_asset_retrieve_error(test_extractor, event_data, mocke
 
 
 def test_write_event_data_to_cdf_upsert_error(test_extractor, event_data, mocker):
+    df = pd.DataFrame(event_data)
+    table = pa.Table.from_pandas(df)
     mocker.patch(
         "cdf_fabric_replicator.extractor.DeltaTable",
-        return_value=Mock(to_pandas=Mock(return_value=pd.DataFrame(data=event_data))),
+        return_value=Mock(
+            to_pyarrow_dataset=Mock(
+                return_value=Mock(to_batches=Mock(return_value=iter([table])))
+            )
+        ),
     )
+
     test_extractor.state_store.get_state.return_value = (None,)
     # Mock Cognite API to raise a CogniteAPIError
     test_extractor.client.events.upsert.side_effect = [
@@ -461,11 +496,13 @@ def test_convert_lakehouse_data_to_df_exception(test_extractor, mocker):
     # Mock DeltaTable to raise exception from to_pandas
     mocker.patch(
         "cdf_fabric_replicator.extractor.DeltaTable",
-        return_value=Mock(to_pandas=Mock(side_effect=Exception("Test error"))),
+        return_value=Mock(side_effect=Exception("Test error")),
     )
     # Assert Exception was raised by function
     with pytest.raises(Exception):
-        test_extractor.convert_lakehouse_data_to_df("path", "token")
+        test_extractor.convert_lakehouse_data_to_df_batch_filtered(
+            "path", "external_id", "timestamp", "token"
+        )
     # Assert error logger called
     test_extractor.logger.error.assert_called_once()
 
@@ -514,10 +551,15 @@ def test_write_raw_tables_cdf(test_extractor, mocker):
     STATE_ID = "/table/path-state"
     DB_NAME = "test_db"
     TABLE_NAME = "test_table"
-    DATAFRAME = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    INCREMENTAL_FIELD = "last_updated_time"
+    DATAFRAME = pd.DataFrame(
+        {"col1": [1, 2, 3], "col2": [4, 5, 6], INCREMENTAL_FIELD: [1, 2, 3]}
+    )
 
     mocker.patch.object(
-        test_extractor, "convert_lakehouse_data_to_df", return_value=DATAFRAME
+        test_extractor,
+        "convert_lakehouse_data_to_df_batch_filtered",
+        return_value=[DATAFRAME],
     )
     mocker.patch.object(test_extractor.state_store, "get_state", return_value=(2,))
     mocker.patch.object(
@@ -527,11 +569,11 @@ def test_write_raw_tables_cdf(test_extractor, mocker):
     mocker.patch.object(test_extractor, "set_state", return_value=None)
 
     test_extractor.write_raw_tables_to_cdf(
-        FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME
+        FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME, INCREMENTAL_FIELD
     )
 
-    test_extractor.convert_lakehouse_data_to_df.assert_called_once_with(
-        FILE_PATH, TOKEN
+    test_extractor.convert_lakehouse_data_to_df_batch_filtered.assert_called_once_with(
+        FILE_PATH, TOKEN, str(2), INCREMENTAL_FIELD
     )
     test_extractor.state_store.get_state.assert_called_once_with(STATE_ID)
     test_extractor.client.raw.rows.insert_dataframe.assert_called_once_with(
@@ -547,21 +589,26 @@ def test_write_raw_tables_no_change_cdf(test_extractor, mocker):
     STATE_ID = "/table/path-state"
     DB_NAME = "test_db"
     TABLE_NAME = "test_table"
-    DATAFRAME = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    INCREMENTAL_FIELD = "last_updated_time"
+    DATAFRAME = (
+        pd.DataFrame()
+    )  # {"col1": [1, 2, 3], "col2": [4, 5, 6], INCREMENTAL_FIELD: [1, 2, 3]})
 
     mocker.patch.object(
-        test_extractor, "convert_lakehouse_data_to_df", return_value=DATAFRAME
+        test_extractor,
+        "convert_lakehouse_data_to_df_batch_filtered",
+        return_value=[DATAFRAME],
     )
     mocker.patch.object(test_extractor.state_store, "get_state", return_value=(3,))
     mocker.patch.object(test_extractor, "run_extraction_pipeline", return_value=None)
     mocker.patch.object(test_extractor, "set_state", return_value=None)
 
     test_extractor.write_raw_tables_to_cdf(
-        FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME
+        FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME, INCREMENTAL_FIELD
     )
 
-    test_extractor.convert_lakehouse_data_to_df.assert_called_once_with(
-        FILE_PATH, TOKEN
+    test_extractor.convert_lakehouse_data_to_df_batch_filtered.assert_called_once_with(
+        FILE_PATH, TOKEN, str(3), INCREMENTAL_FIELD
     )
     test_extractor.state_store.get_state.assert_called_once_with(STATE_ID)
     test_extractor.run_extraction_pipeline.assert_called_once_with(status="seen")
@@ -573,10 +620,15 @@ def test_write_raw_tables_error_on_insert(test_extractor, mocker):
     STATE_ID = "/table/path-state"
     DB_NAME = "test_db"
     TABLE_NAME = "test_table"
-    DATAFRAME = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]})
+    INCREMENTAL_FIELD = "last_updated_time"
+    DATAFRAME = pd.DataFrame(
+        {"col1": [1, 2, 3], "col2": [4, 5, 6], INCREMENTAL_FIELD: [1, 2, 3]}
+    )
 
     mocker.patch.object(
-        test_extractor, "convert_lakehouse_data_to_df", return_value=DATAFRAME
+        test_extractor,
+        "convert_lakehouse_data_to_df_batch_filtered",
+        return_value=[DATAFRAME],
     )
     mocker.patch.object(test_extractor.state_store, "get_state", return_value=(2,))
     mocker.patch.object(test_extractor, "run_extraction_pipeline", return_value=None)
@@ -590,11 +642,11 @@ def test_write_raw_tables_error_on_insert(test_extractor, mocker):
     # Call the method under test
     with pytest.raises(CogniteAPIError):
         test_extractor.write_raw_tables_to_cdf(
-            FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME
+            FILE_PATH, TOKEN, STATE_ID, TABLE_NAME, DB_NAME, INCREMENTAL_FIELD
         )
 
-    test_extractor.convert_lakehouse_data_to_df.assert_called_once_with(
-        FILE_PATH, TOKEN
+    test_extractor.convert_lakehouse_data_to_df_batch_filtered.assert_called_once_with(
+        FILE_PATH, TOKEN, str(2), INCREMENTAL_FIELD
     )
 
     test_extractor.client.raw.rows.insert_dataframe.assert_called_once_with(
