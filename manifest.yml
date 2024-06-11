@@ -35,12 +35,12 @@ extractor:
   documentation: |
     The Cognite Fabric Connector is a generic connector that can connect to Microsoft Fabric and exchange data with Cognite Data Fusion.
 
-    The replicator consists of four services:
+    The connector consists of four services:
       * Time series replicator - Copies time series data from CDF to Fabric.
       * Data model replicator - Copies data model nodes and edges from CDF to Fabric.
       * Event replicator - Copies event data from CDF to Fabric.
       * RAW replicator - Copies RAW tables from CDF to Fabric
-      * Fabric data extractor - Copies time series, events, and files from Fabric to CDF.
+      * Fabric data extractor - Copies time series, events, files and RAW tables from Fabric to CDF.
 
   type: global # Filterable type
   tags:
