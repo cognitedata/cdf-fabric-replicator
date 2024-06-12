@@ -6,7 +6,7 @@
     "description": "Cognite Fabric Connector configuration file",
     "allOf": [
         {
-            "$ref": "https://raw.githubusercontent.com/cognitedata/python-extractor-utils/master/schema/base_config.schema.json"
+            "$ref": "base_config.schema.json"
         }
     ],
     "properties": {
