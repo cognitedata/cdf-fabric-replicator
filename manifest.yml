@@ -47,6 +47,8 @@ extractor:
     - fabric
   image: assets/fabric.svg
 
+schema:
+  rootSchema: schema/config.schema.json
 
 documentation:
   includeLeafNodes: false

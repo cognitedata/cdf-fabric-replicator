@@ -1,0 +1,33 @@
+{
+    "$id": "extractor_config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "description": "General extractor configuration",
+    "unevaluatedProperties": false,
+    "properties": {
+        "state-store": {
+            "$ref": "https://raw.githubusercontent.com/cognitedata/python-extractor-utils/17dc731ee5b80849c213214d7339830ccac20568/schema/state_store_config.schema.json",
+            "unevaluatedProperties": false
+        },
+        "subscription-batch-size": {
+            "type": "integer",
+            "description": "Batch size for time series subscriptions",
+            "default": 10000
+        },
+        "ingest-batch-size": {
+            "type": "integer",
+            "description": "Batch size for time series ingestion",
+            "default": 100000
+        },
+        "fabric-ingest-batch-size": {
+            "type": "integer",
+            "description": "Batch size for ingestion into Fabric",
+            "default": 1000
+        },
+        "poll-time": {
+            "type": "integer",
+            "description": "Time to wait between polling for new data",
+            "default": 3600
+        }
+    }
+}

@@ -1,0 +1,17 @@
+{
+    "$id": "schema/event_config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "description": "CDF Event configuration",
+    "unevaluatedProperties": false,
+    "properties": {
+        "lakehouse-abfss-path-events": {
+            "type": "string",
+            "description": "Path to the table in the lakehouse to store CDF events"
+        },
+        "batch-size": {
+            "type": "integer",
+            "description": "Number of events to read in a single batch from CDF"
+        }
+    }
+}

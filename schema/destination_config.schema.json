@@ -1,0 +1,13 @@
+{
+    "$id": "schema/destination_config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "description": "CDF time series configuration",
+    "unevaluatedProperties": false,
+    "properties": {
+        "time-series-prefix": {
+            "type": "string",
+            "description": "Prefix to add to CDF time series external ids created from Fabric"
+        }
+    }
+}

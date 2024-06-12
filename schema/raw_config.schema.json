@@ -1,0 +1,25 @@
+{
+    "$id": "raw_config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "description": "CDF RAW configuration",
+    "unevaluatedProperties": false,
+    "properties": {
+        "table-name": {
+            "type": "string",
+            "description": "Name of the RAW table in CDF to store rows"
+        },
+        "db-name": {
+            "type": "string",
+            "description": "Name of the database in CDF to store rows"
+        },
+        "raw-path": {
+            "type": "string",
+            "description": "Sub path in the lakehouse to read rows"
+        },
+        "incremental-field": {
+            "type": "string",
+            "description": "Field to use for incremental loading. Normally a timestamp"
+        }
+    }
+}

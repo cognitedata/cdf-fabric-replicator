@@ -1,0 +1,51 @@
+{
+    "$id": "config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "unevaluatedProperties": false,
+    "description": "Cognite Fabric Connector configuration file",
+    "allOf": [
+        {
+            "$ref": "https://raw.githubusercontent.com/cognitedata/python-extractor-utils/17dc731ee5b80849c213214d7339830ccac20568/schema/base_config.schema.json"
+        }
+    ],
+    "properties": {
+        "extractor": {
+            "description": "Extractor configuration",
+            "$ref": "extractor_config.schema.json"
+        },
+        "source": {
+            "description": "Source configuration for data pulled from Fabric",
+            "$ref": "source_config.schema.json"
+        },
+        "destination": {
+            "description": "Destination configuration for time series data pushed to Fabric",
+            "$ref": "destination_config.schema.json"
+        },
+        "subscriptions": {
+            "description": "Subscription configuration for time series pushed to Fabric",
+            "type": "array",
+            "items": {
+                "$ref": "subscriptions_config.schema.json"
+            }
+        },
+        "data-modeling": {
+            "description": "Data modeling configuration, for syncing a data model to Fabric",
+            "type": "array",
+            "items": {
+                "$ref": "data_modeling_config.schema.json"
+            }
+        },
+        "event": {
+            "description": "Event configuration, for syncing events to Fabric",
+            "$ref": "event_config.schema.json"
+        },
+        "raw-tables": {
+            "description": "Raw tables configuration, for syncing raw tables to Fabric",
+            "type": "array",
+            "items": {
+                "$ref": "raw_tables_config.schema.json"
+            }
+        }
+    }
+}
