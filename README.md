@@ -94,11 +94,13 @@ Fabric Variables define where in Microsoft Fabric that contextualized data is wr
 Fabric Extractor Variables defines the Lakehouse and tables where raw data lands before being ingested into CDF.
 
 - `EXTRACTOR_EVENT_PATH`: The table path for the events table in a Fabric lakehouse. It's the relative path after the ABFSS prefix, i.e. `Tables/RawEvents`.
+- `EXTRACTOR_EVENT_INCREMENTAL_FIELD`: The column used for incremental reads from the table. Typically a timestamp or counter column.
 - `EXTRACTOR_FILE_PATH`: The single file path or directory of the files in a Fabric lakehouse. It's the relative path after the ABFSS prefix, i.e. `Files` or `Files/Tanks.png`.
 - `EXTRACTOR_RAW_TS_PATH`: The file path for the raw timeseries table in a Fabric lakehouse. It's the relative path after the ABFSS prefix i.e. `Tables/RawTS`.
 - `EXTRACTOR_DATASET_ID`: Specifies the ID of the extractor dataset when the data lands in CDF.
 - `EXTRACTOR_TS_PREFIX`: Specifies the prefix for the extractor timeseries when the data lands in CDF.
 - `EXTRACTOR_RAW_TABLE_PATH`: Specifies the table path a table in Fabric lakehouse which should written into CDF RAW. Default config supports one table, multiple are needed the `example_config.yaml` needs to be modified to add more tables.
+- `EXTRACTOR_RAW_INCREMENTAL_FIELD`: The column used for incremental reads from the table. Typically a timestamp or counter column.
 - `EXTRACTOR_RAW_TABLE_NAME`: Name of the table in CDF RAW to write to.
 - `EXTRACTOR_RAW_DB_NAME`: Name of the database in CDF RAW to write to.
 
