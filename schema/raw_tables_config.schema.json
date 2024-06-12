@@ -1,5 +1,5 @@
 {
-    "$id": "schema/raw_tables_config.schema.json",
+    "$id": "raw_tables_config.schema.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "description": "CDF RAW configuration for to be synced to Fabric",

@@ -1,5 +1,5 @@
 {
-    "$id": "schema/source_config.schema.json",
+    "$id": "source_config.schema.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "description": "Source configuration",

@@ -1,5 +1,5 @@
 {
-    "$id": "schema/event_config.schema.json",
+    "$id": "event_config.schema.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
     "description": "CDF Event configuration",
