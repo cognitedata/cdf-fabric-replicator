@@ -6,7 +6,7 @@
     "unevaluatedProperties": false,
     "properties": {
         "state-store": {
-            "$ref": "https://raw.githubusercontent.com/cognitedata/python-extractor-utils/17dc731ee5b80849c213214d7339830ccac20568/schema/state_store_config.schema.json",
+            "$ref": "state_store_config.schema.json",
             "unevaluatedProperties": false
         },
         "subscription-batch-size": {
