@@ -311,7 +311,7 @@ def replicator_config(mock_data_modeling_config):
     yield Config(
         type=None,
         cognite=None,
-        version="0.1.0",
+        version="1",
         logger=None,
         extractor=None,
         subscriptions=None,
