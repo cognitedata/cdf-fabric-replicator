@@ -1,0 +1,51 @@
+{
+    "$id": "state_store_config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "description": "Include the state store section to save extraction states between runs. Use a state store if data is loaded incrementally. We support multiple state stores, but you can only configure one at a time.",
+    "type": "object",
+    "properties": {
+        "raw": {
+            "type": "object",
+            "unevaluatedProperties": false,
+            "description": "A RAW state store stores the extraction state in a table in CDF RAW.",
+            "required": [
+                "database",
+                "table"
+            ],
+            "properties": {
+                "database": {
+                    "type": "string",
+                    "description": "Enter the database name in CDF RAW."
+                },
+                "table": {
+                    "type": "string",
+                    "description": "Enter the table name in CDF RAW."
+                },
+                "upload-interval": {
+                    "type": "integer",
+                    "description": "Enter the interval in seconds between each upload to CDF RAW.",
+                    "default": 30
+                }
+            }
+        },
+        "local": {
+            "type": "object",
+            "unevaluatedProperties": false,
+            "description": "A local state store stores the extraction state in a JSON file on the local machine.",
+            "required": [
+                "path"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Insert the file path to a JSON file."
+                },
+                "save-interval": {
+                    "type": "integer",
+                    "description": "Enter the interval in seconds between each save.",
+                    "default": 30
+                }
+            }
+        }
+    }
+}
