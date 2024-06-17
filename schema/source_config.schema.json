@@ -2,7 +2,7 @@
     "$id": "source_config.schema.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
-    "description": "Source configuration",
+    "description": "Fabric source configuration. This section configured what data to read from Fabric",
     "unevaluatedProperties": false,
     "properties": {
         "abfss-prefix": {

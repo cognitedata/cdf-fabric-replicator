@@ -7,7 +7,7 @@
     "properties": {
         "space": {
             "type": "string",
-            "description": "FDM Space name to synchronize to Fabric"
+            "description": "Data modelling space name to synchronize to Fabric"
         },
         "lakehouse-abfss-prefix": {
             "type": "string",
