@@ -1,0 +1,51 @@
+{
+    "$id": "config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "unevaluatedProperties": false,
+    "description": "Cognite Fabric Connector configuration file",
+    "allOf": [
+        {
+            "$ref": "base_config.schema.json"
+        }
+    ],
+    "properties": {
+        "extractor": {
+            "description": "Common Extractor configuration",
+            "$ref": "extractor_config.schema.json"
+        },
+        "source": {
+            "description": "Source configuration for data mirrored from Fabric",
+            "$ref": "source_config.schema.json"
+        },
+        "destination": {
+            "description": "Destination configuration for time series data mirrored from Fabric",
+            "$ref": "destination_config.schema.json"
+        },
+        "subscriptions": {
+            "description": "Timeseries subscriptions configuration for time series mirrored to Fabric",
+            "type": "array",
+            "items": {
+                "$ref": "subscriptions_config.schema.json"
+            }
+        },
+        "data-modeling": {
+            "description": "Data modeling configuration, for syncing a data model to Fabric",
+            "type": "array",
+            "items": {
+                "$ref": "data_modeling_config.schema.json"
+            }
+        },
+        "event": {
+            "description": "Event configuration, for mirroring events to Fabric",
+            "$ref": "event_config.schema.json"
+        },
+        "raw-tables": {
+            "description": "Raw tables configuration, for mirroring raw tables to Fabric",
+            "type": "array",
+            "items": {
+                "$ref": "raw_tables_config.schema.json"
+            }
+        }
+    }
+}

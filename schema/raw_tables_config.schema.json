@@ -1,0 +1,21 @@
+{
+    "$id": "raw_tables_config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "description": "CDF RAW configuration for to be synced to Fabric",
+    "unevaluatedProperties": false,
+    "properties": {
+        "table-name": {
+            "type": "string",
+            "description": "Name of the RAW table in CDF to sync to Fabric"
+        },
+        "db-name": {
+            "type": "string",
+            "description": "Name of the database in CDF to sync to Fabric"
+        },
+        "lakehouse-abfss-path-raw": {
+            "type": "string",
+            "description": "Full path of table to store RAW rows into"
+        }
+    }
+}

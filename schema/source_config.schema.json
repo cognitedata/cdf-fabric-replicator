@@ -1,0 +1,44 @@
+{
+    "$id": "source_config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "description": "Fabric source configuration. This section configured what data to read from Fabric",
+    "unevaluatedProperties": false,
+    "properties": {
+        "abfss-prefix": {
+            "type": "string",
+            "description": "ABFSS prefix for the data lake"
+        },
+        "data-set-id": {
+            "type": "string",
+            "description": "Data set ID"
+        },
+        "event-path": {
+            "type": "string",
+            "description": "Folder combined with ABFFS Path to the event data"
+        },
+        "event-path-incremental-field": {
+            "type": "string",
+            "description": "Field to use for incremental loading"
+        },
+        "raw-time-series-path": {
+            "type": "string",
+            "description": "Folder combined with ABFFS Path to the raw time series data"
+        },
+        "read-batch-size": {
+            "type": "integer",
+            "description": "Batch size for reading data from Fabric"
+        },
+        "file-path": {
+            "type": "string",
+            "description": "File path for the files data"
+        },
+        "raw-tables": {
+            "type": "array",
+            "description": "List of raw tables to be ingested",
+            "items": {
+                "$ref": "raw_config.schema.json"
+            }
+        }
+    }
+}

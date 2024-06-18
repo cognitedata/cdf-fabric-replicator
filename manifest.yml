@@ -47,11 +47,12 @@ extractor:
     - fabric
   image: assets/fabric.svg
 
+schema:
+  rootSchema: schema/config.schema.json
 
 documentation:
   includeLeafNodes: false
   preamble:
-    - docs/yaml.md
     - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/318d74db49536baabb707b2587e1244037e9cc07/schema/docs/remote_tip.md
     - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/318d74db49536baabb707b2587e1244037e9cc07/schema/docs/envsub.md
     - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/318d74db49536baabb707b2587e1244037e9cc07/schema/docs/keyvault.md

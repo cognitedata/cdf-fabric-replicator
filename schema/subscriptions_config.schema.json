@@ -1,0 +1,28 @@
+{
+    "$id": "subscriptions_config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "description": "CDF time series sync to CDF configuration",
+    "unevaluatedProperties": false,
+    "properties": {
+        "external-id": {
+            "type": "string",
+            "description": "External ID of the time series subscription"
+        },
+        "partitions": {
+            "type": "array",
+            "description": "List of partitions to be ingested",
+            "items": {
+                "type": "integer"
+            }
+        },
+        "lakehouse-abfss-path-dps": {
+            "type": "string",
+            "description": "ABFSS path to the data points"
+        },
+        "lakehouse-abfss-path-ts": {
+            "type": "string",
+            "description": "ABFSS path to the time series"
+        }
+    }
+}

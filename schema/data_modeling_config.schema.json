@@ -1,0 +1,18 @@
+{
+    "$id": "data_modeling_config.schema.json",
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "description": "Data Modeling sync configuration",
+    "unevaluatedProperties": false,
+    "properties": {
+        "space": {
+            "type": "string",
+            "description": "Data modelling space name to synchronize to Fabric"
+        },
+        "lakehouse-abfss-prefix": {
+            "type": "string",
+            "description": "Full ABFSS prefix for a folder in the lakehouse"
+        }
+
+    }
+}
