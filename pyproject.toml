@@ -1,7 +1,7 @@
 
 [tool.poetry]
 name = "cdf_fabric_replicator"
-version = "0.2.0"
+version = "0.3.0"
 description = "Stream data from CDF to Fabric/Onelake"
 authors = ["Murad Saeter <murad.sater@cognite.com>"]
 
@@ -36,7 +36,7 @@ pywin32 = {version = "306", platform = "win32"}
 [tool.poetry.dev-dependencies]
 pyinstaller = "^6.0"
 macholib = {version = "^1.14", platform = "darwin"}             # Used by pyinstaller pn Mac OS
-pywin32-ctypes = {version = "^0.2.0", platform = "win32"}       # Used by pyinstaller on Windows
+pywin32-ctypes = {version = "^0.3.0", platform = "win32"}       # Used by pyinstaller on Windows
 pefile = "^2023.0.0"                                           # Used by pyinstaller on Windows
 mypy = "*"
 pre-commit = "*"

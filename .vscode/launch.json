@@ -18,11 +18,8 @@
             "name": "poetry run",
             "type": "debugpy",
             "request": "launch",
-            "module": "poetry",
+            "module": "cdf_fabric_replicator",
             "args": [
-                "-vvv",  // change or comment out for different verbosity level
-                "run",
-                "cdf_fabric_replicator",
                 "example_config.yaml"
             ],
         },

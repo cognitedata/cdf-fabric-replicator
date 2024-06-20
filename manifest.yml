@@ -21,7 +21,7 @@ artifacts:
 # A list of releases, when running the release script only the entry matching the
 # provided version is used.
 versions:
-  "0.2.0":
+  "0.3.0":
     description: "First release candidate of Microsoft Fabric connector"
     changelog:
       added:
