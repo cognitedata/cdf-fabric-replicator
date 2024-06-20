@@ -22,6 +22,11 @@ artifacts:
 # provided version is used.
 versions:
   "0.3.0":
+    description: "Fix RAW mirroring service"
+    changelog:
+      added:
+        - "Update change detection on RAW tables in Fabric"
+  "0.2.0":
     description: "First release candidate of Microsoft Fabric connector"
     changelog:
       added:
