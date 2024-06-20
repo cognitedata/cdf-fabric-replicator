@@ -146,7 +146,7 @@ class RawTableReplicator(Extractor):
             (
                 dt.merge(
                     source=data,
-                    predicate="s.id = t.id",
+                    predicate="s.key = t.key",
                     source_alias="s",
                     target_alias="t",
                 )
