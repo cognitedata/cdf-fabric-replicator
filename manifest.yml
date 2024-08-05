@@ -21,6 +21,11 @@ artifacts:
 # A list of releases, when running the release script only the entry matching the
 # provided version is used.
 versions:
+  "0.3.1":
+    description: "Documentation upadte."
+    changelog:
+      added:
+        - "Update config documentation"
   "0.3.0":
     description: "Fix RAW mirroring service"
     changelog:
