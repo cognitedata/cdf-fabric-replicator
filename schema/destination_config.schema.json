@@ -7,7 +7,7 @@
     "properties": {
         "time-series-prefix": {
             "type": "string",
-            "description": "Prefix to add to CDF time series external ids created from Fabric"
+            "description": "Enter the prefix to add to CDF time series external IDs created from Fabric."
         }
     }
 }

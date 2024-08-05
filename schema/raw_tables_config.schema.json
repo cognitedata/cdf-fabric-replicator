@@ -7,15 +7,15 @@
     "properties": {
         "table-name": {
             "type": "string",
-            "description": "Name of the RAW table in CDF to sync to Fabric"
+            "description": "Enter the name of the RAW table in CDF to sync to Fabric."
         },
         "db-name": {
             "type": "string",
-            "description": "Name of the database in CDF to sync to Fabric"
+            "description": "Enter the database name in CDF to sync to Fabric."
         },
         "lakehouse-abfss-path-raw": {
             "type": "string",
-            "description": "Full path of table to store RAW rows into"
+            "description": "Enter the full ABFFS path of the table to store RAW rows into."
         }
     }
 }

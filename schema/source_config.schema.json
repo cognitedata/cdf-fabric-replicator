@@ -7,35 +7,35 @@
     "properties": {
         "abfss-prefix": {
             "type": "string",
-            "description": "ABFSS prefix for the data lake"
+            "description": "Input the ABFSS prefix for the data lake."
         },
         "data-set-id": {
             "type": "string",
-            "description": "Data set ID"
+            "description": "Input the data set ID."
         },
         "event-path": {
             "type": "string",
-            "description": "Folder combined with ABFFS Path to the event data"
+            "description": "Enter the folder combined with ABFFS Path to the event data."
         },
         "event-path-incremental-field": {
             "type": "string",
-            "description": "Field to use for incremental loading"
+            "description": "Input the field for incremental loading."
         },
         "raw-time-series-path": {
             "type": "string",
-            "description": "Folder combined with ABFFS Path to the raw time series data"
+            "description": "Enter the folder with ABFFS Path to the raw time series data."
         },
         "read-batch-size": {
             "type": "integer",
-            "description": "Batch size for reading data from Fabric"
+            "description": "Input the batch size for reading data from Fabric."
         },
         "file-path": {
             "type": "string",
-            "description": "File path for the files data"
+            "description": "Input the file path for the file's data."
         },
         "raw-tables": {
             "type": "array",
-            "description": "List of raw tables to be ingested",
+            "description": "Input the list of raw tables to be ingested.",
             "items": {
                 "$ref": "raw_config.schema.json"
             }

@@ -7,11 +7,11 @@
     "properties": {
         "lakehouse-abfss-path-events": {
             "type": "string",
-            "description": "Path to the table in the lakehouse to store CDF events"
+            "description": "Input the path to the table in the lakehouse to store CDF events."
         },
         "batch-size": {
             "type": "integer",
-            "description": "Number of events to read in a single batch from CDF"
+            "description": "Input the number of events to read in a single batch from CDF."
         }
     }
 }
