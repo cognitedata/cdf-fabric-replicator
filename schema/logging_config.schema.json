@@ -2,11 +2,11 @@
     "$id": "logging_config.schema.json",
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "type": "object",
-    "description": "The optional `logger` section sets up logging to a console and files.",
+    "description": "Sets up logging to a console and files. This is an optional value.",
     "properties": {
         "console": {
             "type": "object",
-            "description": "Include the console section to enable logging to a standard output, such as a terminal window.",
+            "description": "Include the console section to enable logging to standard output, such as a terminal window.",
             "unevaluatedProperties": false,
             "properties": {
                 "level": {

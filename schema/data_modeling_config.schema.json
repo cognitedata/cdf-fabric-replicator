@@ -7,11 +7,11 @@
     "properties": {
         "space": {
             "type": "string",
-            "description": "Data modelling space name to synchronize to Fabric"
+            "description": "Enter the data modeling space name to synchronize to Fabric"
         },
         "lakehouse-abfss-prefix": {
             "type": "string",
-            "description": "Full ABFSS prefix for a folder in the lakehouse"
+            "description": "Enter the full ABFSS prefix for a folder in the lakehouse."
         }
 
     }

@@ -7,11 +7,11 @@
     "properties": {
         "id": {
             "type": "integer",
-            "description": "Resource internal ID"
+            "description": "Input the resource internal ID."
         },
         "external-id": {
             "type": "string",
-            "description": "Resource external ID"
+            "description": "Input the resource external ID."
         }
     }
 }

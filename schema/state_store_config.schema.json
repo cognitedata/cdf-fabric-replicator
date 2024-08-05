@@ -7,7 +7,7 @@
         "raw": {
             "type": "object",
             "unevaluatedProperties": false,
-            "description": "A RAW state store stores the extraction state in a table in CDF RAW.",
+            "description": "Stores the extraction state in a table in CDF RAW.",
             "required": [
                 "database",
                 "table"
@@ -31,7 +31,7 @@
         "local": {
             "type": "object",
             "unevaluatedProperties": false,
-            "description": "A local state store stores the extraction state in a JSON file on the local machine.",
+            "description": "Stores the extraction state in a JSON file on the local machine.",
             "required": [
                 "path"
             ],

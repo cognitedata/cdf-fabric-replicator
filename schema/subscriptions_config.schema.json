@@ -7,22 +7,22 @@
     "properties": {
         "external-id": {
             "type": "string",
-            "description": "External ID of the time series subscription"
+            "description": "Input the external ID of the time series subscription."
         },
         "partitions": {
             "type": "array",
-            "description": "List of partitions to be ingested",
+            "description": "Enter the List of partitions to be ingested.",
             "items": {
                 "type": "integer"
             }
         },
         "lakehouse-abfss-path-dps": {
             "type": "string",
-            "description": "ABFSS path to the data points"
+            "description": "Input the ABFSS path to the data points."
         },
         "lakehouse-abfss-path-ts": {
             "type": "string",
-            "description": "ABFSS path to the time series"
+            "description": "Input the ABFSS path to the time series."
         }
     }
 }

@@ -11,22 +11,22 @@
         },
         "subscription-batch-size": {
             "type": "integer",
-            "description": "Batch size for time series subscriptions",
+            "description": "Input the batch size for time series subscriptions.",
             "default": 10000
         },
         "ingest-batch-size": {
             "type": "integer",
-            "description": "Batch size for time series ingestion",
+            "description": "Input the batch size for time series ingestion.",
             "default": 100000
         },
         "fabric-ingest-batch-size": {
             "type": "integer",
-            "description": "Batch size for ingestion into Fabric",
+            "description": "Input the batch size for ingestion into Fabric.",
             "default": 1000
         },
         "poll-time": {
             "type": "integer",
-            "description": "Time to wait between polling for new data",
+            "description": "Enter the time in seconds to wait between polling for new data.",
             "default": 3600
         }
     }

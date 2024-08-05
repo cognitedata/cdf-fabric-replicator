@@ -7,19 +7,19 @@
     "properties": {
         "table-name": {
             "type": "string",
-            "description": "Name of the RAW table in CDF to store rows"
+            "description": "Enter the name of the RAW table in CDF to store rows."
         },
         "db-name": {
             "type": "string",
-            "description": "Name of the database in CDF to store rows"
+            "description": "Enter the database name in CDF to store the row."
         },
         "raw-path": {
             "type": "string",
-            "description": "Sub path in the lakehouse to read rows"
+            "description": "Input the subpath in the lakehouse to read rows."
         },
         "incremental-field": {
             "type": "string",
-            "description": "Field to use for incremental loading. Normally a timestamp"
+            "description": "Input the field for incremental loading. This value is normally a timestamp."
         }
     }
 }
