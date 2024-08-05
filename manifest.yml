@@ -21,8 +21,13 @@ artifacts:
 # A list of releases, when running the release script only the entry matching the
 # provided version is used.
 versions:
+  "0.3.2":
+    description: "Documentation update."
+    changelog:
+      added:
+        - "Update config documentation"
   "0.3.1":
-    description: "Documentation upadte."
+    description: "Documentation update."
     changelog:
       added:
         - "Update config documentation"
