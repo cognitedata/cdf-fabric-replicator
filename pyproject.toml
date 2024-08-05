@@ -1,7 +1,7 @@
 
 [tool.poetry]
 name = "cdf_fabric_replicator"
-version = "0.3.1"
+version = "0.3.2"
 description = "Stream data from CDF to Fabric/Onelake"
 authors = ["Murad Saeter <murad.sater@cognite.com>"]
 
