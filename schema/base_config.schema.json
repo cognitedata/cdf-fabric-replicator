@@ -18,7 +18,7 @@
                 "remote"
             ],
             "default": "local",
-            "description": "Input the configuration file type. The `local` option loads the full config from this file, while the `remote` option loads only the `cognite` section and the rest from extraction pipelines. The default value is `local`."
+            "description": "Input the configuration file type. The `local` option loads the full config from this file, while the `remote` option loads only the `cognite` section and the rest from extraction pipelines."
         },
         "cognite": {
             "$ref": "cognite_config.schema.json",

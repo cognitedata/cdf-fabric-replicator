@@ -6,7 +6,7 @@
     "properties": {
         "project": {
             "type": "string",
-            "description": "Insert the CDF project name into which you want to ingest data. This is a __required__ value."
+            "description": "Insert the CDF project name into which you want to ingest data."
         },
         "idp-authentication": {
             "type": "object",
@@ -15,11 +15,11 @@
                 "authority": {
                     "type": "string",
                     "default": "https://login.microsoftonline.com/",
-                    "description": "Insert the authority together with `tenant` to authenticate against Azure tenants. The default value is `https://login.microsoftonline.com/`."
+                    "description": "Insert the authority together with `tenant` to authenticate against Azure tenants.s"
                 },
                 "client-id": {
                     "type": "string",
-                    "description": "Enter the service principal client ID from the IdP. This is a  __required__ value."
+                    "description": "Enter the service principal client ID from the IdP."
                 },
                 "tenant": {
                     "type": "string",
@@ -52,7 +52,7 @@
                 "min-ttl": {
                     "type": "integer",
                     "default": 30,
-                    "description": "Insert the minimum time in seconds for a token to be valid. If the cached token expires in less than `min-ttl` seconds, the system will refresh the token, even if it's still valid. The default value is `30`."
+                    "description": "Insert the minimum time in seconds for a token to be valid. If the cached token expires in less than `min-ttl` seconds, the system will refresh the token, even if it's still valid."
                 },
                 "certificate": {
                     "type": "object",
@@ -68,7 +68,7 @@
                         },
                         "path": {
                             "type": "string",
-                            "description": "Enter the path to the .pem or .pfx certificate for authentication. This is a __required__ value."
+                            "description": "Enter the path to the .pem or .pfx certificate for authentication."
                         },
                         "password": {
                             "type": "string",
@@ -112,11 +112,11 @@
         "host": {
             "type": "string",
             "default": "https://api.cognitedata.com",
-            "description": "Insert the base URL of the CDF project. The default value is `https://api.cognitedata.com`."
+            "description": "Insert the base URL of the CDF project."
         },
         "timeout": {
             "type": "integer",
-            "description": "Enter the timeout on requests to CDF in seconds. The default value is `30`.",
+            "description": "Enter the timeout on requests to CDF in seconds.",
             "default": 30
         },
         "external-id-prefix": {
@@ -134,27 +134,27 @@
                 },
                 "status-forcelist": {
                     "type": "string",
-                    "description": "Enter the HTTP status codes to retry. The default values are 429, 502, 503, and 504."
+                    "description": "Enter the HTTP status codes to retry."
                 },
                 "max-retries": {
                     "type": "integer",
                     "default": 10,
-                    "description": "Enter the HTTP status codes to retry. The default values are 429, 502, 503, and 504."
+                    "description": "Enter the HTTP status codes to retry."
                 },
                 "max-retries-connect": {
                     "type": "integer",
                     "default": 3,
-                    "description": "Enter the maximum number of retries on connection errors. The default value is `3`. "
+                    "description": "Enter the maximum number of retries on connection errors."
                 },
                 "max-retry-backoff": {
                     "type": "integer",
                     "default": 30,
-                    "description": "Sets a maximum backoff after any request failure. The retry strategy employs exponential backoff. The default value is `30`."
+                    "description": "Sets a maximum backoff after any request failure. The retry strategy employs exponential backoff."
                 },
                 "max-connection-pool-size": {
                     "type": "integer",
                     "default": 50,
-                    "description": "Sets the maximum number of connections in the SDK’s connection pool. The default value is `50`. "
+                    "description": "Sets the maximum number of connections in the SDK’s connection pool."
                 },
                 "disable-ssl": {
                     "type": "boolean",
