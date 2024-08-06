@@ -21,6 +21,11 @@ artifacts:
 # A list of releases, when running the release script only the entry matching the
 # provided version is used.
 versions:
+  "0.3.3":
+    description: "Documentation update."
+    changelog:
+      added:
+        - "Update config documentation"
   "0.3.2":
     description: "Documentation update."
     changelog:
@@ -72,3 +77,4 @@ documentation:
     - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/318d74db49536baabb707b2587e1244037e9cc07/schema/docs/remote_tip.md
     - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/318d74db49536baabb707b2587e1244037e9cc07/schema/docs/envsub.md
     - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/318d74db49536baabb707b2587e1244037e9cc07/schema/docs/keyvault.md
+  skipHeader: true
