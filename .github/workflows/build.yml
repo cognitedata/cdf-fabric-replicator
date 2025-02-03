@@ -167,8 +167,7 @@ jobs:
 
       - name: install requirements
         run: |
-          uv export --format requirements-txt --output-file sbom/requirements.txt
-          pip install -r requirements.txt
+          uv sync --frozen
 
       - name: Dowload sbom artefact
         uses: actions/download-artifact@v4
@@ -278,8 +277,7 @@ jobs:
 
       - name: install requirements
         run: |
-          uv export --format requirements-txt --output-file sbom/requirements.txt
-          pip install -r requirements.txt
+          uv sync --frozen
 
       - name: Build example configs
         run: cd config_examples && bash build_examples.sh
