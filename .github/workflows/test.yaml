@@ -18,12 +18,11 @@ jobs:
       with:
         python-version: 3.11
 
-    - name: Install dependencies
-      run: |
-        python3 -m pip install --upgrade pip poetry
-        poetry config virtualenvs.create false
-        poetry lock
-        poetry install
+    - name: Install u
+      run: pip install uv
+
+    - name: install requirements
+      run: uv sync --frozen
 
     - name: Run tests
       env:
