@@ -129,7 +129,7 @@ jobs:
         run: uv export --format requirements-txt --output-file sbom/requirements.txt
 
       - name: Generate sbom
-        run: sbom-tool generate -b sbom -bc sbom -pn cdf_fabric_replicator -pv ${{ needs.create-version.outputs.version }} -ps Cognite -nsb https://sbom.cognite.com
+        run: sbom-tool generate -b sbom -bc sbom -pn fabric-connector -pv ${{ needs.create-version.outputs.version }} -ps Cognite -nsb https://sbom.cognite.com
 
       - name: Move generated json
         run: mv sbom/_manifest/spdx_2.2/* .
