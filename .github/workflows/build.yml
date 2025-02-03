@@ -111,25 +111,25 @@ jobs:
         uses: actions/checkout@v4
 
       - name: ensure curl
-        run: sudo apt-get -qq install curl dotnet-sdk-7.0
+        run: sudo apt-get -qq install curl dotnet-sdk-8.0
 
       - name: install sbom tool
         run: dotnet tool install --global microsoft.sbom.dotnettool
 
-      - name: Install poetry
-        run: pip install poetry
+      - name: Install uv
+        run: pip install uv
 
       - name: Isolate target binary files
-        run: cp -r cdf_fabric_replicator sbom
+        run: cp -r file_extractor sbom
 
       - name: Remove unnecessary files
         run: find sbom -iname __pycache__ -type d -exec rm -r {} +
 
       - name: Include requirements
-        run: poetry export -f requirements.txt --output sbom/requirements.txt
+        run: uv export --format requirements-txt --output-file sbom/requirements.txt
 
       - name: Generate sbom
-        run: sbom-tool generate -b sbom -bc sbom -pn fabric-connector -pv ${{ needs.create-version.outputs.version }} -ps Cognite -nsb https://sbom.cognite.com
+        run: sbom-tool generate -b sbom -bc sbom -pn file-extractor -pv ${{ needs.create-version.outputs.version }} -ps Cognite -nsb https://sbom.cognite.com
 
       - name: Move generated json
         run: mv sbom/_manifest/spdx_2.2/* .
