@@ -55,4 +55,5 @@ dev = [
     "pytest-mock<4.0.0,>=3.6.1",
     "pre-commit>=4.0.1",
     "mypy>=1.14.1",
+    "pyinstaller>=6.11.1",
 ]
