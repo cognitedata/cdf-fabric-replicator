@@ -329,7 +329,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python3 -m pip install --upgrade pip cognite-extractor-manager=2.* uv 
+        python3 -m pip install --upgrade pip cognite-extractor-manager==2.* uv 
 
     - name: Build Docker image
       run: docker build -t cognite/fabric-connector:${{ needs.create-version.outputs.version }} -f build/Dockerfile --load .
