@@ -10,7 +10,7 @@ dependencies = [
     "azure-storage-file-datalake<13.0.0,>=12.14.0",
     "deltalake<1.0.0,>=0.16.0",
     "pandas<3.0.0,>=2.2.1",
-    "pywin32==306",
+    "pywin32>=308 ; sys_platform == 'win32'"
 ]
 name = "cdf_fabric_replicator"
 version = "0.3.3"
