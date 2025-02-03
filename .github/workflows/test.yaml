@@ -18,12 +18,11 @@ jobs:
       with:
         python-version: 3.11
 
-    - name: Install dependencies
-      run: |
-        python3 -m pip install --upgrade pip poetry
-        poetry config virtualenvs.create false
-        poetry lock
-        poetry install
+    - name: Install u
+      run: pip install uv
+
+    - name: install requirements
+      run: uv sync --frozen
 
     - name: Run tests
       env:
@@ -46,4 +45,4 @@ jobs:
         TEST_CONFIG_PATH: tests/integration/test_config.yaml
         EXTRACTOR_FILE_PATH: ${{ vars.EXTRACTOR_FILE_PATH }}
 
-      run: poetry run pytest tests/unit --verbose
+      run: uv run coverage run --source cdf_fabric_extractor -m pytest -v tests/unit

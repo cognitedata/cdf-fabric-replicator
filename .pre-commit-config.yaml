@@ -10,7 +10,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy
-        entry: poetry run mypy cdf_fabric_replicator
+        entry: uv run mypy cdf_fabric_replicator
         language: system
         types: [python]
         pass_filenames: false
