@@ -1,18 +1,17 @@
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
-RUN pip install poetry
+RUN pip install uv
 RUN mkdir -p /cdf_fabric_replicator
 
 COPY pyproject.toml /cdf_fabric_replicator
-COPY poetry.lock /cdf_fabric_replicator
+COPY uv.lock /cdf_fabric_replicator
 COPY cdf_fabric_replicator /cdf_fabric_replicator
 RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
 WORKDIR /cdf_fabric_replicator
-RUN poetry config virtualenvs.in-project true --local
-RUN poetry install --without dev
+RUN uv sync --frozen
 
-FROM python:3.10-slim as base
+FROM python:3.11-slim AS base
 
 COPY --from=builder /cdf_fabric_replicator/ /cdf_fabric_replicator
 COPY build/config_remote.yaml /config/config_remote.yaml
