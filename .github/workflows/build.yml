@@ -160,14 +160,14 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
-      - name: Install poetry and cogex
-        run: pip install --no-cache-dir poetry==1.6.1 cognite-extractor-manager==1.*
+      - name: Install uv and cogex
+        run: pip install --no-cache-dir uv cognite-extractor-manager==2.*
 
       - name: install requirements
         run: |
-          poetry export --without-hashes -f requirements.txt -o requirements.txt
+          uv export --format requirements-txt --output-file sbom/requirements.txt
           pip install -r requirements.txt
 
       - name: Dowload sbom artefact
@@ -266,19 +266,19 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
 
       - name: install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libkrb5-dev
 
-      - name: Install poetry and cogex
-        run: pip install --no-cache-dir poetry==1.6.1 cognite-extractor-manager==1.*
+      - name: Install uv and cogex
+        run: pip install --no-cache-dir uv cognite-extractor-manager==2.*
 
       - name: install requirements
         run: |
-          poetry export --without-hashes -f requirements.txt -o requirements.txt
+          uv export --format requirements-txt --output-file sbom/requirements.txt
           pip install -r requirements.txt
 
       - name: Build example configs
@@ -331,7 +331,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python3 -m pip install --upgrade pip cognite-extractor-manager poetry
+        python3 -m pip install --upgrade pip cognite-extractor-manager=2.* uv 
 
     - name: Build Docker image
       run: docker build -t cognite/fabric-connector:${{ needs.create-version.outputs.version }} -f build/Dockerfile --load .
