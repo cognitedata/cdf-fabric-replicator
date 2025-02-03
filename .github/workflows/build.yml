@@ -120,7 +120,7 @@ jobs:
         run: pip install uv
 
       - name: Isolate target binary files
-        run: cp -r file_extractor sbom
+        run: cp -r cdf_fabric_replicator sbom
 
       - name: Remove unnecessary files
         run: find sbom -iname __pycache__ -type d -exec rm -r {} +
