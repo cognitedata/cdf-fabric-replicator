@@ -26,6 +26,10 @@ jobs:
       run: |
         echo "$HOME/.local/bin" >> $GITHUB_PATH  # Common location, adjust if needed
 
+    - name: Run uv sync frozen
+      run: |
+        uv sync frozen
+
     - name: Linting and static code checks
       run: |
         uv run pre-commit run --all
