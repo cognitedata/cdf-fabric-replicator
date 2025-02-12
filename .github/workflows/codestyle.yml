@@ -17,10 +17,11 @@ jobs:
       with:
         python-version: 3.11
 
-    - name: Install dependencies
-      run: |
-        python3 -m pip install uv
-        uv sync --frozen
+    - name: Install poetry
+      run: curl -sSL https://install.python-poetry.org | python3 -
+    - name: Install dependencies using poetry.lock
+      run: poetry install --no-root
+
     - name: Linting and static code checks
       run: |
         uv run pre-commit run --all
