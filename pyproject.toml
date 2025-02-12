@@ -13,6 +13,7 @@ azure-storage-file-datalake = "<13.0.0,>=12.14.0"
 deltalake = "<1.0.0,>=0.16.0"
 pandas = "<3.0.0,>=2.2.1"
 pywin32 = {version = ">=308", markers = "sys_platform == 'win32'"}
+uv = "^0.5.30"
 
 [tool.poetry.dev-dependencies]
 coverage = {version = ">=7.4.4,<8.0.0", extras = ["toml"]}
