@@ -1,17 +1,19 @@
+import json
 import logging
 import time
-from typing import Iterator, List, Dict, Any, Optional
-from cognite.extractorutils.base import CancellationToken
-from cognite.extractorutils.base import Extractor
-from azure.identity import DefaultAzureCredential
-from deltalake import write_deltalake, DeltaTable
-from deltalake.exceptions import DeltaError, TableNotFoundError
+from datetime import datetime
+from typing import Any, Dict, Iterator, List, Optional
+
 import pyarrow as pa
+from azure.identity import DefaultAzureCredential
+from deltalake import DeltaTable, write_deltalake
+from deltalake.exceptions import DeltaError
+
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
-from cognite.client.data_classes import EventList, Event
-from datetime import datetime
+from cognite.client.data_classes import Event, EventList
+from cognite.extractorutils.base import CancellationToken, Extractor
 
 
 class EventsReplicator(Extractor):
@@ -63,25 +65,29 @@ class EventsReplicator(Extractor):
 
     def process_events(self) -> None:
         limit = self.config.event.batch_size
+        dataset_external_id = self.config.event.dataset_external_id
+
         last_created_time = self.get_event_state(self.event_state_key)
 
         if last_created_time is None:
             last_created_time = 0
             self.logger.debug("No last created time found.")
         else:
-            self.logger.debug(
-                f"Last created time: {datetime.fromtimestamp(last_created_time / 1000).isoformat()}"
-            )
+            self.logger.debug(f"Last created time: {datetime.fromtimestamp(last_created_time / 1000).isoformat()}")
 
-        for event_list in self.get_events(limit, last_created_time):
+        optimize = False
+        for event_list in self.get_events(limit, last_created_time, dataset_external_id):
             events_dict = event_list.dump()
             if len(events_dict) > 0:
                 if isinstance(events_dict, dict):
                     events_dict = [events_dict]
+
+                for event in events_dict:
+                    event["metadata"] = json.dumps(event["metadata"])
+
                 try:
-                    self.write_events_to_lakehouse_tables(
-                        events_dict, self.config.event.lakehouse_abfss_path_events
-                    )
+                    self.write_events_to_lakehouse_tables(events_dict, self.config.event.lakehouse_abfss_path_events)
+                    optimize = True
                 except DeltaError as e:
                     self.logger.error(f"Error writing events to lakehouse tables: {e}")
                     raise e
@@ -89,18 +95,20 @@ class EventsReplicator(Extractor):
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
             else:
                 self.logger.info("No events found in current batch.")
+        if optimize:
+            self.optimize_table(self.config.event.lakehouse_abfss_path_events)
 
     def get_events(
-        self, limit: int, last_created_time: int
+        self, limit: int, last_created_time: int, dataset_external_id: str
     ) -> Iterator[Event] | Iterator[EventList]:
-        # only pull events that created after last_created_time (hence the +1); assuming no other events are created at the same time
-        self.logger.debug(
-            f"Getting events with limit: {limit}, last_created_time: {last_created_time}"
-        )
+        # only pull events that created after last_created_time (hence the +1); assuming no other
+        # events are created at the same time
+        self.logger.debug(f"Getting events with limit: {limit}, last_created_time: {last_created_time}")
         return self.cognite_client.events(
             chunk_size=limit,
             created_time={"min": last_created_time + 1},
             sort=("createdTime", "asc"),
+            data_set_external_ids=[dataset_external_id],
         )
 
     def get_event_state(self, event_state_key: str) -> int | None:
@@ -117,43 +125,38 @@ class EventsReplicator(Extractor):
     def write_or_merge_to_lakehouse_table(
         self, abfss_path: str, storage_options: Dict[str, str], data: pa.Table
     ) -> None:
+        write_deltalake(
+            abfss_path,
+            data,
+            mode="append",
+            engine="rust",
+            schema_mode="merge",
+            storage_options=storage_options,
+        )
+
+    def optimize_table(self, abfss_path: str) -> None:
+        token = self.azure_credential.get_token("https://storage.azure.com/.default")
+        storage_options = {
+            "bearer_token": token.token,
+            # "use_fabric_endpoint": "true",
+        }
+
+        dt = DeltaTable(abfss_path, storage_options=storage_options)
         try:
-            dt = DeltaTable(
-                abfss_path,
-                storage_options=storage_options,
-            )
+            dt.vacuum()
+            dt.optimize.compact()
+        except DeltaError as e:
+            self.logger.error(f"Error optimizing table: {e}")
+            raise e
 
-            (
-                dt.merge(
-                    source=data,
-                    predicate="s.id = t.id",
-                    source_alias="s",
-                    target_alias="t",
-                )
-                .when_matched_update_all()
-                .when_not_matched_insert_all()
-                .execute()
-            )
-        except TableNotFoundError:
-            write_deltalake(
-                abfss_path,
-                data,
-                mode="append",
-                engine="rust",
-                schema_mode="merge",
-                storage_options=storage_options,
-            )
-
-    def write_events_to_lakehouse_tables(
-        self, events: List[Dict[str, Any]], abfss_path: str
-    ) -> None:
+    def write_events_to_lakehouse_tables(self, events: List[Dict[str, Any]], abfss_path: str) -> None:
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
 
-        self.logger.info(f"Writing {len(events)} to '{abfss_path}' table...")
+        self.logger.info(f"Writing {len(events)} events to '{abfss_path}' table...")
         data = pa.Table.from_pylist(events)
         storage_options = {
             "bearer_token": token.token,
-            "use_fabric_endpoint": "true",
+            # "use_fabric_endpoint": "true",
         }
 
         try:

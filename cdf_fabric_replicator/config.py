@@ -30,6 +30,7 @@ class DataModelingConfig:
 @dataclass
 class EventConfig:
     lakehouse_abfss_path_events: str
+    dataset_external_id: str
     batch_size: int = 1000
 
 

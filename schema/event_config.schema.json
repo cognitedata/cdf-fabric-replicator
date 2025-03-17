@@ -12,6 +12,11 @@
         "batch-size": {
             "type": "integer",
             "description": "Input the number of events to read in a single batch from CDF."
+        },
+        "dataset_external_id": {
+            "type": "string",
+            "description": "Input the external id of the dataset to pull events from CDF (optional)."
         }
+
     }
 }
