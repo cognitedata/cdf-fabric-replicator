@@ -138,13 +138,17 @@ class EventsReplicator(Extractor):
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
         storage_options = {
             "bearer_token": token.token,
+            "timeout": "1800s",
             # "use_fabric_endpoint": "true",
         }
 
         dt = DeltaTable(abfss_path, storage_options=storage_options)
         try:
+            self.logger.debug(f"Compacting table: {abfss_path}")
+            dt.optimize.compact(target_size=256 * 1024 * 1024)
+            self.logger.debug(f"Vacuuming table: {abfss_path}")
             dt.vacuum()
-            dt.optimize.compact()
+            self.logger.debug("Done optimizing table.")
         except DeltaError as e:
             self.logger.error(f"Error optimizing table: {e}")
             raise e
