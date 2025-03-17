@@ -145,9 +145,10 @@ class EventsReplicator(Extractor):
         dt = DeltaTable(abfss_path, storage_options=storage_options)
         try:
             self.logger.debug(f"Compacting table: {abfss_path}")
-            dt.optimize.compact(target_size=256 * 1024 * 1024)
+            self.logger.debug(dt.optimize.compact(target_size=256 * 1024 * 1024))
             self.logger.debug(f"Vacuuming table: {abfss_path}")
-            dt.vacuum()
+            self.logger.debug(dt.vacuum(retention_hours=1, enforce_retention_duration=False))
+            dt.create_checkpoint()
             self.logger.debug("Done optimizing table.")
         except DeltaError as e:
             self.logger.error(f"Error optimizing table: {e}")
