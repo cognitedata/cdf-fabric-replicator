@@ -1,33 +1,32 @@
 import logging
-
+from datetime import datetime
+from typing import Any, Generator, Literal, Optional
 from urllib.parse import urlparse
 
+import numpy as np
+import pandas as pd
+import pyarrow.compute as pc
+import pyarrow.dataset as ds
 from azure.identity import DefaultAzureCredential
 from azure.storage.filedatalake import (
     DataLakeFileClient,
     DataLakeServiceClient,
 )
+from deltalake import DeltaTable
+from pandas import DataFrame
+
+from cdf_fabric_replicator import __version__
+from cdf_fabric_replicator.config import Config
+from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import (
     EventWrite,
     ExtractionPipelineRunWrite,
     FileMetadata,
     TimeSeriesWrite,
 )
-from cognite.client.exceptions import CogniteNotFoundError, CogniteAPIError
-
+from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.extractorutils import Extractor
 from cognite.extractorutils.base import CancellationToken
-from deltalake import DeltaTable
-from pandas import DataFrame
-from typing import Any, Literal, Optional, Generator
-import pandas as pd
-import pyarrow.compute as pc
-import pyarrow.dataset as ds
-from datetime import datetime
-
-from cdf_fabric_replicator import __version__
-from cdf_fabric_replicator.config import Config
-from cdf_fabric_replicator.metrics import Metrics
 
 
 class CdfFabricExtractor(Extractor[Config]):
@@ -61,46 +60,31 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error("No source path or directory provided")
             return
 
-        self.data_set_id = (
-            int(self.config.source.data_set_id)
-            if self.config.source.data_set_id
-            else None
-        )
+        self.data_set_id = int(self.config.source.data_set_id) if self.config.source.data_set_id else None
 
         self.logger.debug(f"Current Extractor Config: {self.config.extractor}")
 
         while not self.stop_event.is_set():
-            token = self.azure_credential.get_token(
-                "https://storage.azure.com/.default"
-            ).token
+            token = self.azure_credential.get_token("https://storage.azure.com/.default").token
 
             self.run_extraction_pipeline(status="seen")
 
-            if (
-                self.config.source.raw_time_series_path
-                and self.config.destination.time_series_prefix
-            ):
+            if self.config.source.raw_time_series_path and self.config.destination.time_series_prefix:
                 self.extract_time_series_data(
-                    self.config.source.abfss_prefix
-                    + "/"
-                    + self.config.source.raw_time_series_path,
+                    self.config.source.abfss_prefix + "/" + self.config.source.raw_time_series_path,
                 )
 
             if self.config.source.event_path:
                 state_id = f"{self.config.source.event_path}-state"
                 self.write_event_data_to_cdf(
-                    self.config.source.abfss_prefix
-                    + "/"
-                    + self.config.source.event_path,
+                    self.config.source.abfss_prefix + "/" + self.config.source.event_path,
                     token=token,
                     state_id=state_id,
                     incremental_field=self.config.source.event_path_incremental_field,
                 )
 
             if self.config.source.file_path:
-                self.upload_files_from_abfss(
-                    self.config.source.abfss_prefix + "/" + self.config.source.file_path
-                )
+                self.upload_files_from_abfss(self.config.source.abfss_prefix + "/" + self.config.source.file_path)
 
             if self.config.source.raw_tables:
                 for path in self.config.source.raw_tables:
@@ -145,9 +129,7 @@ class CdfFabricExtractor(Extractor[Config]):
 
         return container_id, account_name, file_path
 
-    def get_service_client_token_credential(
-        self, account_name: str
-    ) -> DataLakeServiceClient:
+    def get_service_client_token_credential(self, account_name: str) -> DataLakeServiceClient:
         account_url = f"https://{account_name}.dfs.fabric.microsoft.com"
         token_credential = DefaultAzureCredential()
         service_client = DataLakeServiceClient(account_url, credential=token_credential)
@@ -168,18 +150,12 @@ class CdfFabricExtractor(Extractor[Config]):
                 state = self.state_store.get_state(file.name)
                 if state and state[0] != file.last_modified.timestamp():
                     res = self.upload_files_to_cdf(file_client, file)
-                    self.logger.info(
-                        f"Uploaded file {file.name} to CDF with id {res.id}"
-                    )
+                    self.logger.info(f"Uploaded file {file.name} to CDF with id {res.id}")
                     self.run_extraction_pipeline(status="success")
-                    self.state_store.set_state(
-                        file.name, file.last_modified.timestamp()
-                    )
+                    self.state_store.set_state(file.name, file.last_modified.timestamp())
                     self.state_store.synchronize()
 
-    def upload_files_to_cdf(
-        self, file_client: DataLakeFileClient, file: Any
-    ) -> FileMetadata:
+    def upload_files_to_cdf(self, file_client: DataLakeFileClient, file: Any) -> FileMetadata:
         content = file_client.download_file().readall()
         file_name = file.name.split("/")[-1]
 
@@ -200,9 +176,7 @@ class CdfFabricExtractor(Extractor[Config]):
             raise e
 
     def extract_time_series_data(self, file_path: str) -> None:
-        token = self.azure_credential.get_token(
-            "https://storage.azure.com/.default"
-        ).token
+        token = self.azure_credential.get_token("https://storage.azure.com/.default").token
         self.logger.debug(f"Extracting time series data from {file_path}")
         external_ids = self.retrieve_external_ids_from_lakehouse(file_path, token=token)
         self.logger.debug(f"External IDs found: {external_ids}")
@@ -217,10 +191,7 @@ class CdfFabricExtractor(Extractor[Config]):
                 self.write_time_series_to_cdf(external_id, time_series_data)
 
     def get_timeseries_latest_timestamps(self, external_ids: list[str]) -> dict:
-        state_ids = [
-            f"{self.config.source.raw_time_series_path}-{external_id}-state"
-            for external_id in external_ids
-        ]
+        state_ids = [f"{self.config.source.raw_time_series_path}-{external_id}-state" for external_id in external_ids]
         states = self.state_store.get_state(state_ids)
         latest_timestamps = dict(zip(external_ids, [state[0] for state in states]))
         return latest_timestamps
@@ -233,9 +204,7 @@ class CdfFabricExtractor(Extractor[Config]):
             lambda row: self.config.destination.time_series_prefix + row["externalId"],
             axis=1,
         )
-        data_frame = data_frame.pivot(
-            index="timestamp", columns="externalId", values="value"
-        )
+        data_frame = data_frame.pivot(index="timestamp", columns="externalId", values="value")
         data_frame.index = pd.to_datetime(data_frame.index)
         try:
             self.client.time_series.data.insert_dataframe(data_frame)
@@ -272,9 +241,8 @@ class CdfFabricExtractor(Extractor[Config]):
         incremental_field: str | None = None,
     ) -> None:
         state = str(self.state_store.get_state(state_id)[0])
-        for df in self.convert_lakehouse_data_to_df_batch_filtered(
-            file_path, token, state, incremental_field
-        ):
+
+        for df in self.convert_lakehouse_data_to_df_batch_filtered(file_path, token, state, incremental_field):
             if len(df) > 0:
                 events = self.get_events(df)
 
@@ -300,9 +268,7 @@ class CdfFabricExtractor(Extractor[Config]):
         incremental_field: str,
     ) -> None:
         state = str(self.state_store.get_state(state_id)[0])
-        for df in self.convert_lakehouse_data_to_df_batch_filtered(
-            file_path, token, state, incremental_field
-        ):
+        for df in self.convert_lakehouse_data_to_df_batch_filtered(file_path, token, state, incremental_field):
             if len(df) > 0:
                 try:
                     self.client.raw.rows.insert_dataframe(
@@ -337,35 +303,30 @@ class CdfFabricExtractor(Extractor[Config]):
                 subtype=row[1]["subtype"] if "subtype" in row[1] else None,
                 metadata=row[1]["metadata"] if "metadata" in row[1] else None,
                 description=row[1]["description"] if "description" in row[1] else None,
-                asset_ids=self.get_asset_ids(row[1]["assetExternalIds"])
-                if "assetExternalIds" in row[1]
-                else None,
+                asset_ids=self.get_asset_ids(row[1]["assetExternalIds"]) if "assetExternalIds" in row[1] else None,
                 data_set_id=self.data_set_id if self.data_set_id else None,
             )
 
             events.append(new_event)
         return events
 
-    def retrieve_external_ids_from_lakehouse(
-        self, file_path: str, token: str
-    ) -> list[str]:
+    def retrieve_external_ids_from_lakehouse(self, file_path: str, token: str) -> list[str]:
         try:
             dt = DeltaTable(file_path, storage_options={"bearer_token": token})
             table = dt.to_pyarrow_table(columns=["externalId"])
             return pc.unique(table.column("externalId")).to_pylist()
 
         except Exception as e:
-            self.logger.error(
-                f"Error while converting lakehouse data to DataFrame: {e}"
-            )
+            self.logger.error(f"Error while converting lakehouse data to DataFrame: {e}")
             raise e
 
     def convert_lakehouse_data_to_df_batch_filtered(
-        self, file_path: str, token: str, state: str, incremental_field: str | None
+        self, file_path: str, token: str | None, state: str, incremental_field: str | None
     ) -> Generator[DataFrame, None, None]:
+        has_state = state is not None or state != "None"
         try:
-            if state and incremental_field:
-                dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+            if has_state and incremental_field:
+                dt = DeltaTable(file_path, storage_options={"bearer_token": str(token)})
                 dataset = dt.to_pyarrow_dataset()
                 condition = ds.field(incremental_field) > int(state)
                 batch_set = dataset.sort_by(incremental_field).to_batches(
@@ -373,26 +334,29 @@ class CdfFabricExtractor(Extractor[Config]):
                 )
 
             elif incremental_field:
-                dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+                dt = DeltaTable(file_path, storage_options={"bearer_token": str(token)})
                 batch_set = (
                     dt.to_pyarrow_dataset()
                     .sort_by(incremental_field)
                     .to_batches(batch_size=self.config.source.read_batch_size)
                 )
             else:
-                dt = DeltaTable(file_path, storage_options={"bearer_token": token})
-                batch_set = dt.to_pyarrow_dataset().to_batches(
-                    batch_size=self.config.source.read_batch_size
-                )
+                dt = DeltaTable(file_path, storage_options={"bearer_token": str(token)})
+                batch_set = dt.to_pyarrow_dataset().to_batches(batch_size=self.config.source.read_batch_size)
 
             for batch in batch_set:
                 self.logger.debug(f"Retrieved batch with {len(batch)} rows")
-                yield batch.to_pandas()
+                df = batch.to_pandas()
+                # Remove NaT and NAN
+                df = df.replace({np.nan: None})
+                # Convert dates to string
+                for column in df.columns:
+                    if pd.api.types.is_datetime64_any_dtype(df[column]):
+                        df[column] = df[column].dt.strftime("%Y-%m-%d %H:%M:%S")
+                yield df
 
         except Exception as e:
-            self.logger.error(
-                f"Error while converting lakehouse data to DataFrame: {e}"
-            )
+            self.logger.error(f"Error while converting lakehouse data to DataFrame: {e}")
             raise e
 
     def convert_lakehouse_data_to_df_batch(
@@ -405,29 +369,21 @@ class CdfFabricExtractor(Extractor[Config]):
             if timestamp:
                 timestamp_obj = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f%z")
                 condition = condition & (ds.field("timestamp") > timestamp_obj)
-            batch_set = dataset.to_batches(
-                filter=condition, batch_size=self.config.source.read_batch_size
-            )
+            batch_set = dataset.to_batches(filter=condition, batch_size=self.config.source.read_batch_size)
             for batch in batch_set:
                 self.logger.debug(f"Retrieved batch with {len(batch)} rows")
                 yield batch.to_pandas()
         except Exception as e:
-            self.logger.error(
-                f"Error while converting lakehouse data to DataFrame: {e}"
-            )
+            self.logger.error(f"Error while converting lakehouse data to DataFrame: {e}")
             raise e
 
-    def run_extraction_pipeline(
-        self, status: Literal["success", "failure", "seen"]
-    ) -> None:
+    def run_extraction_pipeline(self, status: Literal["success", "failure", "seen"]) -> None:
         if self.config.cognite.extraction_pipeline:
             try:
                 self.cognite_client.extraction_pipelines.runs.create(
                     ExtractionPipelineRunWrite(
                         status=status,
-                        extpipe_external_id=str(
-                            self.config.cognite.extraction_pipeline.external_id
-                        ),
+                        extpipe_external_id=str(self.config.cognite.extraction_pipeline.external_id),
                     )
                 )
             except CogniteAPIError as e:
