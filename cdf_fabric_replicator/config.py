@@ -39,7 +39,9 @@ class RawConfig:
     table_name: str
     db_name: str
     raw_path: str
-    incremental_field: str
+    key_fields: Optional[List[str]]
+    incremental_field: Optional[str]
+    md5_key: bool = False
 
 
 @dataclass
