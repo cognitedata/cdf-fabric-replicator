@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Literal, Optional
 
 import pyarrow as pa
 from azure.identity import DefaultAzureCredential
@@ -12,7 +12,8 @@ from deltalake.exceptions import DeltaError
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
-from cognite.client.data_classes import Event, EventList
+from cognite.client.data_classes import Event, EventList, ExtractionPipelineRunWrite
+from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.base import CancellationToken, Extractor
 
 
@@ -60,6 +61,7 @@ class EventsReplicator(Extractor):
             if sleep_time > 0:
                 self.logger.debug(f"Sleep for {sleep_time} seconds")
                 self.stop_event.wait(sleep_time)
+            self.run_extraction_pipeline(status="seen")
 
         self.logger.info("Stop event set. Exiting...")
 
@@ -166,8 +168,23 @@ class EventsReplicator(Extractor):
 
         try:
             self.write_or_merge_to_lakehouse_table(abfss_path, storage_options, data)
+            self.run_extraction_pipeline(status="success", message=f"{len(data)} events written to lakehouse table.")
         except DeltaError as e:
             self.logger.error(f"Error writing events to lakehouse tables: {e}")
             raise e
 
         self.logger.info("done.")
+
+    def run_extraction_pipeline(self, status: Literal["success", "failure", "seen"], message: str = "") -> None:
+        if self.config.cognite.extraction_pipeline:
+            try:
+                self.cognite_client.extraction_pipelines.runs.create(
+                    ExtractionPipelineRunWrite(
+                        status=status,
+                        extpipe_external_id=str(self.config.cognite.extraction_pipeline.external_id),
+                        message=message,
+                    )
+                )
+            except CogniteAPIError as e:
+                self.logger.error(f"Error while running extraction pipeline: {e}")
+                raise e
