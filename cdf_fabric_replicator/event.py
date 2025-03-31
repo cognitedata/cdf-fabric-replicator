@@ -91,7 +91,7 @@ class EventsReplicator(Extractor):
                     self.write_events_to_lakehouse_tables(events_dict, self.config.event.lakehouse_abfss_path_events)
                     optimize = True
                 except DeltaError as e:
-                    self.logger.error(f"Error writing events to lakehouse tables: {e}")
+                    self.logger.error(f"Error writing events to delta tables: {e}")
                     raise e
                 last_event = events_dict[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
@@ -168,9 +168,9 @@ class EventsReplicator(Extractor):
 
         try:
             self.write_or_merge_to_lakehouse_table(abfss_path, storage_options, data)
-            self.run_extraction_pipeline(status="success", message=f"{len(data)} events written to lakehouse table.")
+            self.run_extraction_pipeline(status="success", message=f"{len(data)} events written to delta table.")
         except DeltaError as e:
-            self.logger.error(f"Error writing events to lakehouse tables: {e}")
+            self.logger.error(f"Error writing events to delta tables: {e}")
             raise e
 
         self.logger.info("done.")

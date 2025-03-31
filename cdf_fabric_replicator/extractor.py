@@ -346,7 +346,13 @@ class CdfFabricExtractor(Extractor[Config]):
                 except ValueError:
                     date_state = datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
 
-                dt = DeltaTable(file_path, storage_options={"bearer_token": str(token)})
+                dt = DeltaTable(
+                    file_path,
+                    storage_options={
+                        "bearer_token": str(token),
+                        "use_fabric_endpoint": "true",
+                    },
+                )
                 dataset = dt.to_pyarrow_dataset()
                 condition = ds.field(incremental_field) > date_state
                 batch_set = dataset.sort_by(incremental_field).to_batches(
@@ -354,14 +360,26 @@ class CdfFabricExtractor(Extractor[Config]):
                 )
 
             elif incremental_field:
-                dt = DeltaTable(file_path, storage_options={"bearer_token": str(token)})
+                dt = DeltaTable(
+                    file_path,
+                    storage_options={
+                        "bearer_token": str(token),
+                        "use_fabric_endpoint": "true",
+                    },
+                )
                 batch_set = (
                     dt.to_pyarrow_dataset()
                     .sort_by(incremental_field)
                     .to_batches(batch_size=self.config.source.read_batch_size)
                 )
             else:
-                dt = DeltaTable(file_path, storage_options={"bearer_token": str(token)})
+                dt = DeltaTable(
+                    file_path,
+                    storage_options={
+                        "bearer_token": str(token),
+                        "use_fabric_endpoint": "true",
+                    },
+                )
                 batch_set = dt.to_pyarrow_dataset().to_batches(batch_size=self.config.source.read_batch_size)
 
             for batch in batch_set:
