@@ -291,7 +291,7 @@ class CdfFabricExtractor(Extractor[Config]):
 
                     raise e
 
-                self.run_extraction_pipeline(status="success")
+                self.run_extraction_pipeline(status="success", message=f"{len(df)} rows inserted to {table_name}")
                 self.set_state(state_id, df[incremental_field].max())
 
             else:
@@ -426,13 +426,14 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error(f"Error while converting lakehouse data to DataFrame: {e}")
             raise e
 
-    def run_extraction_pipeline(self, status: Literal["success", "failure", "seen"]) -> None:
+    def run_extraction_pipeline(self, status: Literal["success", "failure", "seen"], message: str = "") -> None:
         if self.config.cognite.extraction_pipeline:
             try:
                 self.cognite_client.extraction_pipelines.runs.create(
                     ExtractionPipelineRunWrite(
                         status=status,
                         extpipe_external_id=str(self.config.cognite.extraction_pipeline.external_id),
+                        message=message,
                     )
                 )
             except CogniteAPIError as e:
