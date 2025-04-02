@@ -4,25 +4,23 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Literal, Optional
 
+import numpy as np
+import pandas as pd
 from azure.identity import DefaultAzureCredential
 from deltalake.exceptions import DeltaError, TableNotFoundError
-from deltalake.writer import write_deltalake, DeltaTable
-import pandas as pd
-import numpy as np
+from deltalake.writer import DeltaTable, write_deltalake
 
-from cognite.client.exceptions import CogniteAPIError
+from cdf_fabric_replicator import __version__
+from cdf_fabric_replicator import subscription as sub
+from cdf_fabric_replicator.config import Config, SubscriptionsConfig
+from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import ExtractionPipelineRunWrite, TimeSeries
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionBatch,
     DatapointsUpdate,
 )
-from cognite.extractorutils.base import Extractor
-from cognite.extractorutils.base import CancellationToken
-
-
-from cdf_fabric_replicator import __version__, subscription as sub
-from cdf_fabric_replicator.config import Config, SubscriptionsConfig
-from cdf_fabric_replicator.metrics import Metrics
+from cognite.client.exceptions import CogniteAPIError
+from cognite.extractorutils.base import CancellationToken, Extractor
 
 
 class TimeSeriesReplicator(Extractor):
@@ -62,9 +60,7 @@ class TimeSeriesReplicator(Extractor):
 
         self.logger.debug(f"Current Subscription Config: {self.config.subscriptions}")
 
-        sub.autocreate_subscription(
-            self.config.subscriptions, self.cognite_client, self.name, self.logger
-        )
+        sub.autocreate_subscription(self.config.subscriptions, self.cognite_client, self.name, self.logger)
 
         for subscription in self.config.subscriptions:
             try:
@@ -72,30 +68,16 @@ class TimeSeriesReplicator(Extractor):
                     f"{self.cognite_client.time_series.subscriptions.retrieve(external_id=subscription.external_id)}"
                 )
             except CogniteAPIError as e:
-                self.logger.error(
-                    f"Error retrieving subscription {subscription.external_id}: {e}"
-                )
+                self.logger.error(f"Error retrieving subscription {subscription.external_id}: {e}")
                 raise e
 
         while not self.stop_event.is_set():
             start_time = time.time()  # Get the current time in seconds
 
             self.process_subscriptions()
-            try:
-                self.cognite_client.extraction_pipelines.runs.create(
-                    ExtractionPipelineRunWrite(
-                        status="success",
-                        extpipe_external_id=self.config.cognite.extraction_pipeline.external_id,
-                    )
-                )
-            except CogniteAPIError as e:
-                self.logger.error(f"Error creating extraction pipeline run: {e}.")
-                raise e
             end_time = time.time()  # Get the time after function execution
             elapsed_time = end_time - start_time
-            sleep_time = max(
-                self.config.extractor.poll_time - elapsed_time, 0
-            )  # 900s = 15min
+            sleep_time = max(self.config.extractor.poll_time - elapsed_time, 0)  # 900s = 15min
             if sleep_time > 0:
                 self.logger.debug(f"Sleep for {sleep_time} seconds")
                 self.stop_event.wait(sleep_time)
@@ -105,30 +87,20 @@ class TimeSeriesReplicator(Extractor):
     def process_subscriptions(self) -> None:
         for subscription in self.config.subscriptions:
             for partition in subscription.partitions:
-                self.logger.debug(
-                    f"Processing partition {partition} for subscription {subscription.external_id}"
-                )
+                self.logger.debug(f"Processing partition {partition} for subscription {subscription.external_id}")
                 with ThreadPoolExecutor() as executor:
-                    future = executor.submit(
-                        self.process_partition, subscription, partition
-                    )
+                    future = executor.submit(self.process_partition, subscription, partition)
                     self.logger.debug(future.result())
 
-    def process_partition(
-        self, subscription: SubscriptionsConfig, partition: int
-    ) -> str:
+    def process_partition(self, subscription: SubscriptionsConfig, partition: int) -> str:
         state_id = f"{subscription.external_id}_{partition}"
         raw_cursor = self.state_store.get_state(external_id=state_id)[1]
         cursor = str(raw_cursor) if raw_cursor is not None else None
 
-        self.logger.debug(
-            f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}"
-        )
+        self.logger.debug(f"{threading.get_native_id()} / {threading.get_ident()}: State for {state_id} is {cursor}")
 
         try:
-            for (
-                update_batch
-            ) in self.cognite_client.time_series.subscriptions.iterate_data(
+            for update_batch in self.cognite_client.time_series.subscriptions.iterate_data(
                 external_id=subscription.external_id,
                 partition=partition,
                 cursor=cursor,
@@ -148,6 +120,12 @@ class TimeSeriesReplicator(Extractor):
                         state_id=state_id,
                         send_now=True,
                     )
+                self.cognite_client.extraction_pipelines.runs.create(
+                    ExtractionPipelineRunWrite(
+                        status="success",
+                        extpipe_external_id=self.config.cognite.extraction_pipeline.external_id,
+                    )
+                )
 
                 if not update_batch.has_next:
                     return f"{state_id} no more data at {update_batch.cursor}"
@@ -168,9 +146,7 @@ class TimeSeriesReplicator(Extractor):
         self.logger.debug(f"update_queue length: {len(self.update_queue)}")
 
         if len(self.update_queue) > self.config.extractor.ingest_batch_size or send_now:
-            self.send_data_point_to_lakehouse_table(
-                subscription=subscription, updates=self.update_queue
-            )
+            self.send_data_point_to_lakehouse_table(subscription=subscription, updates=self.update_queue)
 
             self.state_store.set_state(external_id=state_id, high=update_batch.cursor)
             self.state_store.synchronize()
@@ -185,33 +161,19 @@ class TimeSeriesReplicator(Extractor):
 
         df = self.convert_updates_to_pandasdf(updates)
         if df is not None:
-            self.logger.info(
-                f"writing {df.shape[0]} rows to '{subscription.lakehouse_abfss_path_dps}' table..."
-            )
+            self.logger.info(f"writing {df.shape[0]} rows to '{subscription.lakehouse_abfss_path_dps}' table...")
 
             self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_dps, df)
             self.logger.info("done.")
 
-    def send_time_series_to_lakehouse_table(
-        self, subscription: SubscriptionsConfig, update: DatapointsUpdate
-    ) -> None:
+    def send_time_series_to_lakehouse_table(self, subscription: SubscriptionsConfig, update: DatapointsUpdate) -> None:
         try:
-            ts = self.cognite_client.time_series.retrieve(
-                external_id=update.upserts.external_id
-            )
+            ts = self.cognite_client.time_series.retrieve(external_id=update.upserts.external_id)
             if isinstance(ts, TimeSeries):
-                asset = (
-                    self.cognite_client.assets.retrieve(id=ts.asset_id)
-                    if ts.asset_id is not None
-                    else None
-                )
+                asset = self.cognite_client.assets.retrieve(id=ts.asset_id) if ts.asset_id is not None else None
                 asset_xid = asset.external_id if asset is not None else ""
 
-                metadata = (
-                    ts.metadata
-                    if len(ts.metadata.keys()) > 0
-                    else {"source": "cdf_fabric_replicator"}
-                )
+                metadata = ts.metadata if len(ts.metadata.keys()) > 0 else {"source": "cdf_fabric_replicator"}
                 df = pd.DataFrame(
                     np.array(
                         [
@@ -239,25 +201,17 @@ class TimeSeriesReplicator(Extractor):
                     ],
                 )
                 df = df.dropna()
-                self.logger.info(
-                    f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table..."
-                )
+                self.logger.info(f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table...")
                 if not df.empty:
                     self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_ts, df)
                 self.ts_cache[str(update.upserts.external_id)] = 1
             else:
-                self.logger.error(
-                    f"Could not retrieve time series {update.upserts.external_id}"
-                )
+                self.logger.error(f"Could not retrieve time series {update.upserts.external_id}")
         except CogniteAPIError as e:
-            self.logger.error(
-                f"Error retrieving time series {update.upserts.external_id}: {e}"
-            )
+            self.logger.error(f"Error retrieving time series {update.upserts.external_id}: {e}")
             raise e
 
-    def convert_updates_to_pandasdf(
-        self, updates: List[DatapointsUpdate]
-    ) -> pd.DataFrame:
+    def convert_updates_to_pandasdf(self, updates: List[DatapointsUpdate]) -> pd.DataFrame:
         rows = []
 
         for update in updates:
@@ -265,9 +219,7 @@ class TimeSeriesReplicator(Extractor):
                 rows.append(
                     (
                         update.upserts.external_id,
-                        pd.to_datetime(
-                            update.upserts.timestamp[i], unit="ms", utc=True
-                        ),
+                        pd.to_datetime(update.upserts.timestamp[i], unit="ms", utc=True),
                         update.upserts.value[i],  # type: ignore
                     )
                 )
@@ -331,6 +283,4 @@ class TimeSeriesReplicator(Extractor):
         return None
 
     def get_token(self) -> str:
-        return self.azure_credential.get_token(
-            "https://storage.azure.com/.default"
-        ).token
+        return self.azure_credential.get_token("https://storage.azure.com/.default").token

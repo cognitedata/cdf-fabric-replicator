@@ -154,7 +154,9 @@ class CdfFabricExtractor(Extractor[Config]):
                 if state and state[0] != file.last_modified.timestamp():
                     res = self.upload_files_to_cdf(file_client, file)
                     self.logger.info(f"Uploaded file {file.name} to CDF with id {res.id}")
-                    self.run_extraction_pipeline(status="success")
+                    self.run_extraction_pipeline(
+                        status="success", message=f"Uploaded file {file.name} to CDF with id {res.id}"
+                    )
                     self.state_store.set_state(file.name, file.last_modified.timestamp())
                     self.state_store.synchronize()
 
@@ -253,11 +255,13 @@ class CdfFabricExtractor(Extractor[Config]):
 
                 try:
                     self.client.events.upsert(events)
+                    self.run_extraction_pipeline(status="success", message=f"{len(events)} events inserted to CDF")
                 except CogniteAPIError as e:
-                    self.logger.error(f"Error while writing event data to CDF: {e}")
+                    self.run_extraction_pipeline(
+                        status="failure", message=f"Error while writing event data to CDF: {e}"
+                    )
                     raise e
 
-                self.run_extraction_pipeline(status="success")
                 self.set_state(state_id, df[incremental_field].max())
             else:
                 self.run_extraction_pipeline(status="seen")
