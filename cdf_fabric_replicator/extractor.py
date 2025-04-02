@@ -348,7 +348,10 @@ class CdfFabricExtractor(Extractor[Config]):
                 try:
                     date_state = datetime.strptime(state, "%Y-%m-%d %H:%M:%S.%f%z")
                 except ValueError:
-                    date_state = datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
+                    try:
+                        date_state = datetime.strptime(f"{state} 00:00:00.000Z", "%Y-%m-%d %H:%M:%S.%f%z")
+                    except ValueError:
+                        date_state = datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
 
                 dt = DeltaTable(
                     file_path,
