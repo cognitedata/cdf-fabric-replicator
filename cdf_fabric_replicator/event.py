@@ -188,3 +188,9 @@ class EventsReplicator(Extractor):
             except CogniteAPIError as e:
                 self.logger.error(f"Error while running extraction pipeline: {e}")
                 raise e
+
+    def _report_success(self) -> None:
+        """
+        Called on a successful exit of the extractor - get rid of "Shutdown success" message that spams the logs.
+        """
+        pass
