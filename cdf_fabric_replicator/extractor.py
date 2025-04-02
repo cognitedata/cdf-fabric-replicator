@@ -484,3 +484,9 @@ class CdfFabricExtractor(Extractor[Config]):
         md5_hashes = in_df.apply(lambda row: self.get_md5_from_series(row), axis=1)
 
         return md5_hashes
+
+    def _report_success(self) -> None:
+        """
+        Called on a successful exit of the extractor - get rid of "Shutdown success" message that spams the logs.
+        """
+        pass
