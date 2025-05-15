@@ -75,10 +75,14 @@ class EventsReplicator(Extractor):
             last_created_time = 0
             self.logger.debug("No last created time found.")
         else:
-            self.logger.debug(f"Last created time: {datetime.fromtimestamp(last_created_time / 1000).isoformat()}")
+            self.logger.debug(
+                f"Last created time: {datetime.fromtimestamp(last_created_time / 1000).isoformat()}"
+            )
 
         optimize = False
-        for event_list in self.get_events(limit, last_created_time, dataset_external_id):
+        for event_list in self.get_events(
+            limit, last_created_time, dataset_external_id
+        ):
             events_dict = event_list.dump()
             if len(events_dict) > 0:
                 if isinstance(events_dict, dict):
@@ -88,7 +92,9 @@ class EventsReplicator(Extractor):
                     event["metadata"] = json.dumps(event["metadata"])
 
                 try:
-                    self.write_events_to_lakehouse_tables(events_dict, self.config.event.lakehouse_abfss_path_events)
+                    self.write_events_to_lakehouse_tables(
+                        events_dict, self.config.event.lakehouse_abfss_path_events
+                    )
                     optimize = True
                 except DeltaError as e:
                     self.logger.error(f"Error writing events to delta tables: {e}")
@@ -105,7 +111,9 @@ class EventsReplicator(Extractor):
     ) -> Iterator[Event] | Iterator[EventList]:
         # only pull events that created after last_created_time (hence the +1); assuming no other
         # events are created at the same time
-        self.logger.debug(f"Getting events with limit: {limit}, last_created_time: {last_created_time}")
+        self.logger.debug(
+            f"Getting events with limit: {limit}, last_created_time: {last_created_time}"
+        )
         return self.cognite_client.events(
             chunk_size=limit,
             created_time={"min": last_created_time + 1},
@@ -149,14 +157,18 @@ class EventsReplicator(Extractor):
             self.logger.debug(f"Compacting table: {abfss_path}")
             self.logger.debug(dt.optimize.compact(target_size=256 * 1024 * 1024))
             self.logger.debug(f"Vacuuming table: {abfss_path}")
-            self.logger.debug(dt.vacuum(retention_hours=1, enforce_retention_duration=False))
+            self.logger.debug(
+                dt.vacuum(retention_hours=1, enforce_retention_duration=False)
+            )
             dt.create_checkpoint()
             self.logger.debug("Done optimizing table.")
         except DeltaError as e:
             self.logger.error(f"Error optimizing table: {e}")
             raise e
 
-    def write_events_to_lakehouse_tables(self, events: List[Dict[str, Any]], abfss_path: str) -> None:
+    def write_events_to_lakehouse_tables(
+        self, events: List[Dict[str, Any]], abfss_path: str
+    ) -> None:
         token = self.azure_credential.get_token("https://storage.azure.com/.default")
 
         self.logger.info(f"Writing {len(events)} events to '{abfss_path}' table...")
@@ -168,20 +180,26 @@ class EventsReplicator(Extractor):
 
         try:
             self.write_or_merge_to_lakehouse_table(abfss_path, storage_options, data)
-            self.run_extraction_pipeline(status="success", message=f"{len(data)} events written to delta table.")
+            self.run_extraction_pipeline(
+                status="success", message=f"{len(data)} events written to delta table."
+            )
         except DeltaError as e:
             self.logger.error(f"Error writing events to delta tables: {e}")
             raise e
 
         self.logger.info("done.")
 
-    def run_extraction_pipeline(self, status: Literal["success", "failure", "seen"], message: str = "") -> None:
+    def run_extraction_pipeline(
+        self, status: Literal["success", "failure", "seen"], message: str = ""
+    ) -> None:
         if self.config.cognite.extraction_pipeline:
             try:
                 self.cognite_client.extraction_pipelines.runs.create(
                     ExtractionPipelineRunWrite(
                         status=status,
-                        extpipe_external_id=str(self.config.cognite.extraction_pipeline.external_id),
+                        extpipe_external_id=str(
+                            self.config.cognite.extraction_pipeline.external_id
+                        ),
                         message=message,
                     )
                 )

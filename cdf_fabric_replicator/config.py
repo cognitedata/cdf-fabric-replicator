@@ -9,8 +9,9 @@ class ExtractorConfig:
     state_store: StateStoreConfig
     subscription_batch_size: int = 10_000
     ingest_batch_size: int = 100_000
-    fabric_ingest_batch_size: int = 1_000
-    poll_time: int = 3600
+    fabric_ingest_batch_size: int = 100_000
+    poll_time: int = 5
+    optimize_poll_time: int = 3600
 
 
 @dataclass

@@ -2,7 +2,7 @@
 authors = [
     {name = "Murad Saeter", email = "murad.sater@cognite.com"},
 ]
-requires-python = "<3.13,>=3.10"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "cognite-sdk<8.0.0,>=7.26.0",
     "cognite-extractor-utils<8.0.0,>=7.0.0",

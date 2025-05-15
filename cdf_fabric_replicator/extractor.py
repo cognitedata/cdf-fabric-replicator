@@ -61,31 +61,46 @@ class CdfFabricExtractor(Extractor[Config]):
             self.logger.error("No source path or directory provided")
             return
 
-        self.data_set_id = int(self.config.source.data_set_id) if self.config.source.data_set_id else None
+        self.data_set_id = (
+            int(self.config.source.data_set_id)
+            if self.config.source.data_set_id
+            else None
+        )
 
         self.logger.debug(f"Current Extractor Config: {self.config.extractor}")
 
         while not self.stop_event.is_set():
-            token = self.azure_credential.get_token("https://storage.azure.com/.default").token
+            token = self.azure_credential.get_token(
+                "https://storage.azure.com/.default"
+            ).token
 
             self.run_extraction_pipeline(status="seen")
 
-            if self.config.source.raw_time_series_path and self.config.destination.time_series_prefix:
+            if (
+                self.config.source.raw_time_series_path
+                and self.config.destination.time_series_prefix
+            ):
                 self.extract_time_series_data(
-                    self.config.source.abfss_prefix + "/" + self.config.source.raw_time_series_path,
+                    self.config.source.abfss_prefix
+                    + "/"
+                    + self.config.source.raw_time_series_path,
                 )
 
             if self.config.source.event_path:
                 state_id = f"{self.config.source.event_path}-state"
                 self.write_event_data_to_cdf(
-                    self.config.source.abfss_prefix + "/" + self.config.source.event_path,
+                    self.config.source.abfss_prefix
+                    + "/"
+                    + self.config.source.event_path,
                     token=token,
                     state_id=state_id,
                     incremental_field=self.config.source.event_path_incremental_field,
                 )
 
             if self.config.source.file_path:
-                self.upload_files_from_abfss(self.config.source.abfss_prefix + "/" + self.config.source.file_path)
+                self.upload_files_from_abfss(
+                    self.config.source.abfss_prefix + "/" + self.config.source.file_path
+                )
 
             if self.config.source.raw_tables:
                 for path in self.config.source.raw_tables:
@@ -132,7 +147,9 @@ class CdfFabricExtractor(Extractor[Config]):
 
         return container_id, account_name, file_path
 
-    def get_service_client_token_credential(self, account_name: str) -> DataLakeServiceClient:
+    def get_service_client_token_credential(
+        self, account_name: str
+    ) -> DataLakeServiceClient:
         account_url = f"https://{account_name}.dfs.fabric.microsoft.com"
         token_credential = DefaultAzureCredential()
         service_client = DataLakeServiceClient(account_url, credential=token_credential)
@@ -153,14 +170,21 @@ class CdfFabricExtractor(Extractor[Config]):
                 state = self.state_store.get_state(file.name)
                 if state and state[0] != file.last_modified.timestamp():
                     res = self.upload_files_to_cdf(file_client, file)
-                    self.logger.info(f"Uploaded file {file.name} to CDF with id {res.id}")
-                    self.run_extraction_pipeline(
-                        status="success", message=f"Uploaded file {file.name} to CDF with id {res.id}"
+                    self.logger.info(
+                        f"Uploaded file {file.name} to CDF with id {res.id}"
                     )
-                    self.state_store.set_state(file.name, file.last_modified.timestamp())
+                    self.run_extraction_pipeline(
+                        status="success",
+                        message=f"Uploaded file {file.name} to CDF with id {res.id}",
+                    )
+                    self.state_store.set_state(
+                        file.name, file.last_modified.timestamp()
+                    )
                     self.state_store.synchronize()
 
-    def upload_files_to_cdf(self, file_client: DataLakeFileClient, file: Any) -> FileMetadata:
+    def upload_files_to_cdf(
+        self, file_client: DataLakeFileClient, file: Any
+    ) -> FileMetadata:
         content = file_client.download_file().readall()
         file_name = file.name.split("/")[-1]
 
@@ -181,7 +205,9 @@ class CdfFabricExtractor(Extractor[Config]):
             raise e
 
     def extract_time_series_data(self, file_path: str) -> None:
-        token = self.azure_credential.get_token("https://storage.azure.com/.default").token
+        token = self.azure_credential.get_token(
+            "https://storage.azure.com/.default"
+        ).token
         self.logger.debug(f"Extracting time series data from {file_path}")
         external_ids = self.retrieve_external_ids_from_lakehouse(file_path, token=token)
         self.logger.debug(f"External IDs found: {external_ids}")
@@ -196,7 +222,10 @@ class CdfFabricExtractor(Extractor[Config]):
                 self.write_time_series_to_cdf(external_id, time_series_data)
 
     def get_timeseries_latest_timestamps(self, external_ids: list[str]) -> dict:
-        state_ids = [f"{self.config.source.raw_time_series_path}-{external_id}-state" for external_id in external_ids]
+        state_ids = [
+            f"{self.config.source.raw_time_series_path}-{external_id}-state"
+            for external_id in external_ids
+        ]
         states = self.state_store.get_state(state_ids)
         latest_timestamps = dict(zip(external_ids, [state[0] for state in states]))
         return latest_timestamps
@@ -209,7 +238,9 @@ class CdfFabricExtractor(Extractor[Config]):
             lambda row: self.config.destination.time_series_prefix + row["externalId"],
             axis=1,
         )
-        data_frame = data_frame.pivot(index="timestamp", columns="externalId", values="value")
+        data_frame = data_frame.pivot(
+            index="timestamp", columns="externalId", values="value"
+        )
         data_frame.index = pd.to_datetime(data_frame.index)
         try:
             self.client.time_series.data.insert_dataframe(data_frame)
@@ -255,10 +286,14 @@ class CdfFabricExtractor(Extractor[Config]):
 
                 try:
                     self.client.events.upsert(events)
-                    self.run_extraction_pipeline(status="success", message=f"{len(events)} events inserted to CDF")
+                    self.run_extraction_pipeline(
+                        status="success",
+                        message=f"{len(events)} events inserted to CDF",
+                    )
                 except CogniteAPIError as e:
                     self.run_extraction_pipeline(
-                        status="failure", message=f"Error while writing event data to CDF: {e}"
+                        status="failure",
+                        message=f"Error while writing event data to CDF: {e}",
                     )
                     raise e
 
@@ -295,7 +330,9 @@ class CdfFabricExtractor(Extractor[Config]):
 
                     raise e
 
-                self.run_extraction_pipeline(status="success", message=f"{len(df)} rows inserted to {table_name}")
+                self.run_extraction_pipeline(
+                    status="success", message=f"{len(df)} rows inserted to {table_name}"
+                )
                 self.set_state(state_id, df[incremental_field].max())
 
             else:
@@ -316,21 +353,27 @@ class CdfFabricExtractor(Extractor[Config]):
                 subtype=row[1]["subtype"] if "subtype" in row[1] else None,
                 metadata=row[1]["metadata"] if "metadata" in row[1] else None,
                 description=row[1]["description"] if "description" in row[1] else None,
-                asset_ids=self.get_asset_ids(row[1]["assetExternalIds"]) if "assetExternalIds" in row[1] else None,
+                asset_ids=self.get_asset_ids(row[1]["assetExternalIds"])
+                if "assetExternalIds" in row[1]
+                else None,
                 data_set_id=self.data_set_id if self.data_set_id else None,
             )
 
             events.append(new_event)
         return events
 
-    def retrieve_external_ids_from_lakehouse(self, file_path: str, token: str) -> list[str]:
+    def retrieve_external_ids_from_lakehouse(
+        self, file_path: str, token: str
+    ) -> list[str]:
         try:
             dt = DeltaTable(file_path, storage_options={"bearer_token": token})
             table = dt.to_pyarrow_table(columns=["externalId"])
             return pc.unique(table.column("externalId")).to_pylist()
 
         except Exception as e:
-            self.logger.error(f"Error while converting lakehouse data to DataFrame: {e}")
+            self.logger.error(
+                f"Error while converting lakehouse data to DataFrame: {e}"
+            )
             raise e
 
     def convert_lakehouse_data_to_df_batch_filtered(
@@ -349,9 +392,13 @@ class CdfFabricExtractor(Extractor[Config]):
                     date_state = datetime.strptime(state, "%Y-%m-%d %H:%M:%S.%f%z")
                 except ValueError:
                     try:
-                        date_state = datetime.strptime(f"{state} 00:00:00.000Z", "%Y-%m-%d %H:%M:%S.%f%z")
+                        date_state = datetime.strptime(
+                            f"{state} 00:00:00.000Z", "%Y-%m-%d %H:%M:%S.%f%z"
+                        )
                     except ValueError:
-                        date_state = datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
+                        date_state = datetime(
+                            1970, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc
+                        )
 
                 dt = DeltaTable(
                     file_path,
@@ -387,7 +434,9 @@ class CdfFabricExtractor(Extractor[Config]):
                         "use_fabric_endpoint": "true",
                     },
                 )
-                batch_set = dt.to_pyarrow_dataset().to_batches(batch_size=self.config.source.read_batch_size)
+                batch_set = dt.to_pyarrow_dataset().to_batches(
+                    batch_size=self.config.source.read_batch_size
+                )
 
             for batch in batch_set:
                 if len(batch) > 0:
@@ -396,7 +445,9 @@ class CdfFabricExtractor(Extractor[Config]):
                     # Convert dates to string
                     for column in df.columns:
                         if pd.api.types.is_datetime64_any_dtype(df[column]):
-                            df[column] = df[column].dt.strftime("%Y-%m-%d %H:%M:%S.%f%z")
+                            df[column] = df[column].dt.strftime(
+                                "%Y-%m-%d %H:%M:%S.%f%z"
+                            )
                         elif pd.api.types.is_object_dtype(df[column]):
                             df[column] = df[column].astype(str)
 
@@ -412,7 +463,9 @@ class CdfFabricExtractor(Extractor[Config]):
                     yield df
 
         except Exception as e:
-            self.logger.error(f"Error while converting lakehouse data to DataFrame: {e}")
+            self.logger.error(
+                f"Error while converting lakehouse data to DataFrame: {e}"
+            )
             raise e
 
     def convert_lakehouse_data_to_df_batch(
@@ -425,21 +478,29 @@ class CdfFabricExtractor(Extractor[Config]):
             if timestamp:
                 timestamp_obj = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f%z")
                 condition = condition & (ds.field("timestamp") > timestamp_obj)
-            batch_set = dataset.to_batches(filter=condition, batch_size=self.config.source.read_batch_size)
+            batch_set = dataset.to_batches(
+                filter=condition, batch_size=self.config.source.read_batch_size
+            )
             for batch in batch_set:
                 self.logger.debug(f"Retrieved batch with {len(batch)} rows")
                 yield batch.to_pandas()
         except Exception as e:
-            self.logger.error(f"Error while converting lakehouse data to DataFrame: {e}")
+            self.logger.error(
+                f"Error while converting lakehouse data to DataFrame: {e}"
+            )
             raise e
 
-    def run_extraction_pipeline(self, status: Literal["success", "failure", "seen"], message: str = "") -> None:
+    def run_extraction_pipeline(
+        self, status: Literal["success", "failure", "seen"], message: str = ""
+    ) -> None:
         if self.config.cognite.extraction_pipeline:
             try:
                 self.cognite_client.extraction_pipelines.runs.create(
                     ExtractionPipelineRunWrite(
                         status=status,
-                        extpipe_external_id=str(self.config.cognite.extraction_pipeline.external_id),
+                        extpipe_external_id=str(
+                            self.config.cognite.extraction_pipeline.external_id
+                        ),
                         message=message,
                     )
                 )
@@ -481,7 +542,11 @@ class CdfFabricExtractor(Extractor[Config]):
         """
 
         # if columns specified, filter to just these columns
-        in_df = input_dataframe.iloc[:, list(columns)] if columns is not None else input_dataframe
+        in_df = (
+            input_dataframe.iloc[:, list(columns)]
+            if columns is not None
+            else input_dataframe
+        )
 
         # create md5 hash per row
         md5_hashes = in_df.apply(lambda row: self.get_md5_from_series(row), axis=1)
