@@ -31,7 +31,8 @@ class OnelakeOptimizer(Extractor):
         sleep_time = self.config.extractor.optimize_poll_time
 
         while not self.stop_event.is_set():
-            self.stop_event.wait(sleep_time)
+            self.stop_event.wait(sleep_time)  # don't optimize on startup
+            self.logger.info("Running OneLake Optimizer...")
             self.process_onelake_tables()
 
         self.logger.info("Stop event set. Exiting...")
@@ -63,6 +64,7 @@ class OnelakeOptimizer(Extractor):
         }
 
         try:
+            self.logger.info(f"Optimizing table: {abfss_path}")
             dt = DeltaTable(abfss_path, storage_options=storage_options)
             self.logger.debug(f"Compacting table: {abfss_path}")
             self.logger.debug(dt.optimize.compact(target_size=256 * 1024 * 1024))
