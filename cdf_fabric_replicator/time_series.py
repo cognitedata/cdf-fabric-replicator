@@ -308,7 +308,9 @@ class TimeSeriesReplicator(Extractor):
     ) -> None:
         storage_options = {
             "bearer_token": self.get_token(),
-            "use_fabric_endpoint": "true",
+            "use_fabric_endpoint": str(
+                self.config.extractor.use_fabric_endpoint
+            ).lower(),
         }
 
         try:

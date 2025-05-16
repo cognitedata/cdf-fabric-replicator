@@ -41,7 +41,7 @@ def wait_for_pod_to_start(retries):
         if "Running" in kube_status_output:
             break  # Pod is up, break the loop
         else:
-            print(f"Waiting for pod to start, retrying... ({i+1}/{retries})")
+            print(f"Waiting for pod to start, retrying... ({i + 1}/{retries})")
     else:
         # If we've reached this point, the pod is not up after the maximum number of retries
         assert False, "Pod did not start up within the expected time"

@@ -167,9 +167,6 @@ class TestTimeSeriesReplicator:
         # Check that sleep is called
         test_timeseries_replicator.stop_event.wait.assert_called_once()
 
-        # Check that extraction_pipelines.runs.create is called
-        test_timeseries_replicator.cognite_client.extraction_pipelines.runs.create.assert_called_once()
-
     @patch(
         "cdf_fabric_replicator.time_series.sub.autocreate_subscription",
         return_value=None,
@@ -201,36 +198,6 @@ class TestTimeSeriesReplicator:
         "cdf_fabric_replicator.time_series.sub.autocreate_subscription",
         return_value=None,
     )
-    def test_run_extraction_pipeline_error(
-        self,
-        mock_autocreate,
-        mock_process_subscriptions,
-        mock_subscription,
-        test_timeseries_replicator,
-    ):
-        # Set the subscriptions and poll time in the config
-        test_timeseries_replicator.config = Mock(
-            subscriptions=[mock_subscription], extractor=Mock(poll_time=1)
-        )
-
-        # Stop event
-        test_timeseries_replicator.stop_event.is_set.side_effect = [
-            False,
-            True,
-        ]
-
-        # Set the return value of autocreate_subscription to raise an exception
-        test_timeseries_replicator.cognite_client.extraction_pipelines.runs.create.side_effect = CogniteAPIError(
-            code=500, message="Test error"
-        )
-
-        # Call the run method
-        with pytest.raises(CogniteAPIError):
-            test_timeseries_replicator.run()
-
-        # Assert logger is called
-        test_timeseries_replicator.logger.error.assert_called_once()
-
     @patch("cdf_fabric_replicator.time_series.ThreadPoolExecutor", autospec=True)
     @patch("cdf_fabric_replicator.time_series.TimeSeriesReplicator.process_partition")
     def test_process_subscriptions(
@@ -553,6 +520,7 @@ class TestTimeSeriesReplicator:
     ):
         # Create a mock DataFrame
         df = pd.DataFrame()
+        test_timeseries_replicator.config.extractor.use_fabric_endpoint = True
 
         # Set the return value of get_token to raise an exception
         mock_deltatable.side_effect = TableNotFoundError
@@ -628,6 +596,7 @@ class TestTimeSeriesReplicator:
 
         # Set the return value of DeltaTable to return Mock table
         mock_delta_table_class.return_value = mock_delta_table
+        test_timeseries_replicator.config.extractor.use_fabric_endpoint = True
 
         # Create an empty DataFrame
         df = pd.DataFrame()

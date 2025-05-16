@@ -18,7 +18,9 @@ def test_event_replicator():
         event_replicator = EventsReplicator(metrics=Mock(), stop_event=Mock())
         event_replicator.config = Mock(
             event=Mock(
-                batch_size=EVENT_BATCH_SIZE, lakehouse_abfss_path_events="Events", dataset_external_id="data_set_xid"
+                batch_size=EVENT_BATCH_SIZE,
+                lakehouse_abfss_path_events="Events",
+                dataset_external_id="data_set_xid",
             ),
             extractor=Mock(poll_time=1),
         )
@@ -64,11 +66,15 @@ def test_run(mock_process_events, test_event_replicator):
 def test_run_no_event_config(test_event_replicator):
     test_event_replicator.config.event = None
     test_event_replicator.run()
-    test_event_replicator.logger.warning.assert_called_with("No event config found in config")
+    test_event_replicator.logger.warning.assert_called_with(
+        "No event config found in config"
+    )
 
 
 @pytest.mark.skip("Error in test")
-@pytest.mark.parametrize("last_created_time, event_query_time", [(None, 1), (1714685606, 1714685607)])
+@pytest.mark.parametrize(
+    "last_created_time, event_query_time", [(None, 1), (1714685606, 1714685607)]
+)
 @patch("cdf_fabric_replicator.event.write_deltalake")
 @patch("cdf_fabric_replicator.event.DeltaTable")
 def test_process_events_new_table(
@@ -79,14 +85,20 @@ def test_process_events_new_table(
     event_query_time,
 ):
     # Set up empty state and cognite client events iterator
-    test_event_replicator.state_store.get_state.return_value = [(None, last_created_time)]
-    test_event_replicator.cognite_client.events = Mock(return_value=iter([Event(**event)]))
+    test_event_replicator.state_store.get_state.return_value = [
+        (None, last_created_time)
+    ]
+    test_event_replicator.cognite_client.events = Mock(
+        return_value=iter([Event(**event)])
+    )
 
     # Run the process_events method
     test_event_replicator.process_events()
 
     # State store assertions
-    test_event_replicator.state_store.get_state.assert_called_once_with(external_id="event_state")
+    test_event_replicator.state_store.get_state.assert_called_once_with(
+        external_id="event_state"
+    )
     # test_event_replicator.state_store.set_state.assert_called_once_with(
     #    external_id="event_state", high=event["created_time"]
     # )
@@ -117,7 +129,9 @@ def test_process_events_new_table(
 def test_process_events_delta_error(mock_deltatable, event, test_event_replicator):
     # Set up empty state and cognite client events iterator
     test_event_replicator.state_store.get_state.return_value = [(None, None)]
-    test_event_replicator.cognite_client.events = Mock(return_value=iter([Event(**event)]))
+    test_event_replicator.cognite_client.events = Mock(
+        return_value=iter([Event(**event)])
+    )
     # Set up mock write_deltalake to raise DeltaError
     mock_deltatable.side_effect = DeltaError()
 
@@ -131,7 +145,9 @@ def test_process_events_delta_error(mock_deltatable, event, test_event_replicato
 @pytest.mark.skip("Error in test")
 @patch("cdf_fabric_replicator.event.pa.Table")
 @patch("cdf_fabric_replicator.event.DeltaTable")
-def test_write_events_to_lakehouse_tables_merge(mock_deltatable, mock_pa_table, test_event_replicator):
+def test_write_events_to_lakehouse_tables_merge(
+    mock_deltatable, mock_pa_table, test_event_replicator
+):
     # Create a mock DeltaTable
     mock_delta_table = Mock()
 

@@ -328,7 +328,9 @@ class DataModelingReplicator(Extractor):
                     schema_mode="merge",
                     storage_options={
                         "bearer_token": token.token,
-                        #                        "use_fabric_endpoint": "true",
+                        "use_fabric_endpoint": str(
+                            self.config.extractor.use_fabric_endpoint
+                        ).lower(),
                     },
                 )
             except DeltaError as e:

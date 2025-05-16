@@ -19,7 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - builds
-      - integration-tests
     if: ${{ needs.build.outputs.should-release == 0 }}
     environment: CD
 

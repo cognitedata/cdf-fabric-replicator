@@ -322,7 +322,7 @@ def confirm_events_in_cdf(
         ):  # check if all events are in CDF - exact match
             print("Events found in CDF")
             return True
-        print(f"Events not found in CDF, retrying...(attempt {_+1}/{retries})")
+        print(f"Events not found in CDF, retrying...(attempt {_ + 1}/{retries})")
         sleep(2**_)  # wait before the next retry using exponential backoff
     return False
 
@@ -347,7 +347,7 @@ def assert_file_in_cdf(
         if res is not None:
             print("File found in CDF")
             return True
-        print(f"File not found in CDF, retrying...(attempt {_+1}/{retries})")
+        print(f"File not found in CDF, retrying...(attempt {_ + 1}/{retries})")
         sleep(2**_)  # wait before the next retry using exponential backoff
     return False
 

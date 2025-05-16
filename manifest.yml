@@ -21,6 +21,15 @@ artifacts:
 # A list of releases, when running the release script only the entry matching the
 # provided version is used.
 versions:
+  "0.3.4":
+    description: "Incremental improvements and bug fixes."
+    changelog:
+      added:
+        - "Update config documentation"
+        - "Update RAW mirroring service"
+        - "Update data model service"
+        - "Update event service"
+        - "Update time series service"
   "0.3.3":
     description: "Documentation update."
     changelog:

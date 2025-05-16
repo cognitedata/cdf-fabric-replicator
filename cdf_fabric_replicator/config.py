@@ -12,6 +12,7 @@ class ExtractorConfig:
     fabric_ingest_batch_size: int = 100_000
     poll_time: int = 5
     optimize_poll_time: int = 3600
+    use_fabric_endpoint: bool = True
 
 
 @dataclass

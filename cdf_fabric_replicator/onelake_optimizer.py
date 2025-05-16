@@ -60,7 +60,9 @@ class OnelakeOptimizer(Extractor):
         storage_options = {
             "bearer_token": token.token,
             "timeout": "1800s",
-            # "use_fabric_endpoint": "true",
+            "use_fabric_endpoint": str(
+                self.config.extractor.use_fabric_endpoint
+            ).lower(),
         }
 
         try:
