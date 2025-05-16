@@ -13,7 +13,7 @@ dependencies = [
     "pywin32>=308 ; sys_platform == 'win32'"
 ]
 name = "cdf_fabric_replicator"
-version = "0.3.3"
+version = "0.3.4"
 description = "Stream data from CDF to Fabric/Onelake"
 
 [project.scripts]

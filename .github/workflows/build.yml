@@ -2,7 +2,9 @@ name: Build extractor
 
 on:
   pull_request:
-    branches: [ main ]
+    branches:
+      - main
+      - development
   workflow_call:
     outputs:
       release-version:
