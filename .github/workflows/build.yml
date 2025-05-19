@@ -147,7 +147,7 @@ jobs:
 
   build-windows:
     runs-on: windows-2022
-    environment: ${{ needs.current-branch.outputs.current-branch == 'main' && 'CD' || 'CI' }}
+    environment: ${{ 'CD' || 'CI' }}
     needs:
       - generate-sbom
       - create-version
@@ -192,7 +192,7 @@ jobs:
           PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
 
       - name: Sign executable
-        if: ${{ needs.current-branch.outputs.current-branch == 'main' }}
+        #if: ${{ needs.current-branch.outputs.current-branch == 'main' }}
         env:
           CERTIFICATE_HOST: ${{ secrets.CODE_SIGNING_CERT_HOST }}
           CERTIFICATE_HOST_API_KEY: ${{ secrets.CODE_SIGNING_CERT_HOST_API_KEY }}
@@ -228,7 +228,7 @@ jobs:
         run: mv .\installer\bin\Release\FabricConnectorSetup.msi .\uploads\fabric-connector-${{ needs.create-version.outputs.version }}.msi
 
       - name: Sign msi
-        if: ${{ needs.current-branch.outputs.current-branch == 'main' }}
+        #if: ${{ needs.current-branch.outputs.current-branch == 'main' }}
         env:
           CERTIFICATE_HOST: ${{ secrets.CODE_SIGNING_CERT_HOST }}
           CERTIFICATE_HOST_API_KEY: ${{ secrets.CODE_SIGNING_CERT_HOST_API_KEY }}
@@ -246,7 +246,7 @@ jobs:
           7z a .\uploads\fabric-connector-winservice-${{ needs.create-version.outputs.version }}-win32.zip .\dist\fabric-connector-winservice-${{ needs.create-version.outputs.version }}-win32.exe manifest.spdx.json manifest.spdx.json.sha256 .\config_examples\example-*.yaml
 
       - name: Upload artifacts
-        if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0}}
+        if: ${{ needs.should-release.outputs.should-release == 0}}
         uses: actions/upload-artifact@v4
         with:
           name: windows
@@ -254,7 +254,7 @@ jobs:
 
   build-linux:
     runs-on: ubuntu-latest
-    environment: ${{ needs.current-branch.outputs.current-branch == 'main' && 'CD' || 'CI' }}
+    environment: ${{ 'CD' || 'CI' }}
     needs:
       - generate-sbom
       - create-version
@@ -302,7 +302,7 @@ jobs:
           zip -r fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux.zip fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux config_examples/example-*.yaml manifest.spdx.json*
 
       - name: Upload artifacts
-        if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0}}
+        if: ${{ needs.should-release.outputs.should-release == 0}}
         uses: actions/upload-artifact@v4
         with:
           name: linux
@@ -311,7 +311,7 @@ jobs:
   build-docker-image:
     runs-on: ubuntu-latest
     environment: 
-      name: ${{ needs.current-branch.outputs.current-branch == 'main' && 'CD' || 'CI' }}
+      name: ${{ 'CD' || 'CI' }}
     needs:
       - generate-sbom
       - create-version
@@ -340,7 +340,7 @@ jobs:
       run: docker save -o fabric-connector.tar cognite/fabric-connector:${{ needs.create-version.outputs.version }}
 
     - name: upload artifact
-      if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0 }}
+      if: ${{ needs.should-release.outputs.should-release == 0 }}
       uses: actions/upload-artifact@v4
       with:
         name: docker image
