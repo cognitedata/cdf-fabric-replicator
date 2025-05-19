@@ -54,4 +54,4 @@ destination:
 event:
     lakehouse_abfss_path_events: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${EVENT_TABLE_NAME}
     batch_size: 5
-    dataset_external_id: test_events
+    dataset_external_id: test_dataset

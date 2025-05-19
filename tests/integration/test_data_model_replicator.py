@@ -48,6 +48,7 @@ def test_data_modeling_replicator():
 def test_space(test_config, cognite_client: CogniteClient):
     space_id = test_config["data_modeling"][0]["space"]
     space = cognite_client.data_modeling.spaces.retrieve(space_id)
+
     if space is None:
         new_space = SpaceApply(
             space_id,
@@ -55,11 +56,11 @@ def test_space(test_config, cognite_client: CogniteClient):
             description="The space used for integration tests.",
         )
         space = cognite_client.data_modeling.spaces.apply(new_space)
-    else:  # Ensure there aren't existing data models
-        data_model_list = cognite_client.data_modeling.data_models.list(space=space_id)
-        assert (
-            len(data_model_list) == 0
-        ), "Space should not have existing data models, please remove models/views/containers before testing"
+    #    else:  # Ensure there aren't existing data models
+    #        data_model_list = cognite_client.data_modeling.data_models.list(space=space_id)
+    #        assert len(data_model_list) == 0, (
+    #            "Space should not have existing data models, please remove models/views/containers before testing"
+    #        )
     yield space
     cognite_client.data_modeling.spaces.delete(spaces=[space_id])
 

@@ -103,7 +103,7 @@ class DataModelingReplicator(Extractor):
 
             # edge with no view
             state_id = f"state_{data_model_config.space}_edges"
-            # self.process_instances(data_model_config, state_id)
+            self.process_instances(data_model_config, state_id)
 
     def process_instances(
         self,
@@ -169,6 +169,8 @@ class DataModelingReplicator(Extractor):
         cursors = self.state_store.get_state(external_id=state_id)[1]
         if cursors:
             query.cursors = json.loads(str(cursors))
+        elif state_id.endswith("_edges"):
+            query.with_ = {"edges": EdgeResultSetExpression(filter=Not(MatchAll()))}
         else:
             query.with_ = {"nodes": NodeResultSetExpression(filter=Not(MatchAll()))}
 
@@ -213,7 +215,7 @@ class DataModelingReplicator(Extractor):
                 instance_type = "edge"
 
             for chunk in self.cognite_client.data_modeling.instances(
-                sources=sources[0].source,
+                sources=sources[0].source if sources else None,
                 instance_type=instance_type,
                 chunk_size=int(self.config.extractor.fabric_ingest_batch_size),
             ):

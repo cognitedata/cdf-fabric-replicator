@@ -89,7 +89,8 @@ class EventsReplicator(Extractor):
                     events_dict = [events_dict]
 
                 for event in events_dict:
-                    event["metadata"] = json.dumps(event["metadata"])
+                    if "metadata" in event:
+                        event["metadata"] = json.dumps(event["metadata"])
 
                 try:
                     self.write_events_to_lakehouse_tables(

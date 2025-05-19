@@ -6,6 +6,7 @@ from typing import List
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     Datapoint,
+    DataSetWrite,
     TimeSeries,
     TimeSeriesWrite,
     EventWrite,
@@ -360,3 +361,19 @@ def remove_file_from_cdf(
     if res is not None:
         return cognite_client.files.delete(external_id=file_external_id)
     return None
+
+
+def get_data_set_id(data_set_external_id: str, cognite_client: CogniteClient):
+    data_set = cognite_client.data_sets.retrieve(external_id=data_set_external_id)
+    if data_set is not None:
+        return data_set.id
+    else:
+        # create data set if it does not exist
+        data_set = cognite_client.data_sets.create(
+            DataSetWrite(
+                name=data_set_external_id,
+                external_id=data_set_external_id,
+                description="Data set for integration tests",
+            )
+        )
+        return data_set.id
