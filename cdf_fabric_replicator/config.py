@@ -30,6 +30,7 @@ class DataModelingConfig:
 @dataclass
 class EventConfig:
     lakehouse_abfss_path_events: str
+    dataset_external_id: str
     batch_size: int = 1000
 
 
@@ -38,7 +39,9 @@ class RawConfig:
     table_name: str
     db_name: str
     raw_path: str
-    incremental_field: str
+    key_fields: Optional[List[str]]
+    incremental_field: Optional[str]
+    md5_key: bool = False
 
 
 @dataclass

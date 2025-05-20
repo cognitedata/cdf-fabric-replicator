@@ -1,33 +1,33 @@
 import logging
-
+from datetime import datetime, timezone
+from hashlib import md5
+from typing import Any, Generator, Iterable, List, Literal, Optional
 from urllib.parse import urlparse
 
+import numpy as np
+import pandas as pd
+import pyarrow.compute as pc
+import pyarrow.dataset as ds
 from azure.identity import DefaultAzureCredential
 from azure.storage.filedatalake import (
     DataLakeFileClient,
     DataLakeServiceClient,
 )
+from deltalake import DeltaTable
+from pandas import DataFrame
+
+from cdf_fabric_replicator import __version__
+from cdf_fabric_replicator.config import Config
+from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import (
     EventWrite,
     ExtractionPipelineRunWrite,
     FileMetadata,
     TimeSeriesWrite,
 )
-from cognite.client.exceptions import CogniteNotFoundError, CogniteAPIError
-
+from cognite.client.exceptions import CogniteAPIError, CogniteNotFoundError
 from cognite.extractorutils import Extractor
 from cognite.extractorutils.base import CancellationToken
-from deltalake import DeltaTable
-from pandas import DataFrame
-from typing import Any, Literal, Optional, Generator
-import pandas as pd
-import pyarrow.compute as pc
-import pyarrow.dataset as ds
-from datetime import datetime
-
-from cdf_fabric_replicator import __version__
-from cdf_fabric_replicator.config import Config
-from cdf_fabric_replicator.metrics import Metrics
 
 
 class CdfFabricExtractor(Extractor[Config]):
@@ -111,6 +111,8 @@ class CdfFabricExtractor(Extractor[Config]):
                         state_id=state_id,
                         table_name=path.table_name,
                         db_name=path.db_name,
+                        key_fields=path.key_fields,
+                        md5_key=path.md5_key,
                         incremental_field=path.incremental_field,
                     )
 
@@ -171,7 +173,10 @@ class CdfFabricExtractor(Extractor[Config]):
                     self.logger.info(
                         f"Uploaded file {file.name} to CDF with id {res.id}"
                     )
-                    self.run_extraction_pipeline(status="success")
+                    self.run_extraction_pipeline(
+                        status="success",
+                        message=f"Uploaded file {file.name} to CDF with id {res.id}",
+                    )
                     self.state_store.set_state(
                         file.name, file.last_modified.timestamp()
                     )
@@ -269,24 +274,30 @@ class CdfFabricExtractor(Extractor[Config]):
         file_path: str,
         token: str,
         state_id: str,
-        incremental_field: str | None = None,
+        incremental_field: str | None,
     ) -> None:
         state = str(self.state_store.get_state(state_id)[0])
+
         for df in self.convert_lakehouse_data_to_df_batch_filtered(
-            file_path, token, state, incremental_field
+            file_path, token, state, ["externalId"], False, incremental_field
         ):
             if len(df) > 0:
                 events = self.get_events(df)
 
                 try:
                     self.client.events.upsert(events)
+                    self.run_extraction_pipeline(
+                        status="success",
+                        message=f"{len(events)} events inserted to CDF",
+                    )
                 except CogniteAPIError as e:
-                    self.logger.error(f"Error while writing event data to CDF: {e}")
+                    self.run_extraction_pipeline(
+                        status="failure",
+                        message=f"Error while writing event data to CDF: {e}",
+                    )
                     raise e
 
-                self.run_extraction_pipeline(status="success")
-
-                self.set_state(state_id, str(df[incremental_field].max()))
+                self.set_state(state_id, df[incremental_field].max())
             else:
                 self.run_extraction_pipeline(status="seen")
 
@@ -297,11 +308,13 @@ class CdfFabricExtractor(Extractor[Config]):
         state_id: str,
         table_name: str,
         db_name: str,
-        incremental_field: str,
+        key_fields: List[str] | None,
+        md5_key: bool,
+        incremental_field: str | None,
     ) -> None:
         state = str(self.state_store.get_state(state_id)[0])
         for df in self.convert_lakehouse_data_to_df_batch_filtered(
-            file_path, token, state, incremental_field
+            file_path, token, state, key_fields, md5_key, incremental_field
         ):
             if len(df) > 0:
                 try:
@@ -317,8 +330,11 @@ class CdfFabricExtractor(Extractor[Config]):
 
                     raise e
 
-                self.run_extraction_pipeline(status="success")
-                self.set_state(state_id, str(df[incremental_field].max()))
+                self.run_extraction_pipeline(
+                    status="success", message=f"{len(df)} rows inserted to {table_name}"
+                )
+                self.set_state(state_id, df[incremental_field].max())
+
             else:
                 self.run_extraction_pipeline(status="seen")
 
@@ -361,33 +377,90 @@ class CdfFabricExtractor(Extractor[Config]):
             raise e
 
     def convert_lakehouse_data_to_df_batch_filtered(
-        self, file_path: str, token: str, state: str, incremental_field: str | None
+        self,
+        file_path: str,
+        token: str | None,
+        state: str,
+        key_fields: List[str] | None,
+        md5_key: bool,
+        incremental_field: str | None,
     ) -> Generator[DataFrame, None, None]:
+        has_state = state is not None and state != "None"
         try:
-            if state and incremental_field:
-                dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+            if has_state and incremental_field:
+                try:
+                    date_state = datetime.strptime(state, "%Y-%m-%d %H:%M:%S.%f%z")
+                except ValueError:
+                    try:
+                        date_state = datetime.strptime(
+                            f"{state} 00:00:00.000Z", "%Y-%m-%d %H:%M:%S.%f%z"
+                        )
+                    except ValueError:
+                        date_state = datetime(
+                            1970, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc
+                        )
+
+                dt = DeltaTable(
+                    file_path,
+                    storage_options={
+                        "bearer_token": str(token),
+                        "use_fabric_endpoint": "true",
+                    },
+                )
                 dataset = dt.to_pyarrow_dataset()
-                condition = ds.field(incremental_field) > int(state)
+                condition = ds.field(incremental_field) > date_state
                 batch_set = dataset.sort_by(incremental_field).to_batches(
                     filter=condition, batch_size=self.config.source.read_batch_size
                 )
 
             elif incremental_field:
-                dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+                dt = DeltaTable(
+                    file_path,
+                    storage_options={
+                        "bearer_token": str(token),
+                        "use_fabric_endpoint": "true",
+                    },
+                )
                 batch_set = (
                     dt.to_pyarrow_dataset()
                     .sort_by(incremental_field)
                     .to_batches(batch_size=self.config.source.read_batch_size)
                 )
             else:
-                dt = DeltaTable(file_path, storage_options={"bearer_token": token})
+                dt = DeltaTable(
+                    file_path,
+                    storage_options={
+                        "bearer_token": str(token),
+                        "use_fabric_endpoint": "true",
+                    },
+                )
                 batch_set = dt.to_pyarrow_dataset().to_batches(
                     batch_size=self.config.source.read_batch_size
                 )
 
             for batch in batch_set:
-                self.logger.debug(f"Retrieved batch with {len(batch)} rows")
-                yield batch.to_pandas()
+                if len(batch) > 0:
+                    self.logger.debug(f"Retrieved batch with {len(batch)} rows")
+                    df = batch.to_pandas()
+                    # Convert dates to string
+                    for column in df.columns:
+                        if pd.api.types.is_datetime64_any_dtype(df[column]):
+                            df[column] = df[column].dt.strftime(
+                                "%Y-%m-%d %H:%M:%S.%f%z"
+                            )
+                        elif pd.api.types.is_object_dtype(df[column]):
+                            df[column] = df[column].astype(str)
+
+                    # Remove NaT and NAN
+                    df = df.replace({np.nan: None})
+
+                    if md5_key:
+                        df["md5_key"] = self.get_md5_series_from_dataframe(df)
+                        df.set_index("md5_key", inplace=True)
+                    elif incremental_field:
+                        df.set_index(key_fields, inplace=True)
+
+                    yield df
 
         except Exception as e:
             self.logger.error(
@@ -418,7 +491,7 @@ class CdfFabricExtractor(Extractor[Config]):
             raise e
 
     def run_extraction_pipeline(
-        self, status: Literal["success", "failure", "seen"]
+        self, status: Literal["success", "failure", "seen"], message: str = ""
     ) -> None:
         if self.config.cognite.extraction_pipeline:
             try:
@@ -428,8 +501,60 @@ class CdfFabricExtractor(Extractor[Config]):
                         extpipe_external_id=str(
                             self.config.cognite.extraction_pipeline.external_id
                         ),
+                        message=message,
                     )
                 )
             except CogniteAPIError as e:
                 self.logger.error(f"Error while running extraction pipeline: {e}")
                 raise e
+
+    def get_md5_from_series(self, input_iterable: Iterable) -> str:
+        """
+        Create a MD5 hash from an Iterable, typically a row from a Pandas ``DataFrame``, but can be any
+        Iterable object instance such as a list, tuple or Pandas ``Series``.
+
+        Args:
+            input_iterable: Typically a Pandas ``DataFrame`` row, but can be any Pandas ``Series``.
+
+        Returns:
+            MD5 hash created from the input values.
+        """
+        # convert all values to string, concantenate, and encode so can hash
+        full_str = "".join(map(str, input_iterable)).encode("utf-8")
+
+        # create a md5 hash from the complete string
+        md5_hash = md5(full_str).hexdigest()
+
+        return md5_hash
+
+    def get_md5_series_from_dataframe(
+        self, input_dataframe: pd.DataFrame, columns: Optional[Iterable[str]] = None
+    ) -> pd.Series:
+        """
+        Create a Pandas ``Series`` of MD5 hashses for every row in a Pandas ``DataFrame``.
+
+        Args:
+            input_dataframe: Pandas ``DataFrame`` to be create MD5 hashes for.
+            columns: If only wanting to use specific columns to calculate the hash, specify these here.
+
+        Returns:
+            MD5 hashes, one for every row in the input Pandas ``DataFrame``.
+        """
+
+        # if columns specified, filter to just these columns
+        in_df = (
+            input_dataframe.iloc[:, list(columns)]
+            if columns is not None
+            else input_dataframe
+        )
+
+        # create md5 hash per row
+        md5_hashes = in_df.apply(lambda row: self.get_md5_from_series(row), axis=1)
+
+        return md5_hashes
+
+    def _report_success(self) -> None:
+        """
+        Called on a successful exit of the extractor - get rid of "Shutdown success" message that spams the logs.
+        """
+        pass
