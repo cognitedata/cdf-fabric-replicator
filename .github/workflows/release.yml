@@ -11,10 +11,15 @@ jobs:
     uses: ./.github/workflows/build.yml
     secrets: inherit
 
+  integration-tests:
+    uses: ./.github/workflows/integration_tests.yml
+    secrets: inherit
+
   publish-docker:
     runs-on: ubuntu-latest
     needs:
       - builds
+      - integration-tests
     if: ${{ needs.build.outputs.should-release == 0 }}
     environment: CD
 
@@ -41,8 +46,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - builds
+      - integration-tests
     environment: CD
-    if: ${{ needs.builds.outputs.should-release == 0}}
+    if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0}}
     steps:
       - uses: actions/checkout@v4
 
@@ -93,16 +99,16 @@ jobs:
           draft: false
           prerelease: false
            
-#      - name: Install publisher
-#        shell: bash
-#        run: pip install cognite-extractor-publisher --extra-index-url "https://${{ secrets.ARTIFACTORY_PUBLISH_TOKEN_USER }}:${{ secrets.ARTIFACTORY_PUBLISH_TOKEN }}@cognite.jfrog.io/cognite/api/pypi/snakepit/simple"
+      - name: Install publisher
+        shell: bash
+        run: pip install cognite-extractor-publisher --extra-index-url "https://${{ secrets.ARTIFACTORY_PUBLISH_TOKEN_USER }}:${{ secrets.ARTIFACTORY_PUBLISH_TOKEN }}@cognite.jfrog.io/cognite/api/pypi/snakepit/simple"
 
-#      - name: publish extractor
-#        env:
-#          EXTRACTOR_DOWNLOAD_API_ADMIN_SECRET: ${{ secrets.EXTRACTOR_DOWNLOAD_ADMIN_SECRET }}
-#        run: publish-extractor publish --manifest manifest.yml --version ${{ needs.builds.outputs.release-version }}
+      - name: publish extractor
+        env:
+          EXTRACTOR_DOWNLOAD_API_ADMIN_SECRET: ${{ secrets.EXTRACTOR_DOWNLOAD_ADMIN_SECRET }}
+        run: publish-extractor publish --manifest manifest.yml --version ${{ needs.builds.outputs.release-version }}
 
-#      - name: synchronize extractor
-#        env:
-#          EXTRACTOR_DOWNLOAD_API_ADMIN_SECRET: ${{ secrets.EXTRACTOR_DOWNLOAD_ADMIN_SECRET }}
-#        run: publish-extractor sync --manifest manifest.yml
+      - name: synchronize extractor
+        env:
+          EXTRACTOR_DOWNLOAD_API_ADMIN_SECRET: ${{ secrets.EXTRACTOR_DOWNLOAD_ADMIN_SECRET }}
+        run: publish-extractor sync --manifest manifest.yml
