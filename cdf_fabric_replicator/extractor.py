@@ -163,6 +163,7 @@ class CdfFabricExtractor(Extractor[Config]):
 
         file_system_client = service_client.get_file_system_client(container_name)
 
+        files_uploaded = 0
         for file in file_system_client.get_paths(file_path):
             if not file.is_directory:
                 file_client = file_system_client.get_file_client(file.name)
@@ -170,17 +171,20 @@ class CdfFabricExtractor(Extractor[Config]):
                 state = self.state_store.get_state(file.name)
                 if state and state[0] != file.last_modified.timestamp():
                     res = self.upload_files_to_cdf(file_client, file)
+                    files_uploaded += 1
                     self.logger.info(
                         f"Uploaded file {file.name} to CDF with id {res.id}"
-                    )
-                    self.run_extraction_pipeline(
-                        status="success",
-                        message=f"Uploaded file {file.name} to CDF with id {res.id}",
                     )
                     self.state_store.set_state(
                         file.name, file.last_modified.timestamp()
                     )
                     self.state_store.synchronize()
+
+        if files_uploaded > 0:
+            self.run_extraction_pipeline(
+                status="success",
+                message=f"Uploaded {files_uploaded} files to CDF from {file_path}",
+            )
 
     def upload_files_to_cdf(
         self, file_client: DataLakeFileClient, file: Any
