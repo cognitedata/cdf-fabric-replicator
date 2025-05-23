@@ -524,7 +524,7 @@ class CdfFabricExtractor(Extractor[Config]):
             MD5 hash created from the input values.
         """
         # convert all values to string, concantenate, and encode so can hash
-        full_str = "".join(map(str, input_iterable)).encode("utf-8")
+        full_str = "-".join(map(str, input_iterable)).encode("utf-8")
 
         # create a md5 hash from the complete string
         md5_hash = md5(full_str).hexdigest()
