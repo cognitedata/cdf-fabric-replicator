@@ -120,7 +120,7 @@ def test_process_events_new_table(
         schema_mode="merge",
         storage_options={
             "bearer_token": "token",
-            # "use_fabric_endpoint": "true",
+            "use_fabric_endpoint": "true",
         },
     )
 
@@ -169,6 +169,6 @@ def test_write_events_to_lakehouse_tables_merge(
         abfss_path,
         storage_options={
             "bearer_token": "token",
-            # "use_fabric_endpoint": "true",
+            "use_fabric_endpoint": "true",
         },
     )

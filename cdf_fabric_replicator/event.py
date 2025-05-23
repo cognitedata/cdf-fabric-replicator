@@ -149,7 +149,7 @@ class EventsReplicator(Extractor):
         storage_options = {
             "bearer_token": token.token,
             "timeout": "1800s",
-            # "use_fabric_endpoint": "true",
+            "use_fabric_endpoint": "true",
         }
 
         dt = DeltaTable(abfss_path, storage_options=storage_options)
@@ -175,7 +175,7 @@ class EventsReplicator(Extractor):
         data = pa.Table.from_pylist(events)
         storage_options = {
             "bearer_token": token.token,
-            # "use_fabric_endpoint": "true",
+            "use_fabric_endpoint": "true",
         }
 
         try:
