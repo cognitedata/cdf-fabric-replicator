@@ -23,7 +23,7 @@ from deltalake.exceptions import DeltaError
 from deltalake import write_deltalake
 import pyarrow as pa
 
-from cdf_fabric_replicator import __version__
+from cdf_fabric_replicator import __version__ as fabric_replicator_version
 from cdf_fabric_replicator.config import Config, DataModelingConfig
 from cdf_fabric_replicator.metrics import Metrics
 
@@ -41,7 +41,7 @@ class DataModelingReplicator(Extractor):
             config_class=Config,
             metrics=metrics,
             use_default_state_store=False,
-            version=__version__,
+            version=fabric_replicator_version,
             cancellation_token=stop_event,
             config_file_path=override_config_path,
         )

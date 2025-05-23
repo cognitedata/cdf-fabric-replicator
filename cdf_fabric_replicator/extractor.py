@@ -16,7 +16,7 @@ from azure.storage.filedatalake import (
 from deltalake import DeltaTable
 from pandas import DataFrame
 
-from cdf_fabric_replicator import __version__
+from cdf_fabric_replicator import __version__ as fabric_replicator_version
 from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import (
@@ -43,7 +43,7 @@ class CdfFabricExtractor(Extractor[Config]):
             description="CDF Fabric Extractor",
             config_class=Config,
             metrics=metrics,
-            version=__version__,
+            version=fabric_replicator_version,
             config_file_path=override_config_path,
         )
         self.metrics = metrics
