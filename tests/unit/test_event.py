@@ -147,9 +147,8 @@ def test_process_events_delta_error(mock_deltatable, event, test_event_replicato
     test_event_replicator.logger.error.call_count == 2
 
 
-@pytest.mark.skip("Error in test")
 @patch("cdf_fabric_replicator.event.pa.Table")
-@patch("cdf_fabric_replicator.event.DeltaTable")
+@patch("cdf_fabric_replicator.event.write_deltalake")
 def test_write_events_to_lakehouse_tables_merge(
     mock_deltatable, mock_pa_table, test_event_replicator
 ):
@@ -172,6 +171,10 @@ def test_write_events_to_lakehouse_tables_merge(
     # Check that DeltaTable was called with the correct arguments
     mock_deltatable.assert_called_once_with(
         abfss_path,
+        empty_df,
+        mode="append",
+        engine="rust",
+        schema_mode="merge",
         storage_options={
             "bearer_token": "token",
             "use_fabric_endpoint": "true",
