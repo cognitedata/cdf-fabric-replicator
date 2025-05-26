@@ -1,5 +1,6 @@
 from unittest.mock import Mock, patch
 
+import json
 import pandas as pd
 import pyarrow as pa
 import pytest
@@ -71,12 +72,11 @@ def test_run_no_event_config(test_event_replicator):
     )
 
 
-@pytest.mark.skip("Error in test")
+# @pytest.mark.skip("Error in test")
 @pytest.mark.parametrize(
     "last_created_time, event_query_time", [(None, 1), (1714685606, 1714685607)]
 )
 @patch("cdf_fabric_replicator.event.write_deltalake")
-@patch("cdf_fabric_replicator.event.DeltaTable")
 def test_process_events_new_table(
     mock_write_deltalake,
     event,
@@ -88,6 +88,7 @@ def test_process_events_new_table(
     test_event_replicator.state_store.get_state.return_value = [
         (None, last_created_time)
     ]
+
     test_event_replicator.cognite_client.events = Mock(
         return_value=iter([Event(**event)])
     )
@@ -111,7 +112,11 @@ def test_process_events_new_table(
         sort=("createdTime", "asc"),
         data_set_external_ids=["data_set_xid"],
     )
-    pyarrow_event_data = pa.Table.from_pylist([Event(**event).dump()])
+
+    event_dict = event.copy()
+    event_dict["metadata"] = json.dumps(event_dict["metadata"])
+
+    pyarrow_event_data = pa.Table.from_pylist([Event(**event_dict).dump()])
     mock_write_deltalake.assert_called_with(
         "Events",
         pyarrow_event_data,
