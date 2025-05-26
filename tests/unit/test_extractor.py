@@ -357,7 +357,6 @@ def test_write_event_data_to_cdf(
     )
 
 
-@pytest.mark.skip("Error in test")
 def test_write_event_data_asset_ids_not_found(test_extractor, event_data, mocker):
     df = pd.DataFrame(event_data)
     table = pa.Table.from_pandas(df)
@@ -365,8 +364,12 @@ def test_write_event_data_asset_ids_not_found(test_extractor, event_data, mocker
         "cdf_fabric_replicator.extractor.DeltaTable",
         return_value=Mock(
             to_pyarrow_dataset=Mock(
-                return_value=Mock(to_batches=Mock(return_value=iter([table])))
-            )
+                return_value=Mock(
+                    sort_by=Mock(
+                        return_value=Mock(to_batches=Mock(return_value=iter([table])))
+                    )
+                )
+            ),
         ),
     )
     test_extractor.state_store.get_state.return_value = (None,)
@@ -383,7 +386,6 @@ def test_write_event_data_asset_ids_not_found(test_extractor, event_data, mocker
     test_extractor.logger.error.assert_called_once()
 
 
-@pytest.mark.skip("Error in test")
 def test_write_event_data_asset_retrieve_error(test_extractor, event_data, mocker):
     df = pd.DataFrame(event_data)
     table = pa.Table.from_pandas(df)
@@ -391,8 +393,12 @@ def test_write_event_data_asset_retrieve_error(test_extractor, event_data, mocke
         "cdf_fabric_replicator.extractor.DeltaTable",
         return_value=Mock(
             to_pyarrow_dataset=Mock(
-                return_value=Mock(to_batches=Mock(return_value=iter([table])))
-            )
+                return_value=Mock(
+                    sort_by=Mock(
+                        return_value=Mock(to_batches=Mock(return_value=iter([table])))
+                    )
+                )
+            ),
         ),
     )
     test_extractor.state_store.get_state.return_value = (None,)
