@@ -295,6 +295,7 @@ class CdfFabricExtractor(Extractor[Config]):
                         message=f"{len(events)} events inserted to CDF",
                     )
                 except CogniteAPIError as e:
+                    self.logger.error(f"Error while writing event data to CDF: {e}")
                     self.run_extraction_pipeline(
                         status="failure",
                         message=f"Error while writing event data to CDF: {e}",
@@ -459,7 +460,9 @@ class CdfFabricExtractor(Extractor[Config]):
                     df = df.replace({np.nan: None})
 
                     if md5_key:
-                        df["md5_key"] = self.get_md5_series_from_dataframe(df)
+                        df["md5_key"] = self.get_md5_series_from_dataframe(
+                            df, key_fields
+                        )
                         df.set_index("md5_key", inplace=True)
                     #                    elif incremental_field:
                     #                         df.set_index(key_fields, inplace=True)

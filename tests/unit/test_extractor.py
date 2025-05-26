@@ -415,7 +415,6 @@ def test_write_event_data_asset_retrieve_error(test_extractor, event_data, mocke
     test_extractor.logger.error.assert_called_once()
 
 
-@pytest.mark.skip("Error in test")
 def test_write_event_data_to_cdf_upsert_error(test_extractor, event_data, mocker):
     df = pd.DataFrame(event_data)
     table = pa.Table.from_pandas(df)
@@ -423,7 +422,11 @@ def test_write_event_data_to_cdf_upsert_error(test_extractor, event_data, mocker
         "cdf_fabric_replicator.extractor.DeltaTable",
         return_value=Mock(
             to_pyarrow_dataset=Mock(
-                return_value=Mock(to_batches=Mock(return_value=iter([table])))
+                return_value=Mock(
+                    sort_by=Mock(
+                        return_value=Mock(to_batches=Mock(return_value=iter([table])))
+                    )
+                )
             )
         ),
     )
@@ -512,21 +515,32 @@ def test_retrieve_external_ids_from_lakehouse_exception(test_extractor, mocker):
     test_extractor.logger.error.assert_called_once()
 
 
-@pytest.mark.skip("Error in test")
+@pytest.mark.skip(reason="Skip, unknown reason for failure")
 def test_convert_lakehouse_data_to_df_exception(test_extractor, mocker):
     # Mock DeltaTable to raise exception from to_pandas
     mocker.patch(
         "cdf_fabric_replicator.extractor.DeltaTable",
         return_value=Mock(
             to_pyarrow_dataset=Mock(
-                return_value=Mock(to_batches=Mock(side_effect=Exception("Test error")))
-            )
+                return_value=Mock(
+                    sort_by=Mock(
+                        return_value=Mock(
+                            to_batches=Mock(side_effect=Exception("Test error"))
+                        )
+                    )
+                )
+            ),
         ),
     )
     # Assert Exception was raised by function
     with pytest.raises(Exception):
         test_extractor.convert_lakehouse_data_to_df_batch_filtered(
-            "path", "external_id", "timestamp", "token"
+            "path",
+            "token",
+            "timestamp",
+            None,
+            False,
+            "startTime",
         )
     # Assert error logger called
     test_extractor.logger.error.assert_called_once()
