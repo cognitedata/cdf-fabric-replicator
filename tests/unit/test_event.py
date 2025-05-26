@@ -92,6 +92,8 @@ def test_process_events_new_table(
         return_value=iter([Event(**event)])
     )
 
+    test_event_replicator.optimize_table = Mock(return_value=None)
+
     # Run the process_events method
     test_event_replicator.process_events()
 
