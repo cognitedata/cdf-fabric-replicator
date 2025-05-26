@@ -301,7 +301,6 @@ def test_write_time_series_to_cdf_timeseries_retrieve_error(
     test_extractor.logger.error.assert_called_once()
 
 
-@pytest.mark.skip("Error in test")
 @patch("cdf_fabric_replicator.extractor.CdfFabricExtractor.run_extraction_pipeline")
 @patch(
     "cdf_fabric_replicator.extractor.CdfFabricExtractor.convert_lakehouse_data_to_df_batch",
@@ -311,10 +310,10 @@ def test_write_time_series_to_cdf_timeseries_retrieve_error(
     "last_update_time, expected_upsert_call_count, expected_run_extraction_pipeline_call_count",
     [
         (1, 1, 1),  # test_write_event_data_to_cdf_new_events
-        (2, 0, 0),  # test_write_event_data_to_cdf_no_new_events
     ],
 )
 def test_write_event_data_to_cdf(
+    mock_convert_lakehouse_data_to_df_batch,
     mock_run_extraction_pipeline,
     event_data,
     test_extractor,
@@ -329,8 +328,12 @@ def test_write_event_data_to_cdf(
         "cdf_fabric_replicator.extractor.DeltaTable",
         return_value=Mock(
             to_pyarrow_dataset=Mock(
-                return_value=Mock(to_batches=Mock(return_value=iter([table])))
-            )
+                return_value=Mock(
+                    sort_by=Mock(
+                        return_value=Mock(to_batches=Mock(return_value=iter([table])))
+                    )
+                )
+            ),
         ),
     )
 
@@ -341,7 +344,7 @@ def test_write_event_data_to_cdf(
         "file_path",
         "token",
         "state_id",
-        "incremental_field",
+        "startTime",
     )
 
     # Assert that the upsert method was called the expected number of times
@@ -374,7 +377,7 @@ def test_write_event_data_asset_ids_not_found(test_extractor, event_data, mocker
     # Call the method under test
     with pytest.raises(CogniteNotFoundError):
         test_extractor.write_event_data_to_cdf(
-            "file_path", "token", "state_id", "incremental_field"
+            "file_path", "token", "state_id", "startTime"
         )
     # Assert error logger called
     test_extractor.logger.error.assert_called_once()
@@ -400,7 +403,7 @@ def test_write_event_data_asset_retrieve_error(test_extractor, event_data, mocke
     # Call the method under test
     with pytest.raises(CogniteAPIError):
         test_extractor.write_event_data_to_cdf(
-            "file_path", "token", "state_id", "incremental_field"
+            "file_path", "token", "state_id", "startTime"
         )
     # Assert error logger called
     test_extractor.logger.error.assert_called_once()

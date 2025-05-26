@@ -461,8 +461,8 @@ class CdfFabricExtractor(Extractor[Config]):
                     if md5_key:
                         df["md5_key"] = self.get_md5_series_from_dataframe(df)
                         df.set_index("md5_key", inplace=True)
-                    elif incremental_field:
-                        df.set_index(key_fields, inplace=True)
+                    #                    elif incremental_field:
+                    #                         df.set_index(key_fields, inplace=True)
 
                     yield df
 

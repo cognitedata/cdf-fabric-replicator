@@ -72,7 +72,6 @@ def test_run_no_event_config(test_event_replicator):
     )
 
 
-# @pytest.mark.skip("Error in test")
 @pytest.mark.parametrize(
     "last_created_time, event_query_time", [(None, 1), (1714685606, 1714685607)]
 )
