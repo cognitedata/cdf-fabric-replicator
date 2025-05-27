@@ -381,9 +381,6 @@ class TestDataModelingReplicator:
             "state_test_space_test_id_test_version",
             {"externalId": "test_id", "version": "test_version"},
         )
-        test_data_modeling_replicator.process_instances.assert_any_call(
-            mock_data_modeling_config, "state_test_space_edges"
-        )
 
     def test_process_spaces_cognite_error(
         self, mock_data_modeling_config, test_data_modeling_replicator
@@ -526,7 +523,6 @@ class TestDataModelingReplicator:
         # Assert that the get_instances method was called with the expected arguments
         test_data_modeling_replicator.send_to_lakehouse.assert_any_call(
             data_model_config=mock_data_modeling_config,
-            state_id="state_test_space_test_id_test_version",
             result=query_result_nodes,
         )
 
@@ -622,7 +618,6 @@ class TestDataModelingReplicator:
     ):
         test_data_modeling_replicator.send_to_lakehouse(
             data_model_config=replicator_config.data_modeling,
-            state_id="test_state_id",
             result=query_result_empty,
         )
         mock_write_deltalake.assert_not_called()
@@ -638,7 +633,6 @@ class TestDataModelingReplicator:
     ):
         test_data_modeling_replicator.send_to_lakehouse(
             data_model_config=replicator_config.data_modeling,
-            state_id="test_state_id",
             result=query_result_nodes,
         )
         mock_write_deltalake.assert_called_once()
@@ -657,7 +651,6 @@ class TestDataModelingReplicator:
     ):
         test_data_modeling_replicator.send_to_lakehouse(
             data_model_config=replicator_config.data_modeling,
-            state_id="test_state_id",
             result=query_result_edges,
         )
         mock_write_deltalake.assert_called_once()
@@ -675,6 +668,8 @@ class TestDataModelingReplicator:
         pyarrow_data = pa.Table.from_pylist(
             expected_node_instance["test_space_test_view"]
         )
+        test_data_modeling_replicator.config.extractor.use_fabric_endpoint = True
+
         test_data_modeling_replicator.write_instances_to_lakehouse_tables(
             expected_node_instance,
             "test_abfss_prefix",
