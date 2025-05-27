@@ -27,6 +27,7 @@ extractor:
     subscription-batch-size: 10000
     ingest-batch-size: 100000
     poll-time: 5
+    use_fabric_endpoint: true
 
 subscriptions:
     - external_id: testSubscription
@@ -53,3 +54,4 @@ destination:
 event:
     lakehouse_abfss_path_events: ${LAKEHOUSE_ABFSS_PREFIX}/Tables/${EVENT_TABLE_NAME}
     batch_size: 5
+    dataset_external_id: test_dataset
