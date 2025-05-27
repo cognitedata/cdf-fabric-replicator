@@ -4,25 +4,23 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Literal, Optional
 
+import numpy as np
+import pandas as pd
 from azure.identity import DefaultAzureCredential
 from deltalake.exceptions import DeltaError, TableNotFoundError
-from deltalake.writer import write_deltalake, DeltaTable
-import pandas as pd
-import numpy as np
+from deltalake.writer import DeltaTable, write_deltalake
 
-from cognite.client.exceptions import CogniteAPIError
+from cdf_fabric_replicator import __version__ as fabric_replicator_version
+from cdf_fabric_replicator import subscription as sub
+from cdf_fabric_replicator.config import Config, SubscriptionsConfig
+from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import ExtractionPipelineRunWrite, TimeSeries
 from cognite.client.data_classes.datapoints_subscriptions import (
     DatapointSubscriptionBatch,
     DatapointsUpdate,
 )
-from cognite.extractorutils.base import Extractor
-from cognite.extractorutils.base import CancellationToken
-
-
-from cdf_fabric_replicator import __version__, subscription as sub
-from cdf_fabric_replicator.config import Config, SubscriptionsConfig
-from cdf_fabric_replicator.metrics import Metrics
+from cognite.client.exceptions import CogniteAPIError
+from cognite.extractorutils.base import CancellationToken, Extractor
 
 
 class TimeSeriesReplicator(Extractor):
@@ -38,7 +36,7 @@ class TimeSeriesReplicator(Extractor):
             config_class=Config,
             metrics=metrics,
             use_default_state_store=False,
-            version=__version__,
+            version=fabric_replicator_version,
             cancellation_token=stop_event,
             config_file_path=override_config_path,
         )
@@ -81,16 +79,6 @@ class TimeSeriesReplicator(Extractor):
             start_time = time.time()  # Get the current time in seconds
 
             self.process_subscriptions()
-            try:
-                self.cognite_client.extraction_pipelines.runs.create(
-                    ExtractionPipelineRunWrite(
-                        status="success",
-                        extpipe_external_id=self.config.cognite.extraction_pipeline.external_id,
-                    )
-                )
-            except CogniteAPIError as e:
-                self.logger.error(f"Error creating extraction pipeline run: {e}.")
-                raise e
             end_time = time.time()  # Get the time after function execution
             elapsed_time = end_time - start_time
             sleep_time = max(
@@ -148,6 +136,12 @@ class TimeSeriesReplicator(Extractor):
                         state_id=state_id,
                         send_now=True,
                     )
+                self.cognite_client.extraction_pipelines.runs.create(
+                    ExtractionPipelineRunWrite(
+                        status="success",
+                        extpipe_external_id=self.config.cognite.extraction_pipeline.external_id,
+                    )
+                )
 
                 if not update_batch.has_next:
                     return f"{state_id} no more data at {update_batch.cursor}"

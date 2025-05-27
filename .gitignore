@@ -166,3 +166,11 @@ cython_debug/
 states.json
 
 debug.log.*
+state2.json
+example_config_abp.yaml
+.env_am
+.env.akerbppilot
+poetry.lock
+example_config_am.yml
+extractor-state.json
+Events/*

@@ -95,6 +95,7 @@ def test_process_raw_tables(
     # Set up empty state and cognite client rows iterator
     test_raw_replicator.state_store.get_state.return_value = [(last_updated_time, None)]
     test_raw_replicator.cognite_client.raw.rows.list = Mock(side_effect=[rowList, []])
+    test_raw_replicator.config.extractor.use_fabric_endpoint = True
     mock_deltatable.side_effect = TableNotFoundError
 
     # Run the process_raw_tables method

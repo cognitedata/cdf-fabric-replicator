@@ -8,7 +8,7 @@ from azure.identity import DefaultAzureCredential
 from deltalake import write_deltalake, DeltaTable
 from deltalake.exceptions import DeltaError, TableNotFoundError
 import pyarrow as pa
-from cdf_fabric_replicator import __version__
+from cdf_fabric_replicator import __version__ as fabric_replicator_version
 from cdf_fabric_replicator.config import Config
 from cdf_fabric_replicator.metrics import Metrics
 from cognite.client.data_classes import RowList
@@ -23,7 +23,7 @@ class RawTableReplicator(Extractor):
             config_class=Config,
             metrics=metrics,
             use_default_state_store=False,
-            version=__version__,
+            version=fabric_replicator_version,
             cancellation_token=stop_event,
         )
         self.azure_credential = DefaultAzureCredential()
