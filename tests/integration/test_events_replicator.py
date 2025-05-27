@@ -12,6 +12,7 @@ from integration_steps.cdf_steps import (
     push_events_to_cdf,
     remove_events_from_cdf,
     delete_event_state_store_in_cdf,
+    get_data_set_id,
 )
 from integration_steps.fabric_steps import (
     assert_events_data_in_fabric,
@@ -22,6 +23,7 @@ from cdf_fabric_replicator.event import EventsReplicator
 
 EVENT_DURATION = 60000  # 1 minute
 CDF_RETRIES = 5
+TEST_DATASET = "test_dataset"
 
 
 @pytest.fixture(scope="function")
@@ -49,7 +51,9 @@ def test_event_replicator(request):
 @pytest.fixture()
 def event_write_list(request, cognite_client):
     # Remove existing events from test environment
-    environment_events = cognite_client.events.list(limit=None)
+    environment_events = cognite_client.events.list(
+        limit=None, data_set_external_ids=[TEST_DATASET]
+    )
     remove_events_from_cdf(cognite_client, environment_events.data)
 
     # Create new events
@@ -64,6 +68,9 @@ def event_write_list(request, cognite_client):
             end_time=current_timestamp + i + EVENT_DURATION,
             type="Notification",
             subtype="Test",
+            data_set_id=get_data_set_id(
+                data_set_external_id=TEST_DATASET, cognite_client=cognite_client
+            ),
         )
         for i in range(request.param)
     ]

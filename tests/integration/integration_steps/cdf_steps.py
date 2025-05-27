@@ -6,6 +6,7 @@ from typing import List
 from cognite.client import CogniteClient
 from cognite.client.data_classes import (
     Datapoint,
+    DataSetWrite,
     TimeSeries,
     TimeSeriesWrite,
     EventWrite,
@@ -322,7 +323,7 @@ def confirm_events_in_cdf(
         ):  # check if all events are in CDF - exact match
             print("Events found in CDF")
             return True
-        print(f"Events not found in CDF, retrying...(attempt {_+1}/{retries})")
+        print(f"Events not found in CDF, retrying...(attempt {_ + 1}/{retries})")
         sleep(2**_)  # wait before the next retry using exponential backoff
     return False
 
@@ -347,7 +348,7 @@ def assert_file_in_cdf(
         if res is not None:
             print("File found in CDF")
             return True
-        print(f"File not found in CDF, retrying...(attempt {_+1}/{retries})")
+        print(f"File not found in CDF, retrying...(attempt {_ + 1}/{retries})")
         sleep(2**_)  # wait before the next retry using exponential backoff
     return False
 
@@ -360,3 +361,19 @@ def remove_file_from_cdf(
     if res is not None:
         return cognite_client.files.delete(external_id=file_external_id)
     return None
+
+
+def get_data_set_id(data_set_external_id: str, cognite_client: CogniteClient):
+    data_set = cognite_client.data_sets.retrieve(external_id=data_set_external_id)
+    if data_set is not None:
+        return data_set.id
+    else:
+        # create data set if it does not exist
+        data_set = cognite_client.data_sets.create(
+            DataSetWrite(
+                name=data_set_external_id,
+                external_id=data_set_external_id,
+                description="Data set for integration tests",
+            )
+        )
+        return data_set.id
