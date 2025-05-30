@@ -89,7 +89,8 @@ class EventsReplicator(Extractor):
                     events_dict = [events_dict]
 
                 for event in events_dict:
-                    event["metadata"] = json.dumps(event["metadata"])
+                    if "metadata" in event:
+                        event["metadata"] = json.dumps(event["metadata"])
 
                 try:
                     self.write_events_to_lakehouse_tables(
@@ -149,7 +150,9 @@ class EventsReplicator(Extractor):
         storage_options = {
             "bearer_token": token.token,
             "timeout": "1800s",
-            "use_fabric_endpoint": "true",
+            "use_fabric_endpoint": str(
+                self.config.extractor.use_fabric_endpoint
+            ).lower(),
         }
 
         dt = DeltaTable(abfss_path, storage_options=storage_options)

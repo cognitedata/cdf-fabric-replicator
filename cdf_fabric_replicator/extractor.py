@@ -409,7 +409,9 @@ class CdfFabricExtractor(Extractor[Config]):
                     file_path,
                     storage_options={
                         "bearer_token": str(token),
-                        "use_fabric_endpoint": "true",
+                        "use_fabric_endpoint": str(
+                            self.config.extractor.use_fabric_endpoint
+                        ).lower(),
                     },
                 )
                 dataset = dt.to_pyarrow_dataset()
@@ -423,7 +425,9 @@ class CdfFabricExtractor(Extractor[Config]):
                     file_path,
                     storage_options={
                         "bearer_token": str(token),
-                        "use_fabric_endpoint": "true",
+                        "use_fabric_endpoint": str(
+                            self.config.extractor.use_fabric_endpoint
+                        ).lower(),
                     },
                 )
                 batch_set = (
@@ -436,7 +440,9 @@ class CdfFabricExtractor(Extractor[Config]):
                     file_path,
                     storage_options={
                         "bearer_token": str(token),
-                        "use_fabric_endpoint": "true",
+                        "use_fabric_endpoint": str(
+                            self.config.extractor.use_fabric_endpoint
+                        ).lower(),
                     },
                 )
                 batch_set = dt.to_pyarrow_dataset().to_batches(

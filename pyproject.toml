@@ -2,18 +2,19 @@
 authors = [
     {name = "Murad Saeter", email = "murad.sater@cognite.com"},
 ]
-requires-python = "<3.13,>=3.10"
+requires-python = "<3.14,>=3.10"
 dependencies = [
     "cognite-sdk<8.0.0,>=7.26.0",
     "cognite-extractor-utils<8.0.0,>=7.0.0",
     "azure-identity<2.0.0,>=1.16.1",
     "azure-storage-file-datalake<13.0.0,>=12.14.0",
     "deltalake<1.0.0,>=0.16.0",
+    "pyarrow==19.0.1",
     "pandas<3.0.0,>=2.2.1",
     "pywin32>=308 ; sys_platform == 'win32'"
 ]
 name = "cdf_fabric_replicator"
-version = "0.3.3"
+version = "0.3.4"
 description = "Stream data from CDF to Fabric/Onelake"
 
 [project.scripts]
