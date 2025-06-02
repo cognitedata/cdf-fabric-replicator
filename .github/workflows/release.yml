@@ -80,7 +80,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         with:
           tag_name: v${{ needs.builds.outputs.release-version }}
-          release_name: Cognite File Extractor version ${{ needs.builds.outputs.release-version }}
+          release_name: Release version ${{ needs.builds.outputs.release-version }}
 
           draft: false
           prerelease: false
