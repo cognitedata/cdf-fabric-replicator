@@ -47,7 +47,7 @@ jobs:
       - builds
       - integration-tests
     environment: CD
-    if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0}}
+    if: ${{ needs.should-release.outputs.should-release == 0}}
     steps:
       - uses: actions/checkout@v4
 
