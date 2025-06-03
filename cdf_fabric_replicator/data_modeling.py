@@ -1,27 +1,25 @@
 import json
 import logging
+import os
 import time
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
-from typing import Any, Dict, List, Union, Optional
-from cognite.extractorutils.base import CancellationToken
-
-from cognite.client.data_classes.data_modeling.ids import ViewId
-from cognite.client.data_classes.data_modeling.query import SourceSelector
-from cognite.client.data_classes.data_modeling.query import (
-    Query,
-    Select,
-    NodeResultSetExpression,
-    QueryResult,
-    EdgeResultSetExpression,
-)
-from cognite.client.data_classes.filters import HasData, Equals
-from cognite.client.exceptions import CogniteAPIError
-from cognite.extractorutils.base import Extractor
-
-from azure.identity import DefaultAzureCredential
-from deltalake.exceptions import DeltaError
-from deltalake import write_deltalake
 import pyarrow as pa
+from cognite.client.data_classes.data_modeling.ids import ViewId
+from cognite.client.data_classes.data_modeling.query import (
+    EdgeResultSetExpression,
+    NodeResultSetExpression,
+    Query,
+    QueryResult,
+    Select,
+    SourceSelector,
+)
+from cognite.client.data_classes.filters import Equals, HasData
+from cognite.client.exceptions import CogniteAPIError
+from cognite.extractorutils.base import CancellationToken, Extractor
+from deltalake import write_deltalake
+from deltalake.exceptions import DeltaError
 
 from cdf_fabric_replicator import __version__
 from cdf_fabric_replicator.config import Config, DataModelingConfig
@@ -29,15 +27,18 @@ from cdf_fabric_replicator.metrics import Metrics
 
 
 class DataModelingReplicator(Extractor):
+    """Streams CDF Data-Modeling instances into S3-based Delta tables."""
+
+    # ─────────────────────────── setup ───────────────────────────
     def __init__(
         self,
         metrics: Metrics,
         stop_event: CancellationToken,
         override_config_path: Optional[str] = None,
-    ) -> None:
+    ):
         super().__init__(
             name="cdf_fabric_replicator_data_modeling",
-            description="CDF Fabric Replicator",
+            description="CDF → Delta-Lake (S3)",
             config_class=Config,
             metrics=metrics,
             use_default_state_store=False,
@@ -45,254 +46,198 @@ class DataModelingReplicator(Extractor):
             cancellation_token=stop_event,
             config_file_path=override_config_path,
         )
-        self.metrics: Metrics
         self.stop_event = stop_event
-        self.endpoint_source_map: Dict[str, Any] = {}
-        self.errors: List[str] = []
-        self.azure_credential = DefaultAzureCredential()
         self.logger = logging.getLogger(self.name)
 
+        self.s3_cfg = None
+        self.base_dir: Path = Path.cwd() / "deltalake"
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+
+    # ─────────────────────────── main loop ──────────────────────
     def run(self) -> None:
-        # init/connect to destination
+        self.s3_cfg = (
+            self.config.destination.s3 if self.config.destination else None
+        )
+        if not self.s3_cfg:
+            raise RuntimeError("destination.s3 must be configured")
         self.state_store.initialize()
-
-        self.logger.debug(f"Current Data Modeling Config: {self.config.data_modeling}")
-
-        if self.config.data_modeling is None:
-            self.logger.info("No data modeling spaces found in config")
+        if not self.config.data_modeling:
+            self.logger.info("No data-modeling spaces configured — exiting.")
             return
 
         while not self.stop_event.is_set():
-            start_time = time.time()  # Get the current time in seconds
-
+            t0 = time.time()
             self.process_spaces()
+            # wait until poll_time has elapsed
+            delay = max(self.config.extractor.poll_time - (time.time() - t0), 0)
+            if delay:
+                self.stop_event.wait(delay)
 
-            end_time = time.time()  # Get the time after function execution
-            elapsed_time = end_time - start_time
-            sleep_time = max(
-                self.config.extractor.poll_time - elapsed_time, 0
-            )  # 900s = 15min
-            if sleep_time > 0:
-                self.logger.debug(f"Sleep for {sleep_time} seconds")
-                self.stop_event.wait(sleep_time)
-
-        self.logger.info("Stop event set. Exiting...")
-
+    # ───────────────────────── processing ───────────────────────
     def process_spaces(self) -> None:
-        for data_model_config in self.config.data_modeling:
+        for dm_cfg in self.config.data_modeling:
             try:
                 all_views = self.cognite_client.data_modeling.views.list(
-                    space=data_model_config.space, limit=-1
+                    space=dm_cfg.space, limit=-1
                 )
-            except CogniteAPIError as e:
-                self.logger.error(
-                    f"Failed to list views for space {data_model_config.space}. Error: {e}"
-                )
-                raise e
+            except CogniteAPIError as err:
+                self.logger.error("View-list failed for %s: %s", dm_cfg.space, err)
+                continue
 
-            views_dict = all_views.dump()
+            for v in all_views.dump():
+                self._process_instances(dm_cfg, f"{dm_cfg.space}_{v['externalId']}_{v['version']}", v)
 
-            for view in views_dict:
-                state_id = f"state_{data_model_config.space}_{view['externalId']}_{view['version']}"
-                self.process_instances(data_model_config, state_id, view)
+            self._process_instances(dm_cfg, f"{dm_cfg.space}_edges")
 
-            # edge with no view
-            state_id = f"state_{data_model_config.space}_edges"
-            self.process_instances(data_model_config, state_id)
-
-    def process_instances(
+    # .....................................................................
+    def _process_instances(
         self,
-        data_model_config: DataModelingConfig,
+        dm_cfg: DataModelingConfig,
         state_id: str,
-        view: Dict[str, Any] = {},
+        view: Dict[str, Any] | None = None,
     ) -> None:
-        if view:
-            query = self.generate_query_based_on_view(view)
-        else:
-            query = self.generate_query_based_on_edge()
-        self.write_instance_to_lakehouse(data_model_config, state_id, query)
-
-    def generate_query_based_on_view(self, view: Dict[str, Any]) -> Query:
-        view_properties = list(view["properties"].keys())
-        view_id = ViewId(
-            space=view["space"], external_id=view["externalId"], version=view["version"]
+        query = (
+            self._q_for_view(view) if view else self._q_for_edge()
         )
+        self._iterate_and_write(dm_cfg, state_id, query)
+
+    # ───────── query helpers ────────────────────────────────────
+    @staticmethod
+    def _q_for_view(view: Dict[str, Any]) -> Query:
+        props = list(view["properties"])
+        vid = ViewId(view["space"], view["externalId"], view["version"])
 
         if view["usedFor"] != "edge":
-            query = Query(
-                with_={
-                    "nodes": NodeResultSetExpression(filter=HasData(views=[view_id])),
-                },
-                select={
-                    "nodes": Select(
-                        [SourceSelector(source=view_id, properties=view_properties)]
-                    ),
-                },
+            return Query(
+                with_={"nodes": NodeResultSetExpression(filter=HasData([vid]))},
+                select={"nodes": Select([SourceSelector(vid, props)])},
             )
-        else:
-            query = Query(
-                with_={
-                    "edges": EdgeResultSetExpression(
-                        filter=Equals(
-                            ["edge", "type"],
-                            {"space": view_id.space, "externalId": view_id.external_id},
-                        )
-                    ),
-                },
-                select={
-                    "edges": Select(
-                        [SourceSelector(source=view_id, properties=view_properties)]
-                    ),
-                },
-            )
-        return query
-
-    def generate_query_based_on_edge(self) -> Query:
-        query = Query(
+        return Query(
             with_={
-                "edges": EdgeResultSetExpression(),
+                "edges": EdgeResultSetExpression(
+                    filter=Equals(["edge", "type"], {"space": vid.space, "externalId": vid.external_id})
+                )
             },
-            select={
-                "edges": Select(),
-            },
+            select={"edges": Select([SourceSelector(vid, props)])},
         )
-        return query
 
-    def write_instance_to_lakehouse(
-        self, data_model_config: DataModelingConfig, state_id: str, query: Query
-    ) -> None:
+    @staticmethod
+    def _q_for_edge() -> Query:
+        return Query(with_={"edges": EdgeResultSetExpression()}, select={"edges": Select()})
+
+    # ───────── cursor loop / writer ─────────────────────────────
+    def _iterate_and_write(self, dm_cfg: DataModelingConfig, state_id: str, query: Query) -> None:
         cursors = self.state_store.get_state(external_id=state_id)[1]
-
         if cursors:
             query.cursors = json.loads(str(cursors))
 
-        try:
+        while True:
             res = self.cognite_client.data_modeling.instances.sync(query=query)
-        except CogniteAPIError:
-            query.cursors = None  # type: ignore
-            try:
-                res = self.cognite_client.data_modeling.instances.sync(query=query)
-            except CogniteAPIError as e:
-                self.logger.error(f"Failed to sync instances. Error: {e}")
-                raise e
+            #self._send_to_s3(dm_cfg, res)
+            self._send_to_local(dm_cfg, res)
 
-        self.send_to_lakehouse(
-            data_model_config=data_model_config, state_id=state_id, result=res
-        )
-
-        while ("nodes" in res.data and len(res.data["nodes"]) > 0) or (
-            "edges" in res.data and len(res.data["edges"])
-        ) > 0:
+            if not res.cursors:
+                break
             query.cursors = res.cursors
 
-            try:
-                res = self.cognite_client.data_modeling.instances.sync(query=query)
-            except CogniteAPIError:
-                query.cursors = None  # type: ignore
-                try:
-                    res = self.cognite_client.data_modeling.instances.sync(query=query)
-                except CogniteAPIError as e:
-                    self.logger.error(f"Failed to sync instances. Error: {e}")
-                    raise e
-
-            self.send_to_lakehouse(
-                data_model_config=data_model_config, state_id=state_id, result=res
-            )
-
-        self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
+        self.state_store.set_state(external_id=state_id, high=json.dumps(query.cursors))
         self.state_store.synchronize()
 
-    def send_to_lakehouse(
-        self,
-        data_model_config: DataModelingConfig,
-        state_id: str,
-        result: QueryResult,
-    ) -> None:
-        self.logger.debug(f"Ingest to lakehouse {state_id}")
+    '''
+    def _send_to_s3(self, dm_cfg: DataModelingConfig, result: QueryResult) -> None:
+        for tbl_name, rows in self._extract_instances(result).items():
+            self._delta_append(tbl_name, rows, dm_cfg.space)
+    '''
 
-        nodes = self.get_instances(result, is_edge=False)
-        edges = self.get_instances(result, is_edge=True)
+    def _send_to_local(self, dm_cfg: DataModelingConfig, result: QueryResult) -> None:
+        for tbl_name, rows in self._extract_instances(result).items():
+            self._delta_append(tbl_name, rows, dm_cfg.space)
 
-        abfss_prefix = data_model_config.lakehouse_abfss_prefix
-        if len(nodes) > 0:
-            self.write_instances_to_lakehouse_tables(nodes, abfss_prefix)
-
-        if len(edges) > 0:
-            self.write_instances_to_lakehouse_tables(edges, abfss_prefix)
-
-    def get_instances(
-        self, result: QueryResult, is_edge: bool = False
-    ) -> Dict[str, Any]:
+    # ───────── extract rows ─────────────────────────────────────
+    @staticmethod
+    def _extract_instances(res: QueryResult) -> Dict[str, List[Dict[str, Union[str, int]]]]:
         instances: Dict[str, List[Dict[str, Union[str, int]]]] = {}
-        if (is_edge and "edges" not in result) or (
-            not is_edge and "nodes" not in result
-        ):
-            return instances
 
-        instance_type = "edge" if is_edge else "node"
-
-        if is_edge:
-            instances_from_result = result.get_edges("edges")
-        else:
-            instances_from_result = result.get_nodes("nodes")  # type: ignore
-        for instance in instances_from_result:
-            item = {
-                "space": instance.space,
-                "instanceType": instance_type,
-                "externalId": instance.external_id,
-                "version": instance.version,
-                "lastUpdatedTime": instance.last_updated_time,
-                "createdTime": instance.created_time,
-            }
-
-            if is_edge:
-                item["startNode"] = {
-                    "space": instance.start_node.space,
-                    "externalId": instance.start_node.external_id,
+        for edges in res.data.get("edges", []):
+            tbl = f"{edges.space}_edges"
+            instances.setdefault(tbl, []).append(
+                {
+                    "space":          edges.space,
+                    "instanceType":   "edge",
+                    "externalId":     edges.external_id,
+                    "version":        edges.version,
+                    "startNode":      {"space": edges.start_node.space, "externalId": edges.start_node.external_id},
+                    "endNode":        {"space": edges.end_node.space,   "externalId": edges.end_node.external_id},
+                    "lastUpdatedTime": edges.last_updated_time,
+                    "createdTime":     edges.created_time,
+                    **{k: v for p in edges.properties.data.values() for k, v in p.items()},
                 }
-                item["endNode"] = {
-                    "space": instance.end_node.space,
-                    "externalId": instance.end_node.external_id,
-                }
-
-            for view in instance.properties.data:
-                propDict = instance.properties.data[view]
-                item.update(propDict)
-
-            table_name = (
-                f"{instance.space}_edges"
-                if is_edge
-                else f"{view.space}_{view.external_id}"
             )
-            if table_name not in instances:
-                instances[table_name] = [item]
-            else:
-                instances[table_name].append(item)
+
+        for nodes in res.data.get("nodes", []):
+            for view_id, props in nodes.properties.data.items():
+                tbl = f"{view_id.space}_{view_id.external_id}"
+                instances.setdefault(tbl, []).append(
+                    {
+                        "space":           nodes.space,
+                        "instanceType":    "node",
+                        "externalId":      nodes.external_id,
+                        "version":         nodes.version,
+                        "lastUpdatedTime": nodes.last_updated_time,
+                        "createdTime":     nodes.created_time,
+                        **props,
+                    }
+                )
+
         return instances
 
-    def write_instances_to_lakehouse_tables(
-        self, instances: Dict[str, Any], abfss_prefix: str
-    ) -> None:
-        token = self.azure_credential.get_token("https://storage.azure.com/.default")
-        for table in instances:
-            abfss_path = f"{abfss_prefix}/Tables/{table}"
-            self.logger.info(
-                f"Writing {len(instances[table])} to '{abfss_path}' table..."
+
+    def _delta_append(self, table: str, rows: List[Dict[str, Any]], space: str) -> None:
+        uri = (
+            f"s3://{self.s3_cfg.bucket}/"
+            f"{(self.s3_cfg.prefix or '')}{space}/tables/{table}"
+        )
+        self.logger.info("Δ-append %s rows → %s", len(rows), uri)
+
+        try:
+            '''
+            write_deltalake(
+                uri,
+                pa.Table.from_pylist(rows),
+                mode="append",
+                engine="rust",
+                schema_mode="merge",
+                storage_options={
+                    k: v
+                    for k, v in {
+                        "AWS_ACCESS_KEY_ID":     os.getenv("AWS_ACCESS_KEY_ID"),
+                        "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY"),
+                        "AWS_REGION":            self.s3_cfg.region or os.getenv("AWS_REGION"),
+                    }.items()
+                    if v
+                }
+                or None,
             )
-            data = pa.Table.from_pylist(instances[table])
-            try:
-                write_deltalake(
-                    abfss_path,
-                    data,
-                    engine="rust",
-                    mode="append",
-                    schema_mode="merge",
-                    storage_options={
-                        "bearer_token": token.token,
-                        "use_fabric_endpoint": "true",
-                    },
+
+            write_deltalake(
+                uri,
+                pa.Table.from_pylist(rows),
+                mode="append",
+                engine="rust",
+                schema_mode="merge",
                 )
-            except DeltaError as e:
-                self.logger.error(f"Error writing instances to lakehouse tables: {e}")
-                raise e
-            self.logger.info("done.")
+            '''
+            uri = self.base_dir / space / "tables" / table
+            uri.mkdir(parents=True, exist_ok=True)
+
+            self.logger.info("Δ‑append %s rows → %s", len(rows), uri)
+            write_deltalake(
+                str(uri),
+                pa.Table.from_pylist(rows),
+                mode="append",
+                engine="rust",
+                schema_mode="merge",
+            )
+        except DeltaError as err:
+            self.logger.error("Delta write failed: %s", err)
+            raise
