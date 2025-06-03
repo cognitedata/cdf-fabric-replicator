@@ -37,7 +37,7 @@ subscriptions:
 # sync data model
 data_modeling:
     - space: cc_plant
-      lakehouse_abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
+      lakehouse_prefix: ${LAKEHOUSE_ABFSS_PREFIX}
 
 source:
     abfss_prefix: ${LAKEHOUSE_ABFSS_PREFIX}

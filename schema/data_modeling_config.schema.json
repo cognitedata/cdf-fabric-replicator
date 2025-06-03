@@ -1,18 +1,19 @@
 {
-    "$id": "data_modeling_config.schema.json",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "description": "Data Modeling sync configuration",
-    "unevaluatedProperties": false,
-    "properties": {
-        "space": {
-            "type": "string",
-            "description": "Enter the data modeling space name to synchronize to Fabric"
-        },
-        "lakehouse-abfss-prefix": {
-            "type": "string",
-            "description": "Enter the full ABFSS prefix for a folder in the lakehouse."
-        }
+  "$id": "data_modeling_config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "description": "Data-modeling sync configuration",
+  "unevaluatedProperties": false,
+  "required": ["space"],
+  "properties": {
+    "space": {
+      "type": "string",
+      "description": "Name of the CDF data-modeling space to replicate."
+    },
 
+    "lakehouse_prefix": {
+      "type": "string",
+      "description": "(S3 path) Optional override for the table root. If absent the code builds `s3://<bucket>/<prefix><space>/tables` automatically."
     }
+  }
 }

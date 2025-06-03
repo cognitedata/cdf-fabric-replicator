@@ -42,7 +42,7 @@ def test_data_modeling_replicator():
 @pytest.fixture
 def mock_data_modeling_config():
     yield DataModelingConfig(
-        space="test_space", lakehouse_abfss_prefix="test_abfss_prefix"
+        space="test_space", lakehouse_prefix="test_abfss_prefix"
     )
 
 
@@ -302,7 +302,7 @@ def mock_write_deltalake(mocker):
 
 
 @pytest.fixture
-def lakehouse_abfss_prefix():
+def lakehouse_prefix():
     yield "test_abfss_prefix"
 
 
@@ -633,7 +633,7 @@ class TestDataModelingReplicator:
         mock_write_deltalake,
         replicator_config,
         expected_node_instance,
-        lakehouse_abfss_prefix,
+        lakehouse_prefix,
         test_data_modeling_replicator,
     ):
         test_data_modeling_replicator.send_to_lakehouse(
@@ -643,7 +643,7 @@ class TestDataModelingReplicator:
         )
         mock_write_deltalake.assert_called_once()
         mock_write_deltalake.assert_called_with(
-            expected_node_instance, lakehouse_abfss_prefix
+            expected_node_instance, lakehouse_prefix
         )
 
     def test_send_to_lakehouse_edges(
@@ -652,7 +652,7 @@ class TestDataModelingReplicator:
         mock_write_deltalake,
         replicator_config,
         expected_edge_instance,
-        lakehouse_abfss_prefix,
+        lakehouse_prefix,
         test_data_modeling_replicator,
     ):
         test_data_modeling_replicator.send_to_lakehouse(
@@ -662,7 +662,7 @@ class TestDataModelingReplicator:
         )
         mock_write_deltalake.assert_called_once()
         mock_write_deltalake.assert_called_with(
-            expected_edge_instance, lakehouse_abfss_prefix
+            expected_edge_instance, lakehouse_prefix
         )
 
     @patch("cdf_fabric_replicator.data_modeling.write_deltalake")

@@ -24,7 +24,6 @@ class SubscriptionsConfig:
 @dataclass
 class DataModelingConfig:
     space: str
-    lakehouse_abfss_prefix: str
 
 
 @dataclass
@@ -61,8 +60,16 @@ class SourceConfig:
 
 
 @dataclass
+class S3DestinationConfig:
+    bucket: str
+    prefix: Optional[str] = None
+    region: Optional[str] = None
+
+
+@dataclass
 class DestinationConfig:
     time_series_prefix: Optional[str] = None
+    s3: Optional[S3DestinationConfig] = None
 
 
 @dataclass

@@ -1,13 +1,37 @@
 {
-    "$id": "destination_config.schema.json",
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "type": "object",
-    "description": "CDF time series configuration",
-    "unevaluatedProperties": false,
-    "properties": {
-        "time-series-prefix": {
-            "type": "string",
-            "description": "Enter the prefix to add to CDF time series external IDs created from Fabric."
+  "$id": "destination_config.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "description": "Destination configuration for the replicator.",
+  "unevaluatedProperties": false,
+  "properties": {
+    "time-series-prefix": {
+        "type": "string",
+        "description": "Legacy Fabric prefix (ignored by S3 writer)."
+    },
+    "s3": {
+      "type": "object",
+      "description": "Write Delta tables to Amazon S3",
+      "required": ["bucket"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "bucket": {
+          "type": "string",
+          "description": "Name of the S3 bucket (no s3:// prefix)."
+        },
+        "prefix": {
+          "type": "string",
+          "description": "Optional folder prefix inside the bucket (e.g. `replicas/`). Empty string or omit to write to root.",
+          "default": ""
+        },
+        "region": {
+          "type": "string",
+          "description": "AWS region of the bucket, e.g. `us-east-1`."
         }
+      }
     }
+  },
+  "oneOf": [
+    { "required": ["s3"] }
+  ]
 }

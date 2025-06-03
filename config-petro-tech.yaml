@@ -39,4 +39,4 @@ subscriptions:
 # sync data model
 #data_modeling:
 #  - space: cc_plant
-#    lakehouse_abfss_prefix: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse
+#    lakehouse_prefix: abfss://FabricCogniteDemo@onelake.dfs.fabric.microsoft.com/CogniteLakehouse.Lakehouse
