@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import pyarrow as pa
-from cognite.client.data_classes.data_modeling.ids import ViewId
+from cognite.client.data_classes.data_modeling.ids import ViewId, ContainerId
 from cognite.client.data_classes.data_modeling.query import (
     EdgeResultSetExpression,
     NodeResultSetExpression,
@@ -15,7 +15,7 @@ from cognite.client.data_classes.data_modeling.query import (
     Select,
     SourceSelector,
 )
-from cognite.client.data_classes.filters import Equals, HasData
+from cognite.client.data_classes.filters import Equals, HasData, Not, MatchAll
 from cognite.client.exceptions import CogniteAPIError
 from cognite.extractorutils.base import CancellationToken, Extractor
 from deltalake import write_deltalake
@@ -53,7 +53,6 @@ class DataModelingReplicator(Extractor):
         self.base_dir: Path = Path.cwd() / "deltalake"
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
-    # ─────────────────────────── main loop ──────────────────────
     def run(self) -> None:
         self.s3_cfg = (
             self.config.destination.s3 if self.config.destination else None
@@ -73,7 +72,7 @@ class DataModelingReplicator(Extractor):
             if delay:
                 self.stop_event.wait(delay)
 
-    # ───────────────────────── processing ───────────────────────
+
     def process_spaces(self) -> None:
         for dm_cfg in self.config.data_modeling:
             try:
@@ -89,7 +88,6 @@ class DataModelingReplicator(Extractor):
 
             self._process_instances(dm_cfg, f"{dm_cfg.space}_edges")
 
-    # .....................................................................
     def _process_instances(
         self,
         dm_cfg: DataModelingConfig,
@@ -101,15 +99,21 @@ class DataModelingReplicator(Extractor):
         )
         self._iterate_and_write(dm_cfg, state_id, query)
 
-    # ───────── query helpers ────────────────────────────────────
     @staticmethod
     def _q_for_view(view: Dict[str, Any]) -> Query:
         props = list(view["properties"])
-        vid = ViewId(view["space"], view["externalId"], view["version"])
-
+        view_space = view["space"]
+        view_external_id = view["externalId"]
+        vid = ViewId(view["space"], view_external_id, view["version"])
         if view["usedFor"] != "edge":
+            nodes_filter = HasData(
+                containers=[
+                    ContainerId(space=view_space, external_id=view_external_id)
+                ]
+            )
+
             return Query(
-                with_={"nodes": NodeResultSetExpression(filter=HasData([vid]))},
+                with_={"nodes": NodeResultSetExpression(filter=nodes_filter)},
                 select={"nodes": Select([SourceSelector(vid, props)])},
             )
         return Query(
@@ -125,39 +129,78 @@ class DataModelingReplicator(Extractor):
     def _q_for_edge() -> Query:
         return Query(with_={"edges": EdgeResultSetExpression()}, select={"edges": Select()})
 
-    # ───────── cursor loop / writer ─────────────────────────────
     def _iterate_and_write(self, dm_cfg: DataModelingConfig, state_id: str, query: Query) -> None:
         cursors = self.state_store.get_state(external_id=state_id)[1]
         if cursors:
             query.cursors = json.loads(str(cursors))
+        elif state_id.endswith("_edges"):
+            query.with_ = {"edges": EdgeResultSetExpression(filter=Not(MatchAll()))}
+        else:
+            query.with_ = {"nodes": NodeResultSetExpression(filter=Not(MatchAll()))}
 
-        while True:
+        try:
             res = self.cognite_client.data_modeling.instances.sync(query=query)
-            #self._send_to_s3(dm_cfg, res)
-            self._send_to_local(dm_cfg, res)
+        except CogniteAPIError:
+            query.cursors = None  # type: ignore
+            try:
+                res = self.cognite_client.data_modeling.instances.sync(query=query)
+            except CogniteAPIError as e:
+                self.logger.error(f"Failed to sync instances. Error: {e}")
+                raise e
 
-            if not res.cursors:
-                break
+        self._send_to_s3(data_model_config=dm_cfg, result=res)
+        #self._send_to_local(data_model_config=dm_cfg, result=res)
+        while ("nodes" in res.data and len(res.data["nodes"]) > 0) or (
+                "edges" in res.data and len(res.data["edges"])
+        ) > 0:
             query.cursors = res.cursors
+
+            try:
+                res = self.cognite_client.data_modeling.instances.sync(query=query)
+            except CogniteAPIError:
+                query.cursors = None  # type: ignore
+                try:
+                    res = self.cognite_client.data_modeling.instances.sync(query=query)
+                except CogniteAPIError as e:
+                    self.logger.error(f"Failed to sync instances. Error: {e}")
+                    raise e
+
+            self._send_to_s3(data_model_config=dm_cfg, result=res)
+            #self._send_to_local(data_model_config=dm_cfg, result=res)
+
+        if cursors is None:
+            if "nodes" in query.select:
+                sources = query.select["nodes"].sources
+                instance_type = "node"
+            elif "edges" in query.select:
+                sources = query.select["edges"].sources
+                instance_type = "edge"
+
+            for chunk in self.cognite_client.data_modeling.instances(
+                    sources=sources[0].source if sources else None,
+                    instance_type=instance_type,
+                    chunk_size=int(self.config.extractor.fabric_ingest_batch_size),
+            ):
+                if chunk:
+                    self._send_to_s3(data_model_config=dm_cfg, result=res)
+                    #self._send_to_local(data_model_config=dm_cfg, result=res)
 
         self.state_store.set_state(external_id=state_id, high=json.dumps(query.cursors))
         self.state_store.synchronize()
 
-    '''
-    def _send_to_s3(self, dm_cfg: DataModelingConfig, result: QueryResult) -> None:
-        for tbl_name, rows in self._extract_instances(result).items():
-            self._delta_append(tbl_name, rows, dm_cfg.space)
-    '''
 
-    def _send_to_local(self, dm_cfg: DataModelingConfig, result: QueryResult) -> None:
+    def _send_to_s3(self, data_model_config: DataModelingConfig, result: QueryResult) -> None:
         for tbl_name, rows in self._extract_instances(result).items():
-            self._delta_append(tbl_name, rows, dm_cfg.space)
+            self._delta_append(tbl_name, rows, data_model_config.space)
 
-    # ───────── extract rows ─────────────────────────────────────
+
+    def _send_to_local(self, data_model_config: DataModelingConfig, result: QueryResult) -> None:
+        for tbl_name, rows in self._extract_instances(result).items():
+            self._delta_append(tbl_name, rows, data_model_config.space)
+
     @staticmethod
     def _extract_instances(res: QueryResult) -> Dict[str, List[Dict[str, Union[str, int]]]]:
         instances: Dict[str, List[Dict[str, Union[str, int]]]] = {}
-
         for edges in res.data.get("edges", []):
             tbl = f"{edges.space}_edges"
             instances.setdefault(tbl, []).append(
@@ -200,43 +243,20 @@ class DataModelingReplicator(Extractor):
         self.logger.info("Δ-append %s rows → %s", len(rows), uri)
 
         try:
-            '''
-            write_deltalake(
-                uri,
-                pa.Table.from_pylist(rows),
-                mode="append",
-                engine="rust",
-                schema_mode="merge",
-                storage_options={
-                    k: v
-                    for k, v in {
-                        "AWS_ACCESS_KEY_ID":     os.getenv("AWS_ACCESS_KEY_ID"),
-                        "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY"),
-                        "AWS_REGION":            self.s3_cfg.region or os.getenv("AWS_REGION"),
-                    }.items()
-                    if v
-                }
-                or None,
-            )
-
-            write_deltalake(
-                uri,
-                pa.Table.from_pylist(rows),
-                mode="append",
-                engine="rust",
-                schema_mode="merge",
-                )
-            '''
             uri = self.base_dir / space / "tables" / table
             uri.mkdir(parents=True, exist_ok=True)
 
             self.logger.info("Δ‑append %s rows → %s", len(rows), uri)
+
             write_deltalake(
-                str(uri),
+                uri,
                 pa.Table.from_pylist(rows),
-                mode="append",
-                engine="rust",
-                schema_mode="merge",
+                mode='append',
+                storage_options={
+                    'AWS_REGION': self.s3_cfg.region or os.getenv("AWS_REGION"),
+                    'AWS_ACCESS_KEY_ID': os.getenv('AWS_ACCESS_KEY_ID'),
+                    'AWS_SECRET_ACCESS_KEY': os.getenv("AWS_SECRET_ACCESS_KEY"),
+                },
             )
         except DeltaError as err:
             self.logger.error("Delta write failed: %s", err)
