@@ -311,7 +311,6 @@ def test_data_model_sync_service_creation(
 
 def test_data_model_sync_service_update(
     test_data_modeling_replicator,
-    instance_table_paths,
     updated_node_list,
     node_list,
     edge_list,
@@ -327,3 +326,52 @@ def test_data_model_sync_service_update(
     test_data_modeling_replicator.process_spaces()
     # Assert the data model changes including versions are propagated to a Fabric lakehouse
     assert_data_model_instances_update(update_dataframe, azure_credential)
+
+
+def test_data_model_sync_service_delete(
+    test_data_modeling_replicator,
+    instance_table_paths,
+    node_list,
+    edge_list,
+    instance_dataframes,
+    test_space,
+    example_actor,
+    cognite_client,
+    azure_credential,
+):
+    # Create a data model in CDF
+    apply_data_model_instances_in_cdf(node_list, edge_list, cognite_client)
+    # Run data model sync service between CDF and Fabric
+    test_data_modeling_replicator.process_spaces()
+    # Assert the data model is populated in a Fabric lakehouse
+    assert_data_model_instances_in_fabric(
+        instance_table_paths, instance_dataframes, azure_credential
+    )
+    # Delete an instance in CDF
+    cognite_client.data_modeling.instances.delete(
+        nodes=(test_space.space, example_actor.external_id)
+    )
+    # Run replicator to delete the instance in Fabric
+    test_data_modeling_replicator.process_spaces()
+    # Assert the instance is deleted in Fabric
+
+    instance_dataframe_deleted = instance_dataframes
+    instance_dataframe_deleted[test_space.space + "_Person"] = pd.DataFrame(
+        columns=["space", "instanceType", "externalId", "version", "name", "birthYear"]
+    )
+    instance_dataframe_deleted[test_space.space + "_Actor"] = pd.DataFrame(
+        columns=["space", "instanceType", "externalId", "version", "wonOscar"]
+    )
+    instance_dataframe_deleted[test_space.space + "_edges"] = pd.DataFrame(
+        columns=[
+            "space",
+            "instanceType",
+            "externalId",
+            "version",
+            "startNode",
+            "endNode",
+        ]
+    )
+    assert_data_model_instances_in_fabric(
+        instance_table_paths, instance_dataframe_deleted, azure_credential
+    )
