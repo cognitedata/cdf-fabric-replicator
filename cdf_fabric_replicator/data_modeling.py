@@ -377,7 +377,7 @@ class DataModelingReplicator(Extractor):
             )
             try:
                 dt.delete(
-                    f"externalId IN ({', '.join([f'\'{instance["externalId"]}\'' for instance in instances[table]])})"
+                    f"externalId IN ({', '.join([f"'{instance['externalId']}'" for instance in instances[table]])})"
                 )
 
             except DeltaError as e:
