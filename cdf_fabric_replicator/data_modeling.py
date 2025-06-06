@@ -174,33 +174,24 @@ class DataModelingReplicator(Extractor):
         else:
             query.with_ = {"nodes": NodeResultSetExpression(filter=Not(MatchAll()))}
 
-        try:
-            res = self.cognite_client.data_modeling.instances.sync(query=query)
-        except CogniteAPIError:
-            query.cursors = None  # type: ignore
-            try:
-                res = self.cognite_client.data_modeling.instances.sync(query=query)
-            except CogniteAPIError as e:
-                self.logger.error(f"Failed to sync instances. Error: {e}")
-                raise e
-
+        res = self.sync_instances(query)
         self.send_to_lakehouse(data_model_config=data_model_config, result=res)
+
+        # Get the query start time (termination timestamp)
+        query_start_time = int(time.time() * 1000)  # ms since epoch
 
         while ("nodes" in res.data and len(res.data["nodes"]) > 0) or (
             "edges" in res.data and len(res.data["edges"])
         ) > 0:
             query.cursors = res.cursors
 
-            try:
-                res = self.cognite_client.data_modeling.instances.sync(query=query)
-            except CogniteAPIError:
-                query.cursors = None  # type: ignore
-                try:
-                    res = self.cognite_client.data_modeling.instances.sync(query=query)
-                except CogniteAPIError as e:
-                    self.logger.error(f"Failed to sync instances. Error: {e}")
-                    raise e
+            if self.has_recent_update(result=res, query_start_time=query_start_time):
+                self.logger.info(
+                    "Short-circuiting sync: found instance with lastUpdatedTime >= query start time. Will continue in next run."
+                )
+                break
 
+            res = self.sync_instances(query)
             self.send_to_lakehouse(data_model_config=data_model_config, result=res)
 
         if cursors is None:
@@ -226,6 +217,30 @@ class DataModelingReplicator(Extractor):
 
         self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
         self.state_store.synchronize()
+
+    def sync_instances(self, query):
+        try:
+            res = self.cognite_client.data_modeling.instances.sync(query=query)
+        except CogniteAPIError:
+            query.cursors = None  # type: ignore
+            try:
+                res = self.cognite_client.data_modeling.instances.sync(query=query)
+            except CogniteAPIError as e:
+                self.logger.error(f"Failed to sync instances. Error: {e}")
+                raise e
+        return res
+
+    def has_recent_update(self, result: QueryResult, query_start_time: int) -> bool:
+        # Check if any node/edge has lastUpdatedTime >= query_start_time
+        if "nodes" in result.data:
+            for node in result.data["nodes"]:
+                if node.get("lastUpdatedTime", 0) >= query_start_time:
+                    return True
+            if "edges" in result.data:
+                for edge in result.data["edges"]:
+                    if edge.get("lastUpdatedTime", 0) >= query_start_time:
+                        return True
+            return False
 
     def send_to_lakehouse(
         self,
