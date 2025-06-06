@@ -221,8 +221,15 @@ class DataModelingReplicator(Extractor):
     def sync_instances(self, query):
         try:
             res = self.cognite_client.data_modeling.instances.sync(query=query)
-        except CogniteAPIError:
-            query.cursors = None  # type: ignore
+        except CogniteAPIError as e:
+            if e.code == 400 and e.message == "Invalid cursor provided.":
+                self.logger.warning(
+                    "Invalid cursor provided. Resetting cursors to None and retrying."
+                )
+                query.cursors = None  # type: ignore
+            else:
+                self.logger.error(f"Failed to sync instances. Error: {e}")
+                raise e
             try:
                 res = self.cognite_client.data_modeling.instances.sync(query=query)
             except CogniteAPIError as e:
