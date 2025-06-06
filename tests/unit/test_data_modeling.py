@@ -239,19 +239,28 @@ def expected_node_instance():
             {
                 "space": "test_space",
                 "instanceType": "node",
-                "externalId": "id1",
+                "externalId": "id2",
                 "version": 1,
                 "lastUpdatedTime": 12345600,
                 "createdTime": 12345600,
                 "prop1": "value1",
             },
+        ]
+    }
+
+
+@pytest.fixture
+def expected_node_deletes():
+    yield {
+        "test_space_test_view": [
             {
                 "space": "test_space",
                 "instanceType": "node",
-                "externalId": "id2",
+                "externalId": "id1",
                 "version": 1,
                 "lastUpdatedTime": 12345600,
                 "createdTime": 12345600,
+                "deletedTime": 12378900,
                 "prop1": "value1",
             },
         ]
@@ -265,7 +274,7 @@ def expected_edge_instance():
             {
                 "space": "test_space",
                 "instanceType": "edge",
-                "externalId": "id1",
+                "externalId": "id2",
                 "version": 1,
                 "lastUpdatedTime": 12345600,
                 "createdTime": 12345600,
@@ -273,13 +282,22 @@ def expected_edge_instance():
                 "startNode": {"space": "test_space", "externalId": "id1"},
                 "endNode": {"space": "test_space", "externalId": "id2"},
             },
+        ]
+    }
+
+
+@pytest.fixture
+def expected_edge_deletes():
+    yield {
+        "test_space_edges": [
             {
                 "space": "test_space",
                 "instanceType": "edge",
-                "externalId": "id2",
+                "externalId": "id1",
                 "version": 1,
                 "lastUpdatedTime": 12345600,
                 "createdTime": 12345600,
+                "deletedTime": 12378900,
                 "prop1": "value1",
                 "startNode": {"space": "test_space", "externalId": "id1"},
                 "endNode": {"space": "test_space", "externalId": "id2"},
@@ -297,6 +315,14 @@ def query_result_empty():
 def mock_write_deltalake(mocker):
     yield mocker.patch(
         "cdf_fabric_replicator.data_modeling.DataModelingReplicator.write_instances_to_lakehouse_tables",
+        return_value=None,
+    )
+
+
+@pytest.fixture
+def mock_delete_from_deltalake(mocker):
+    yield mocker.patch(
+        "cdf_fabric_replicator.data_modeling.DataModelingReplicator.delete_instances_from_lakehouse_tables",
         return_value=None,
     )
 
@@ -586,28 +612,37 @@ class TestDataModelingReplicator:
     def test_get_instances_null(
         self, query_result_empty, test_data_modeling_replicator
     ):
-        instances = test_data_modeling_replicator.get_instances(
+        instances, deletes = test_data_modeling_replicator.get_instances(
             query_result_empty, is_edge=False
         )
         assert len(instances) == 0
+        assert len(deletes) == 0
 
     def test_get_instances_nodes(
-        self, query_result_nodes, expected_node_instance, test_data_modeling_replicator
+        self,
+        query_result_nodes,
+        expected_node_instance,
+        expected_node_deletes,
+        test_data_modeling_replicator,
     ):
-        expected_nodes = expected_node_instance
-        actual_nodes = test_data_modeling_replicator.get_instances(
+        instances, deletes = test_data_modeling_replicator.get_instances(
             query_result_nodes, is_edge=False
         )
-        assert actual_nodes == expected_nodes
+        assert instances == expected_node_instance
+        assert deletes == expected_node_deletes
 
     def test_get_instances_edges(
-        self, query_result_edges, expected_edge_instance, test_data_modeling_replicator
+        self,
+        query_result_edges,
+        expected_edge_instance,
+        expected_edge_deletes,
+        test_data_modeling_replicator,
     ):
-        expected_edges = expected_edge_instance
-        actual_edges = test_data_modeling_replicator.get_instances(
+        actual_edges, deleted_edges = test_data_modeling_replicator.get_instances(
             query_result_edges, is_edge=True
         )
-        assert actual_edges == expected_edges
+        assert actual_edges == expected_edge_instance
+        assert deleted_edges == expected_edge_deletes
 
     def test_send_to_lakehouse_null(
         self,
@@ -626,8 +661,10 @@ class TestDataModelingReplicator:
         self,
         query_result_nodes,
         mock_write_deltalake,
+        mock_delete_from_deltalake,
         replicator_config,
         expected_node_instance,
+        expected_node_deletes,
         lakehouse_abfss_prefix,
         test_data_modeling_replicator,
     ):
@@ -639,13 +676,19 @@ class TestDataModelingReplicator:
         mock_write_deltalake.assert_called_with(
             expected_node_instance, lakehouse_abfss_prefix
         )
+        mock_delete_from_deltalake.assert_called_once()
+        mock_delete_from_deltalake.assert_called_with(
+            expected_node_deletes, lakehouse_abfss_prefix
+        )
 
     def test_send_to_lakehouse_edges(
         self,
         query_result_edges,
         mock_write_deltalake,
+        mock_delete_from_deltalake,
         replicator_config,
         expected_edge_instance,
+        expected_edge_deletes,
         lakehouse_abfss_prefix,
         test_data_modeling_replicator,
     ):
@@ -656,6 +699,10 @@ class TestDataModelingReplicator:
         mock_write_deltalake.assert_called_once()
         mock_write_deltalake.assert_called_with(
             expected_edge_instance, lakehouse_abfss_prefix
+        )
+        mock_delete_from_deltalake.assert_called_once()
+        mock_delete_from_deltalake.assert_called_with(
+            expected_edge_deletes, lakehouse_abfss_prefix
         )
 
     @patch("cdf_fabric_replicator.data_modeling.write_deltalake")
