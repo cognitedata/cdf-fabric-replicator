@@ -3,7 +3,7 @@ import time
 from typing import Iterator, List, Dict, Any, Optional
 from cognite.extractorutils.base import CancellationToken
 from cognite.extractorutils.base import Extractor
-from azure.identity import DefaultAzureCredential
+from pathlib import Path
 from deltalake import write_deltalake, DeltaTable
 from deltalake.exceptions import DeltaError, TableNotFoundError
 import pyarrow as pa
@@ -22,8 +22,8 @@ class EventsReplicator(Extractor):
         override_config_path: Optional[str] = None,
     ) -> None:
         super().__init__(
-            name="cdf_fabric_replicator_events",
-            description="CDF Fabric Replicator",
+            name="cdf_s3_replicator_events",
+            description="CDF -> S3 Delta Lake Replicator",
             config_class=Config,
             metrics=metrics,
             use_default_state_store=False,
@@ -31,9 +31,11 @@ class EventsReplicator(Extractor):
             cancellation_token=stop_event,
             config_file_path=override_config_path,
         )
-        self.azure_credential = DefaultAzureCredential()
         self.event_state_key = "event_state"
         self.stop_event = stop_event
+        self.s3_cfg = None
+        self.base_dir: Path = Path.cwd() / "deltalake"
+        self.base_dir.mkdir(parents=True, exist_ok=True)
         self.logger = logging.getLogger(self.name)
 
     def run(self) -> None:
@@ -79,11 +81,11 @@ class EventsReplicator(Extractor):
                 if isinstance(events_dict, dict):
                     events_dict = [events_dict]
                 try:
-                    self.write_events_to_lakehouse_tables(
-                        events_dict, self.config.event.lakehouse_abfss_path_events
+                    self.write_events_to_s3_delta_lake_tables(
+                        events_dict, self.config.event.s3_delta_lake_path_events
                     )
                 except DeltaError as e:
-                    self.logger.error(f"Error writing events to lakehouse tables: {e}")
+                    self.logger.error(f"Error writing events to S3 Delta lake tables: {e}")
                     raise e
                 last_event = events_dict[-1]
                 self.set_event_state(self.event_state_key, last_event["createdTime"])
@@ -114,12 +116,13 @@ class EventsReplicator(Extractor):
         self.state_store.synchronize()
         self.logger.debug(f"Event state set: {created_time}")
 
-    def write_or_merge_to_lakehouse_table(
-        self, abfss_path: str, storage_options: Dict[str, str], data: pa.Table
+    @staticmethod
+    def write_or_merge_to_s3_delta_lake_table(
+            s3fs_path: str, storage_options: Dict[str, str], data: pa.Table
     ) -> None:
         try:
             dt = DeltaTable(
-                abfss_path,
+                s3fs_path,
                 storage_options=storage_options,
             )
 
@@ -136,7 +139,7 @@ class EventsReplicator(Extractor):
             )
         except TableNotFoundError:
             write_deltalake(
-                abfss_path,
+                s3fs_path,
                 data,
                 mode="append",
                 engine="rust",
@@ -144,22 +147,24 @@ class EventsReplicator(Extractor):
                 storage_options=storage_options,
             )
 
-    def write_events_to_lakehouse_tables(
-        self, events: List[Dict[str, Any]], abfss_path: str
+    def write_events_to_s3_delta_lake_tables(
+        self, events: List[Dict[str, Any]], s3fs_path: str
     ) -> None:
-        token = self.azure_credential.get_token("https://storage.azure.com/.default")
 
-        self.logger.info(f"Writing {len(events)} to '{abfss_path}' table...")
+        self.logger.info(f"Writing {len(events)} to '{s3fs_path}' table...")
         data = pa.Table.from_pylist(events)
         storage_options = {
-            "bearer_token": token.token,
-            "use_fabric_endpoint": "true",
+            "AWS_REGION": self.config.aws.region,
+            "AWS_ACCESS_KEY_ID": self.config.aws.access_key_id,
+            "AWS_SECRET_ACCESS_KEY": self.config.aws.secret_access_key,
+            "AWS_S3_LOCKING_PROVIDER": "dynamodb",
+            "DELTA_DYNAMO_TABLE_NAME": self.config.aws.dynamo_table_name,
         }
 
         try:
-            self.write_or_merge_to_lakehouse_table(abfss_path, storage_options, data)
+            self.write_or_merge_to_s3_delta_lake_table(s3fs_path, storage_options, data)
         except DeltaError as e:
-            self.logger.error(f"Error writing events to lakehouse tables: {e}")
+            self.logger.error(f"Error writing events to S3 Delta Lake tables: {e}")
             raise e
 
         self.logger.info("done.")

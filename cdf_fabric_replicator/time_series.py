@@ -3,8 +3,8 @@ import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Literal, Optional
+from pathlib import Path
 
-from azure.identity import DefaultAzureCredential
 from deltalake.exceptions import DeltaError, TableNotFoundError
 from deltalake.writer import write_deltalake, DeltaTable
 import pandas as pd
@@ -33,8 +33,8 @@ class TimeSeriesReplicator(Extractor):
         override_config_path: Optional[str] = None,
     ) -> None:
         super().__init__(
-            name="cdf_fabric_replicator_ts",
-            description="CDF Fabric Replicator",
+            name="cdf_s3_delta_lake_replicator_ts",
+            description="CDF -> S3 Delta Lake Replicator for Time Series",
             config_class=Config,
             metrics=metrics,
             use_default_state_store=False,
@@ -48,7 +48,9 @@ class TimeSeriesReplicator(Extractor):
         self.errors: List[str] = []
         self.update_queue: List[DatapointsUpdate] = []
         # logged in credentials, either local user or managed identity
-        self.azure_credential = DefaultAzureCredential()
+        self.s3_cfg = None
+        self.base_dir: Path = Path.cwd() / "deltalake"
+        self.base_dir.mkdir(parents=True, exist_ok=True)
         self.ts_cache: Dict[str, int] = {}
         self.logger = logging.getLogger(self.name)
 
@@ -135,14 +137,14 @@ class TimeSeriesReplicator(Extractor):
                 limit=self.config.extractor.subscription_batch_size,
             ):
                 if update_batch.has_next:
-                    self.send_to_lakehouse(
+                    self.send_to_s3_delta_lake(
                         subscription=subscription,
                         update_batch=update_batch,
                         state_id=state_id,
                         send_now=False,
                     )
                 else:
-                    self.send_to_lakehouse(
+                    self.send_to_s3_delta_lake(
                         subscription=subscription,
                         update_batch=update_batch,
                         state_id=state_id,
@@ -157,7 +159,7 @@ class TimeSeriesReplicator(Extractor):
 
         return "No new data"
 
-    def send_to_lakehouse(
+    def send_to_s3_delta_lake(
         self,
         subscription: SubscriptionsConfig,
         update_batch: DatapointSubscriptionBatch,
@@ -168,7 +170,7 @@ class TimeSeriesReplicator(Extractor):
         self.logger.debug(f"update_queue length: {len(self.update_queue)}")
 
         if len(self.update_queue) > self.config.extractor.ingest_batch_size or send_now:
-            self.send_data_point_to_lakehouse_table(
+            self.send_data_point_to_s3_delta_lake_table(
                 subscription=subscription, updates=self.update_queue
             )
 
@@ -176,7 +178,7 @@ class TimeSeriesReplicator(Extractor):
             self.state_store.synchronize()
             self.update_queue = []
 
-    def send_data_point_to_lakehouse_table(
+    def send_data_point_to_s3_delta_lake_table(
         self, subscription: SubscriptionsConfig, updates: List[DatapointsUpdate]
     ) -> None:
         for update in updates:
@@ -186,10 +188,10 @@ class TimeSeriesReplicator(Extractor):
         df = self.convert_updates_to_pandasdf(updates)
         if df is not None:
             self.logger.info(
-                f"writing {df.shape[0]} rows to '{subscription.lakehouse_abfss_path_dps}' table..."
+                f"writing {df.shape[0]} rows to '{subscription.s3_delta_lake_path_dps}' table..."
             )
 
-            self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_dps, df)
+            self.write_pd_to_deltalake(subscription.s3_delta_lake_path_dps, df)
             self.logger.info("done.")
 
     def send_time_series_to_lakehouse_table(
@@ -240,10 +242,10 @@ class TimeSeriesReplicator(Extractor):
                 )
                 df = df.dropna()
                 self.logger.info(
-                    f"Writing {ts.external_id} to '{subscription.lakehouse_abfss_path_ts}' table..."
+                    f"Writing {ts.external_id} to '{subscription.s3_delta_lake_path_ts}' table..."
                 )
                 if not df.empty:
-                    self.write_pd_to_deltalake(subscription.lakehouse_abfss_path_ts, df)
+                    self.write_pd_to_deltalake(subscription.s3_delta_lake_path_ts, df)
                 self.ts_cache[str(update.upserts.external_id)] = 1
             else:
                 self.logger.error(
@@ -276,7 +278,7 @@ class TimeSeriesReplicator(Extractor):
             return None
         return pd.DataFrame(data=rows, columns=["externalId", "timestamp", "value"])
 
-    def write_or_merge_to_lakehouse_table(
+    def write_or_merge_to_s3_delta_lake_table(
         self,
         table: str,
         df: pd.DataFrame,
@@ -313,12 +315,15 @@ class TimeSeriesReplicator(Extractor):
         mode: Literal["error", "append", "overwrite", "ignore"] = "append",
     ) -> None:
         storage_options = {
-            "bearer_token": self.get_token(),
-            "use_fabric_endpoint": "true",
+            "AWS_REGION": self.config.aws.region,
+            "AWS_ACCESS_KEY_ID": self.config.aws.access_key_id,
+            "AWS_SECRET_ACCESS_KEY": self.config.aws.secret_access_key,
+            "AWS_S3_LOCKING_PROVIDER": "dynamodb",
+            "DELTA_DYNAMO_TABLE_NAME": self.config.aws.dynamo_table_name,
         }
 
         try:
-            self.write_or_merge_to_lakehouse_table(
+            self.write_or_merge_to_s3_delta_lake_table(
                 table=table,
                 df=df,
                 mode=mode,
@@ -329,8 +334,3 @@ class TimeSeriesReplicator(Extractor):
             raise e
 
         return None
-
-    def get_token(self) -> str:
-        return self.azure_credential.get_token(
-            "https://storage.azure.com/.default"
-        ).token
