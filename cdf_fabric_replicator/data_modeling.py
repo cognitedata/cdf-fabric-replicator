@@ -243,11 +243,11 @@ class DataModelingReplicator(Extractor):
             for node in result.data["nodes"]:
                 if node.get("lastUpdatedTime", 0) >= query_start_time:
                     return True
-            if "edges" in result.data:
-                for edge in result.data["edges"]:
-                    if edge.get("lastUpdatedTime", 0) >= query_start_time:
-                        return True
-            return False
+        if "edges" in result.data:
+            for edge in result.data["edges"]:
+                if edge.get("lastUpdatedTime", 0) >= query_start_time:
+                    return True
+        return False
 
     def send_to_lakehouse(
         self,
