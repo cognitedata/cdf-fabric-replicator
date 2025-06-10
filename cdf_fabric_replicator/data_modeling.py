@@ -1,4 +1,5 @@
 # mypy: ignore-errors
+from collections import defaultdict
 import json
 import logging
 import time
@@ -297,8 +298,8 @@ class DataModelingReplicator(Extractor):
     def get_instances_from_result(
         self, instances_from_result: NodeList | EdgeList
     ) -> tuple[Dict[str, Any], Dict[str, Any]]:
-        instances = {}
-        deleted_instances = {}
+        instances = defaultdict(list)
+        deleted_instances = defaultdict(list)
 
         instance_type = (
             "edge" if isinstance(instances_from_result, EdgeList) else "node"
@@ -336,15 +337,9 @@ class DataModelingReplicator(Extractor):
 
             if instance.deleted_time is not None:
                 item["deletedTime"] = instance.deleted_time
-                if table_name not in deleted_instances:
-                    deleted_instances[table_name] = [item]
-                else:
-                    deleted_instances[table_name].append(item)
+                deleted_instances[table_name].append(item)
             else:
-                if table_name not in instances:
-                    instances[table_name] = [item]
-                else:
-                    instances[table_name].append(item)
+                instances[table_name].append(item)
 
         return (instances, deleted_instances)
 
