@@ -242,11 +242,11 @@ class DataModelingReplicator(Extractor):
         # Check if any node/edge has lastUpdatedTime >= query_start_time
         if "nodes" in result.data:
             for node in result.data["nodes"]:
-                if node.get("lastUpdatedTime", 0) >= query_start_time:
+                if node.last_updated_time >= query_start_time:
                     return True
         if "edges" in result.data:
             for edge in result.data["edges"]:
-                if edge.get("lastUpdatedTime", 0) >= query_start_time:
+                if edge.last_updated_time >= query_start_time:
                     return True
         return False
 
@@ -393,9 +393,12 @@ class DataModelingReplicator(Extractor):
                 },
             )
             try:
-                dt.delete(
-                    f"externalId IN ({', '.join([f"'{instance['externalId']}'" for instance in instances[table]])})"
-                )
+                xids = [
+                    instance["externalId"].replace("'", "''")
+                    for instance in instances[table]
+                ]
+                predicate = f'externalId IN ({', '.join([f"'{xid}'" for xid in xids])})'
+                dt.delete(predicate)
 
             except DeltaError as e:
                 self.logger.error(

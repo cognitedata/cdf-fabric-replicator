@@ -127,7 +127,7 @@ def instance_table_paths(
 @pytest.fixture(scope="function")
 def example_actor():
     return Node(
-        "arnold_schwarzenegger",
+        "'arnold_schwarzenegger'",
         "Actor",
         {
             "Actor": {"wonOscar": False},
@@ -138,7 +138,7 @@ def example_actor():
 
 @pytest.fixture(scope="function")
 def updated_actor():
-    return Node("arnold_schwarzenegger", "Actor", {"Actor": {"wonOscar": True}})
+    return Node("'arnold_schwarzenegger'", "Actor", {"Actor": {"wonOscar": True}})
 
 
 @pytest.fixture(scope="function")
@@ -151,7 +151,7 @@ def example_movie():
 @pytest.fixture(scope="function")
 def example_edge_actor_to_movie(example_actor, example_movie):
     return Edge(
-        "relation:arnold_schwarzenegger:terminator",
+        "relation:'arnold_schwarzenegger':terminator",
         "movies",
         example_actor,
         example_movie,
@@ -161,7 +161,7 @@ def example_edge_actor_to_movie(example_actor, example_movie):
 @pytest.fixture(scope="function")
 def example_edge_movie_to_actor(example_actor, example_movie):
     return Edge(
-        "relation:terminator:arnold_schwarzenegger",
+        "relation:terminator:'arnold_schwarzenegger'",
         "actors",
         example_movie,
         example_actor,
