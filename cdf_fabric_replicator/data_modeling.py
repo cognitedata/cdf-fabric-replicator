@@ -1,4 +1,5 @@
 # mypy: ignore-errors
+from collections import defaultdict
 import json
 import logging
 import time
@@ -25,7 +26,7 @@ from cognite.extractorutils.base import Extractor
 
 from azure.identity import DefaultAzureCredential
 from deltalake.exceptions import DeltaError
-from deltalake import write_deltalake
+from deltalake import DeltaTable, write_deltalake
 import pyarrow as pa
 
 from cdf_fabric_replicator import __version__ as fabric_replicator_version
@@ -174,33 +175,24 @@ class DataModelingReplicator(Extractor):
         else:
             query.with_ = {"nodes": NodeResultSetExpression(filter=Not(MatchAll()))}
 
-        try:
-            res = self.cognite_client.data_modeling.instances.sync(query=query)
-        except CogniteAPIError:
-            query.cursors = None  # type: ignore
-            try:
-                res = self.cognite_client.data_modeling.instances.sync(query=query)
-            except CogniteAPIError as e:
-                self.logger.error(f"Failed to sync instances. Error: {e}")
-                raise e
-
+        res = self.sync_instances(query)
         self.send_to_lakehouse(data_model_config=data_model_config, result=res)
+
+        # Get the query start time (termination timestamp)
+        query_start_time = int(time.time() * 1000)  # ms since epoch
 
         while ("nodes" in res.data and len(res.data["nodes"]) > 0) or (
             "edges" in res.data and len(res.data["edges"])
         ) > 0:
             query.cursors = res.cursors
 
-            try:
-                res = self.cognite_client.data_modeling.instances.sync(query=query)
-            except CogniteAPIError:
-                query.cursors = None  # type: ignore
-                try:
-                    res = self.cognite_client.data_modeling.instances.sync(query=query)
-                except CogniteAPIError as e:
-                    self.logger.error(f"Failed to sync instances. Error: {e}")
-                    raise e
+            if self.has_recent_update(result=res, query_start_time=query_start_time):
+                self.logger.info(
+                    "Short-circuiting sync: found instance with lastUpdatedTime >= query start time. Will continue in next run."
+                )
+                break
 
+            res = self.sync_instances(query)
             self.send_to_lakehouse(data_model_config=data_model_config, result=res)
 
         if cursors is None:
@@ -227,6 +219,40 @@ class DataModelingReplicator(Extractor):
         self.state_store.set_state(external_id=state_id, high=json.dumps(res.cursors))
         self.state_store.synchronize()
 
+    def sync_instances(self, query):
+        try:
+            res = self.cognite_client.data_modeling.instances.sync(query=query)
+        except CogniteAPIError as e:
+            if e.code == 400 and (
+                e.message == "Invalid cursor provided."
+                or e.message == "Cursor has expired. Try again with a new cursor."
+            ):
+                self.logger.warning(
+                    "Invalid cursor provided. Resetting cursors to None and retrying."
+                )
+                query.cursors = None  # type: ignore
+            else:
+                self.logger.error(f"Failed to sync instances. Error: {e}")
+                raise e
+            try:
+                res = self.cognite_client.data_modeling.instances.sync(query=query)
+            except CogniteAPIError as e:
+                self.logger.error(f"Failed to sync instances. Error: {e}")
+                raise e
+        return res
+
+    def has_recent_update(self, result: QueryResult, query_start_time: int) -> bool:
+        # Check if any node/edge has lastUpdatedTime >= query_start_time
+        if "nodes" in result.data:
+            for node in result.data["nodes"]:
+                if node.last_updated_time >= query_start_time:
+                    return True
+        if "edges" in result.data:
+            for edge in result.data["edges"]:
+                if edge.last_updated_time >= query_start_time:
+                    return True
+        return False
+
     def send_to_lakehouse(
         self,
         data_model_config: DataModelingConfig,
@@ -234,29 +260,34 @@ class DataModelingReplicator(Extractor):
     ) -> None:
         # check type of result
         if isinstance(result, QueryResult):
-            nodes = self.get_instances(result, is_edge=False)
-            edges = self.get_instances(result, is_edge=True)
+            nodes, deleted_nodes = self.get_instances(result, is_edge=False)
+            edges, deleted_edges = self.get_instances(result, is_edge=True)
         elif isinstance(result, NodeList):
-            nodes = self.get_instances_from_result(result)
+            nodes, deleted_nodes = self.get_instances_from_result(result)
             edges = {}
+            deleted_edges = {}
         elif isinstance(result, EdgeList):
             nodes = {}
-            edges = self.get_instances_from_result(result)
+            deleted_nodes = {}
+            edges, deleted_edges = self.get_instances_from_result(result)
 
         abfss_prefix = data_model_config.lakehouse_abfss_prefix
         if len(nodes) > 0:
             self.write_instances_to_lakehouse_tables(nodes, abfss_prefix)
-
+        if len(deleted_nodes) > 0:
+            self.delete_instances_from_lakehouse_tables(deleted_nodes, abfss_prefix)
         if len(edges) > 0:
             self.write_instances_to_lakehouse_tables(edges, abfss_prefix)
+        if len(deleted_edges) > 0:
+            self.delete_instances_from_lakehouse_tables(deleted_edges, abfss_prefix)
 
     def get_instances(
         self, result: QueryResult, is_edge: bool = False
-    ) -> Dict[str, Any]:
+    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
         if (is_edge and "edges" not in result) or (
             not is_edge and "nodes" not in result
         ):
-            return {}
+            return ({}, {})
 
         if is_edge:
             instances_from_result = result.get_edges("edges")
@@ -269,8 +300,9 @@ class DataModelingReplicator(Extractor):
 
     def get_instances_from_result(
         self, instances_from_result: NodeList | EdgeList
-    ) -> Dict[str, Any]:
-        instances = {}
+    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        instances = defaultdict(list)
+        deleted_instances = defaultdict(list)
 
         instance_type = (
             "edge" if isinstance(instances_from_result, EdgeList) else "node"
@@ -305,11 +337,14 @@ class DataModelingReplicator(Extractor):
                 if instance_type == "edge"
                 else f"{view.space}_{view.external_id}"
             )
-            if table_name not in instances:
-                instances[table_name] = [item]
+
+            if instance.deleted_time is not None:
+                item["deletedTime"] = instance.deleted_time
+                deleted_instances[table_name].append(item)
             else:
                 instances[table_name].append(item)
-        return instances
+
+        return (instances, deleted_instances)
 
     def write_instances_to_lakehouse_tables(
         self, instances: Dict[str, Any], abfss_prefix: str
@@ -318,7 +353,7 @@ class DataModelingReplicator(Extractor):
         for table in instances:
             abfss_path = f"{abfss_prefix}/Tables/{table}"
             self.logger.info(
-                f"Writing {len(instances[table])} to '{abfss_path}' table..."
+                f"Writing {len(instances[table])} rows to '{abfss_path}' table..."
             )
             data = pa.Table.from_pylist(instances[table])
             try:
@@ -339,5 +374,40 @@ class DataModelingReplicator(Extractor):
                 self.logger.error(f"Error writing instances to lakehouse tables: {e}")
                 raise e
             self.logger.info(
-                f"Successfully wrote {len(instances[table])} to '{abfss_path}' table."
+                f"Successfully wrote {len(instances[table])} rows to '{abfss_path}' table."
+            )
+
+    def delete_instances_from_lakehouse_tables(
+        self, instances: Dict[str, Any], abfss_prefix: str
+    ) -> None:
+        token = self.azure_credential.get_token("https://storage.azure.com/.default")
+        for table in instances:
+            abfss_path = f"{abfss_prefix}/Tables/{table}"
+            self.logger.info(
+                f"Deleting {len(instances[table])} rows from '{abfss_path}' table..."
+            )
+            dt = DeltaTable(
+                abfss_path,
+                storage_options={
+                    "bearer_token": token.token,
+                    "use_fabric_endpoint": str(
+                        self.config.extractor.use_fabric_endpoint
+                    ).lower(),
+                },
+            )
+            try:
+                xids = [
+                    instance["externalId"].replace("'", "''")
+                    for instance in instances[table]
+                ]
+                predicate = f'externalId IN ({', '.join([f"'{xid}'" for xid in xids])})'
+                dt.delete(predicate)
+
+            except DeltaError as e:
+                self.logger.error(
+                    f"Error deleting instances from lakehouse tables: {e}"
+                )
+                raise e
+            self.logger.info(
+                f"Successfully deleted {len(instances[table])} rows from '{abfss_path}' table."
             )
