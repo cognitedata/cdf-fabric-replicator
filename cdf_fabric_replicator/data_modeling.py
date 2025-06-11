@@ -223,7 +223,10 @@ class DataModelingReplicator(Extractor):
         try:
             res = self.cognite_client.data_modeling.instances.sync(query=query)
         except CogniteAPIError as e:
-            if e.code == 400 and e.message == "Invalid cursor provided.":
+            if e.code == 400 and (
+                e.message == "Invalid cursor provided."
+                or e.message == "Cursor has expired. Try again with a new cursor."
+            ):
                 self.logger.warning(
                     "Invalid cursor provided. Resetting cursors to None and retrying."
                 )
