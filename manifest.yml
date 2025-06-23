@@ -21,6 +21,12 @@ artifacts:
 # A list of releases, when running the release script only the entry matching the
 # provided version is used.
 versions:
+  "0.3.5":
+    description: "Incremental improvements and bug fixes."
+    changelog:
+      added:
+        - "Implement delete functionality for datamodel replicator"
+        - "Stability fixes"
   "0.3.4":
     description: "Incremental improvements and bug fixes."
     changelog:
