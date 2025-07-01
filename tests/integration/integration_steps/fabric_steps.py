@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 from deltalake.writer import write_deltalake
 from deltalake.exceptions import TableNotFoundError
 from azure.storage.filedatalake import DataLakeServiceClient
+import time
 
 TIMESTAMP_COLUMN = "timestamp"
 DATA_MODEL_TIMESTAMP_COLUMNS = ["lastUpdatedTime", "createdTime"]
@@ -30,11 +31,40 @@ def get_ts_delta_table(
 
 
 def delete_delta_table_data(credential: DefaultAzureCredential, path: str):
-    try:
-        delta_table = get_ts_delta_table(credential, path)
-        delta_table.delete()
-    except TableNotFoundError:
-        print(f"Table not found {path}")
+    max_retries = 3
+    retry_delay = 1  # seconds
+
+    for attempt in range(max_retries):
+        try:
+            delta_table = get_ts_delta_table(credential, path)
+            delta_table.delete()
+
+            # Verify deletion by checking if table is empty
+            time.sleep(0.5)  # Small delay to ensure operation completes
+            try:
+                verification_table = get_ts_delta_table(credential, path)
+                df = verification_table.to_pandas()
+                if len(df) == 0:
+                    return  # Successfully deleted all data
+                else:
+                    print(
+                        f"Warning: Table {path} still contains {len(df)} rows after deletion attempt {attempt + 1}"
+                    )
+            except TableNotFoundError:
+                return  # Table doesn't exist, which is fine
+
+        except TableNotFoundError:
+            print(f"Table not found {path}")
+            return
+        except Exception as e:
+            print(
+                f"Attempt {attempt + 1}/{max_retries}: Error deleting data from {path}: {e}"
+            )
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+            else:
+                print(f"Failed to delete data from {path} after {max_retries} attempts")
+                raise
 
 
 def read_deltalake_timeseries(timeseries_path: str, credential: DefaultAzureCredential):

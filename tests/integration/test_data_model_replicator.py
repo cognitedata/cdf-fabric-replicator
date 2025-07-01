@@ -19,6 +19,7 @@ from tests.integration.integration_steps.fabric_steps import (
     lakehouse_table_name,
     assert_data_model_instances_in_fabric,
     assert_data_model_instances_update,
+    get_ts_delta_table,
 )
 from integration_steps.data_model_generation import Node, Edge, create_node, create_edge
 
@@ -38,6 +39,31 @@ def test_data_modeling_replicator():
     replicator._load_state_store()
     replicator.logger = Mock()
     yield replicator
+
+    # Clean up state store after each test to prevent test interference
+    try:
+        # Clear all state store entries that might interfere with subsequent tests
+        for data_model_config in replicator.config.data_modeling or []:
+            try:
+                all_views = replicator.cognite_client.data_modeling.views.list(
+                    space=data_model_config.space, limit=-1
+                )
+                views_dict = all_views.dump()
+                for view in views_dict:
+                    state_id = f"state_{data_model_config.space}_{view['externalId']}_{view['version']}"
+                    replicator.state_store.delete_state(state_id)
+                # Also clean edge state
+                edge_state_id = f"state_{data_model_config.space}_edges"
+                replicator.state_store.delete_state(edge_state_id)
+            except Exception as e:
+                print(
+                    f"Warning: Could not clean up state for space {data_model_config.space}: {e}"
+                )
+
+        replicator.state_store.synchronize()
+    except Exception as e:
+        print(f"Warning: Could not clean up state store: {e}")
+
     try:
         os.remove("states.json")
     except FileNotFoundError:
@@ -116,10 +142,34 @@ def instance_table_paths(
         instance_table_paths.append(
             lakehouse_table_name(test_model.space + "_" + view.external_id)
         )
+        # Clean up before the test
         delete_delta_table_data(azure_credential, instance_table_paths[-1])
+
     edge_table_path = lakehouse_table_name(test_model.space + "_edges")
     instance_table_paths.append(edge_table_path)
+    # Clean up edge table before the test
+    delete_delta_table_data(azure_credential, edge_table_path)
+
+    # Double-check cleanup - make sure tables are completely empty before proceeding
+    import time
+
+    time.sleep(1)  # Give some time for cleanup operations to complete
+
+    for path in instance_table_paths:
+        try:
+            delta_table = get_ts_delta_table(azure_credential, path)
+            df = delta_table.to_pandas()
+            if len(df) > 0:
+                print(
+                    f"Warning: Table {path} still contains {len(df)} rows before test, attempting additional cleanup"
+                )
+                delete_delta_table_data(azure_credential, path)
+        except Exception as e:
+            print(f"Could not verify cleanup for {path}: {e}")
+
     yield instance_table_paths
+
+    # Clean up after the test
     for path in instance_table_paths:
         delete_delta_table_data(azure_credential, path)
 
