@@ -21,7 +21,7 @@ jobs:
       should-release: ${{ steps.confirm-release.outputs.test }}
     steps:
       - name: checkout main
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           fetch-depth: 0
           ref: main
@@ -63,7 +63,7 @@ jobs:
       time: ${{ steps.get-time.outputs.time }}
     steps:
       - name: checkout branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
         with:
           ref: ${{ github.events.pull_request.head.sha }}
           fetch-depth: 0
@@ -81,7 +81,7 @@ jobs:
       version: ${{ steps.get-version.outputs.version }}
     steps:
       - name: checkout branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
       - name: update pip
         run: pip install --upgrade pip
@@ -108,7 +108,7 @@ jobs:
       DEBIAN_FRONTEND: noninteractive
     steps:
       - name: checkout branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
       - name: ensure curl
         run: sudo apt-get -qq install curl dotnet-sdk-8.0
@@ -155,7 +155,7 @@ jobs:
 
     steps:
       - name: checkout branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
       - name: Install python
         uses: actions/setup-python@v5
@@ -260,7 +260,7 @@ jobs:
       - current-branch
       - should-release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
       - name: Install python
         uses: actions/setup-python@v5
@@ -320,7 +320,7 @@ jobs:
       contents: read
       packages: write
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
