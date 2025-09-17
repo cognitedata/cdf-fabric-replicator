@@ -80,6 +80,8 @@ def datapoints_dataframe():
 
 @pytest.fixture
 def timeseries_dataframe():
+    import json
+
     return pd.DataFrame(
         data=[
             [
@@ -89,7 +91,7 @@ def timeseries_dataframe():
                 False,
                 False,
                 "test_unit",
-                {"key": "value"},
+                json.dumps({"key": "value"}),
                 "test_asset",
             ]
         ],

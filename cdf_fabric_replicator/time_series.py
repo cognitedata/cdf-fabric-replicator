@@ -1,10 +1,10 @@
+import json
 import logging
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Literal, Optional
 
-import numpy as np
 import pandas as pd
 from azure.identity import DefaultAzureCredential
 from deltalake.exceptions import DeltaError, TableNotFoundError
@@ -206,31 +206,22 @@ class TimeSeriesReplicator(Extractor):
                     if len(ts.metadata.keys()) > 0
                     else {"source": "cdf_fabric_replicator"}
                 )
+                # Convert metadata to JSON string to avoid schema conflicts
+                metadata_json = json.dumps(metadata)
+
                 df = pd.DataFrame(
-                    np.array(
-                        [
-                            [
-                                ts.external_id,
-                                ts.name,
-                                ts.description if ts.description else "",
-                                ts.is_string,
-                                ts.is_step,
-                                ts.unit,
-                                metadata,
-                                asset_xid,
-                            ]
-                        ]
-                    ),
-                    columns=[
-                        "externalId",
-                        "name",
-                        "description",
-                        "isString",
-                        "isStep",
-                        "unit",
-                        "metadata",
-                        "assetExternalId",
-                    ],
+                    [
+                        {
+                            "externalId": ts.external_id,
+                            "name": ts.name,
+                            "description": ts.description if ts.description else "",
+                            "isString": ts.is_string,
+                            "isStep": ts.is_step,
+                            "unit": ts.unit,
+                            "metadata": metadata_json,
+                            "assetExternalId": asset_xid,
+                        }
+                    ]
                 )
                 df = df.dropna()
                 self.logger.info(
