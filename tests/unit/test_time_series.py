@@ -588,7 +588,7 @@ class TestTimeSeriesReplicator:
             )
 
     @patch("cdf_fabric_replicator.time_series.DeltaTable")
-    def test_write_pd_to_deltalake_merge_table(
+    def test_write_pd_to_deltalake_merge_table_without_timestamp(
         self, mock_delta_table_class, test_timeseries_replicator
     ):
         # Create a mock DeltaTable
@@ -598,7 +598,7 @@ class TestTimeSeriesReplicator:
         mock_delta_table_class.return_value = mock_delta_table
         test_timeseries_replicator.config.extractor.use_fabric_endpoint = True
 
-        # Create an empty DataFrame
+        # Create an empty DataFrame (no timestamp column)
         df = pd.DataFrame()
 
         # Call the write_pd_to_deltalake method
@@ -613,7 +613,43 @@ class TestTimeSeriesReplicator:
             },
         )
 
-        # Check that the merge method was called with the correct arguments
+        # Check that the merge method was called with the correct arguments (no timestamp)
+        mock_delta_table.merge.assert_called_once_with(
+            source=df,
+            predicate="s.externalId = t.externalId",
+            source_alias="s",
+            target_alias="t",
+        )
+
+    @patch("cdf_fabric_replicator.time_series.DeltaTable")
+    def test_write_pd_to_deltalake_merge_table_with_timestamp(
+        self, mock_delta_table_class, test_timeseries_replicator
+    ):
+        # Create a mock DeltaTable
+        mock_delta_table = Mock()
+
+        # Set the return value of DeltaTable to return Mock table
+        mock_delta_table_class.return_value = mock_delta_table
+        test_timeseries_replicator.config.extractor.use_fabric_endpoint = True
+
+        # Create a DataFrame with timestamp column
+        df = pd.DataFrame(
+            {"externalId": ["test"], "timestamp": [123456789], "value": [1.0]}
+        )
+
+        # Call the write_pd_to_deltalake method
+        test_timeseries_replicator.write_pd_to_deltalake("test_table", df)
+
+        # Check that DeltaTable was called with the correct arguments
+        mock_delta_table_class.assert_called_once_with(
+            "test_table",
+            storage_options={
+                "bearer_token": test_timeseries_replicator.get_token(),
+                "use_fabric_endpoint": "true",
+            },
+        )
+
+        # Check that the merge method was called with the correct arguments (with timestamp)
         mock_delta_table.merge.assert_called_once_with(
             source=df,
             predicate="s.externalId = t.externalId AND s.timestamp = t.timestamp",

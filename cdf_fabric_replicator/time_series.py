@@ -279,10 +279,18 @@ class TimeSeriesReplicator(Extractor):
     ) -> None:
         try:
             dt = DeltaTable(table, storage_options=storage_options)
+            # Build predicate based on available columns
+            # For time series metadata: only use externalId
+            # For data points: use both externalId and timestamp
+            if "timestamp" in df.columns:
+                predicate = "s.externalId = t.externalId AND s.timestamp = t.timestamp"
+            else:
+                predicate = "s.externalId = t.externalId"
+
             (
                 dt.merge(
                     source=df,
-                    predicate="s.externalId = t.externalId AND s.timestamp = t.timestamp",
+                    predicate=predicate,
                     source_alias="s",
                     target_alias="t",
                 )
