@@ -302,7 +302,9 @@ class CdfFabricExtractor(Extractor[Config]):
                     )
                     raise e
 
-                self.set_state(state_id, df[incremental_field].max())
+                if incremental_field:
+                    self.set_state(state_id, df[incremental_field].max())
+
             else:
                 self.run_extraction_pipeline(status="seen")
 
