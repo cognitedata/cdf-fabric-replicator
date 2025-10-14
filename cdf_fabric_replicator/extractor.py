@@ -338,7 +338,7 @@ class CdfFabricExtractor(Extractor[Config]):
                 self.run_extraction_pipeline(
                     status="success", message=f"{len(df)} rows inserted to {table_name}"
                 )
-                
+
                 if incremental_field:
                     self.set_state(state_id, df[incremental_field].max())
 
