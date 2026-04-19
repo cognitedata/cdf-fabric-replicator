@@ -85,6 +85,7 @@ schema:
 
 documentation:
   includeLeafNodes: false
+  skipHeader: true
   preamble:
     - docs_preamble.md
     - https://raw.githubusercontent.com/cognitedata/python-extractor-utils/8ab182c679b8570d7057563ba344d37fb05f4902/schema/docs/remote_tip.md
