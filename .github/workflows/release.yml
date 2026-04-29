@@ -49,7 +49,7 @@ jobs:
     environment: CD
     if: ${{ needs.should-release.outputs.should-release == 0}}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install python
         uses: actions/setup-python@v5
