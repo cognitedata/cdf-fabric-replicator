@@ -138,7 +138,7 @@ jobs:
         run: rm -rf sbom
 
       - name: Upload artefacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sbom artefacts
           path: manifest.spdx.json*
@@ -170,7 +170,7 @@ jobs:
           uv sync --frozen
 
       - name: Dowload sbom artefact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: sbom artefacts
           path: ./
@@ -245,7 +245,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0}}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: windows
           path: .\uploads\
@@ -286,7 +286,7 @@ jobs:
         run: cogex build --spec fabric_connector.spec
 
       - name: Download sbom artefacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: sbom artefacts
           path: .
@@ -301,7 +301,7 @@ jobs:
 
       - name: Upload artifacts
         if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0}}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: linux
           path: fabric-connector-standalone-${{ needs.create-version.outputs.version }}-linux.zip
@@ -339,7 +339,7 @@ jobs:
 
     - name: upload artifact
       if: ${{ needs.current-branch.outputs.current-branch == 'main' && needs.should-release.outputs.should-release == 0 }}
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
       with:
         name: docker image
         path: ./fabric-connector.tar
