@@ -1,3 +1,8 @@
+# CDF Fabric replicator is deprecated and not supported by Cognite. It was not released past alpha and not is not in wide use by any Cognite customers.
+
+Repo only present for historic reasons. Any use of this replicator will not be supported by Cognite.
+
+
 # CDF Fabric replicator
 
 The **CDF Fabric replicator** utilizes the **Cognite Data Fusion** (CDF) APIs to replicate data to and from **Microsoft Fabric** (Fabric).
